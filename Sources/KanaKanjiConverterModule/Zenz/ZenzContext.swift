@@ -264,8 +264,8 @@ class ZenzContext {
         }
         // プロフィールがある場合はこれを条件に追加
         if case .v2(let mode) = versionDependentConfig, let profile = mode.profile, !profile.isEmpty {
-            let pf = profile.suffix(25)
-            conditions.append("プロフィール:\(profile)")
+            let pf = String(profile.suffix(25))
+            conditions.append("プロフィール:\(pf)")
         }
         // 左文脈を取得
         // プロフィールがある場合はこれを条件に追加
