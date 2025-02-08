@@ -611,7 +611,6 @@ import SwiftNGram
             return nil
         }
 
-        print("ConvertToLattice ", zenzaiMode)
         // FIXME: enable cache based zenzai
         if zenzaiMode.enabled, let model = self.getModel(modelURL: zenzaiMode.weightURL) {
             let (result, nodes, cache) = self.converter.all_zenzai(
