@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
-        swift-version: ["5.9", "5.10"]
+        swift-version: ["6.0"]
     steps:
       - uses: swift-actions/setup-swift@v2
         with:
@@ -31,7 +31,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        swift-version: ["5.9", "5.10"]
+        swift-version: ["6.0"]
     steps:
       - uses: swift-actions/setup-swift@v2
         with:
@@ -51,8 +51,8 @@ jobs:
         os: [windows-latest]
         swift-version:
           [{
-            branch: "swift-6.0.1-release",
-            tag: "6.0.1-RELEASE"
+            branch: "swift-6.0.3-release",
+            tag: "6.0.3-RELEASE"
           }]
     steps:
       - uses: compnerd/gha-setup-swift@main
