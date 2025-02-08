@@ -1,18 +1,11 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 import Foundation
 
 let swiftSettings: [SwiftSetting] = [
-    .enableUpcomingFeature("BareSlashRegexLiterals"),
-    .enableUpcomingFeature("ConciseMagicFile"),
     .enableUpcomingFeature("ExistentialAny"),
-    .enableUpcomingFeature("ForwardTrailingClosures"),
-    .enableUpcomingFeature("ImplicitOpenExistentials"),
-    .enableUpcomingFeature("StrictConcurrency"),
-    .enableUpcomingFeature("DisableOutwardActorInference"),
-    .enableUpcomingFeature("ImportObjcForwardDeclarations"),
     .interoperabilityMode(.Cxx),
 ]
 
@@ -22,7 +15,7 @@ var dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-algorithms", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-collections", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMajor(from: "1.0.0")),
-    .package(url: "https://github.com/nyanko3141592/SwiftNGramWiithMarisaTrie", branch: "76b04deab1a98d0a5d3a6b719fb60654b1310862")
+    .package(url: "https://github.com/nyanko3141592/SwiftNGramWiithMarisaTrie", branch: "0171169c1eb8f7bacceb8236ce7d324050d893c2")
 ]
 
 var targets: [Target] = [
