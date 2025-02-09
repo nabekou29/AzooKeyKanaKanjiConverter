@@ -4,7 +4,7 @@
 import PackageDescription
 import Foundation
 
-let swiftSettings: [SwiftSetting] = [
+var swiftSettings: [SwiftSetting] = [
     .enableUpcomingFeature("BareSlashRegexLiterals"),
     .enableUpcomingFeature("ConciseMagicFile"),
     .enableUpcomingFeature("ExistentialAny"),
@@ -13,7 +13,6 @@ let swiftSettings: [SwiftSetting] = [
     .enableUpcomingFeature("StrictConcurrency"),
     .enableUpcomingFeature("DisableOutwardActorInference"),
     .enableUpcomingFeature("ImportObjcForwardDeclarations"),
-    .interoperabilityMode(.Cxx),
 ]
 
 var dependencies: [Package.Dependency] = [
@@ -22,8 +21,22 @@ var dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-algorithms", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-collections", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMajor(from: "1.0.0")),
-    .package(url: "https://github.com/nyanko3141592/SwiftNGramWiithMarisaTrie", branch: "0171169c1eb8f7bacceb8236ce7d324050d893c2")
+    .package(url: "https://github.com/ensan-hcl/swift-tokenizers", branch: "feat/minimum")
 ]
+
+var efficientNGramDependencies: [Target.Dependency] = [.product(name: "Transformers", package: "swift-tokenizers")]
+#if (!os(Linux) || !canImport(Android)) && !os(Windows)
+// Android環境・Windows環境ではSwiftyMarisaが利用できないため、除外する。
+// したがって、EfficientNGramの動作はサポートしない。
+if let envValue = ProcessInfo.processInfo.environment["LLAMA_MOCK"], envValue == "1" {
+    // LLAMA_MOCK=1の場合もサポートしない
+} else {
+    dependencies.append(.package(url: "https://github.com/ensan-hcl/SwiftyMarisa", branch: "6e145aef5583aac96dd7ff8f9fbb9944d893128e"))
+    efficientNGramDependencies.append("SwiftyMarisa")
+    swiftSettings.append(.interoperabilityMode(.Cxx))
+}
+#endif
+
 
 var targets: [Target] = [
     // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -34,6 +47,12 @@ var targets: [Target] = [
             .product(name: "Algorithms", package: "swift-algorithms")
         ],
         resources: [],
+        swiftSettings: swiftSettings
+    ),
+    .target(
+        name: "EfficientNGram",
+        dependencies: efficientNGramDependencies,
+        resources: [.copy("tokenizer")],
         swiftSettings: swiftSettings
     ),
     .target(
@@ -66,6 +85,12 @@ var targets: [Target] = [
     .testTarget(
         name: "SwiftUtilsTests",
         dependencies: ["SwiftUtils"],
+        resources: [],
+        swiftSettings: swiftSettings
+    ),
+    .testTarget(
+        name: "EfficientNGramTests",
+        dependencies: ["EfficientNGram"],
         resources: [],
         swiftSettings: swiftSettings
     ),
@@ -131,8 +156,8 @@ targets.append(contentsOf: [
         dependencies: [
             "SwiftUtils",
             "llama.cpp",
+            "EfficientNGram",
             .product(name: "Collections", package: "swift-collections"),
-            .product(name: "SwiftNGram", package: "SwiftNGramWiithMarisaTrie")
         ],
         swiftSettings: swiftSettings
     )
@@ -146,8 +171,8 @@ if let envValue = ProcessInfo.processInfo.environment["LLAMA_MOCK"], envValue ==
             dependencies: [
                 "SwiftUtils",
                 "llama-mock",
+                "EfficientNGram",
                 .product(name: "Collections", package: "swift-collections"),
-                .product(name: "SwiftNGram", package: "SwiftNGramWiithMarisaTrie")
             ],
             swiftSettings: swiftSettings
         )
@@ -162,9 +187,9 @@ if let envValue = ProcessInfo.processInfo.environment["LLAMA_MOCK"], envValue ==
             name: "KanaKanjiConverterModule",
             dependencies: [
                 "SwiftUtils",
+                "EfficientNGram",
                 .product(name: "llama", package: "llama.cpp"),
                 .product(name: "Collections", package: "swift-collections"),
-                .product(name: "SwiftNGram", package: "SwiftNGramWiithMarisaTrie")
             ],
             swiftSettings: swiftSettings
         )
