@@ -43,6 +43,10 @@ import EfficientNGram
         self.lastData = nil
     }
 
+    public func preloadLouds(option: ConvertRequestOptions) {
+        LOUDS.preloadLouds(option: option)
+    }
+
     private func getZenzaiPersonalization(mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode?) -> (mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode, base: EfficientNGram, personal: EfficientNGram)? {
         guard let mode else {
             return nil

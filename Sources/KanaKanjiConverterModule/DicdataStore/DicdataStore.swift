@@ -162,19 +162,19 @@ public final class DicdataStore {
         importedLoudses.insert(query)
         // 一部のASCII文字はエスケープする
         let identifier = [
-            #"\n"#: "[0A]",
-            #" "#: "[20]",
-            #"""#: "[22]",
-            #"'"#: "[27]",
-            #"*"#: "[2A]",
-            #"+"#: "[2B]",
-            #"."#: "[2E]",
-            #"/"#: "[2F]",
-            #":"#: "[3A]",
-            #"<"#: "[3C]",
-            #">"#: "[3E]",
-            #"\"#: "[5C]",
-            #"|"#: "[7C]",
+            "\\n": "[0A]",
+            " ": "[20]",
+            "\"": "[22]",
+            "\'": "[27]",
+            "*": "[2A]",
+            "+": "[2B]",
+            ".": "[2E]",
+            "/": "[2F]",
+            ":": "[3A]",
+            "<": "[3C]",
+            ">": "[3E]",
+            "\\": "[5C]",
+            "|": "[7C]",
         ][query, default: query]
         if let louds = LOUDS.load(identifier, option: self.requestOptions) {
             self.loudses[query] = louds

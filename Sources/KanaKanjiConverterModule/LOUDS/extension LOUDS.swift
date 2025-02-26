@@ -10,10 +10,60 @@ import Foundation
 import SwiftUtils
 
 extension LOUDS {
+    // Cache to store preloaded loudstxt3 data
+    private static var loudstxt3Cache: [String: Data] = [:]    
+    private static var loudsCache: [String: [UInt64]] = [:]
+    private static var loudscharsCache: [String: [UInt8]] = [:]
+    
+    // Call this function at app startup to preload all loudstxt3 files
+    public static func preloadLouds(option: ConvertRequestOptions) {
+        guard let fileURLs = try? FileManager.default.contentsOfDirectory(
+            at: option.dictionaryResourceURL.appendingPathComponent("louds", isDirectory: true),
+            includingPropertiesForKeys: nil
+        ) else { return }
+
+        for url in fileURLs {
+            let identifier = url.deletingPathExtension().lastPathComponent
+            let pathext = url.pathExtension
+            
+            switch pathext {
+                case "louds":
+                    do {
+                        loudsCache[identifier] = try loadLOUDSBinary(from: url)
+                    } catch {
+                        debug("Failed to preload \(identifier).louds: \(error)")
+                    }
+                case "loudschars2":
+                    do {
+                        loudscharsCache[identifier] = try Array(Data(contentsOf: url))
+                    } catch {
+                        debug("Failed to preload \(identifier).loudschars2: \(error)")
+                    }
+                case "loudstxt3":
+                    do {
+                        loudstxt3Cache[identifier] = try Data(contentsOf: url)
+                    } catch {
+                        debug("Failed to preload \(identifier).loudstxt3: \(error)")
+                    }
+                default:
+                    break
+            }
+        }
+    }
+
     private static func loadLOUDSBinary(from url: URL) -> [UInt64]? {
+        // Check if the data is already cached
+        let identifier = url.deletingPathExtension().lastPathComponent
+        if let cachedData = loudsCache[identifier] {
+            return cachedData
+        }
+        
+        // If not in cache, load from disk
         do {
-            let binaryData = try Data(contentsOf: url, options: [.uncached]) // 2度読み込むことはないのでキャッシュ不要
+            let binaryData = try Data(contentsOf: url, options: [.uncached])
             let ui64array = binaryData.toArray(of: UInt64.self)
+            // Store in cache for future use
+            loudsCache[identifier] = ui64array
             return ui64array
         } catch {
             debug(error)
@@ -22,7 +72,6 @@ extension LOUDS {
     }
 
     private static func getLOUDSURL(_ identifier: String, option: ConvertRequestOptions) -> (chars: URL, louds: URL) {
-
         if identifier == "user"{
             return (
                 option.sharedContainerURL.appendingPathComponent("user.loudschars2", isDirectory: false),
@@ -57,11 +106,18 @@ extension LOUDS {
     package static func load(_ identifier: String, option: ConvertRequestOptions) -> LOUDS? {
         let (charsURL, loudsURL) = getLOUDSURL(identifier, option: option)
         let nodeIndex2ID: [UInt8]
-        do {
-            nodeIndex2ID = try Array(Data(contentsOf: charsURL, options: [.uncached]))   // 2度読み込むことはないのでキャッシュ不要
-        } catch {
-            debug("Error: \(identifier)に対するLOUDSファイルが存在しません。このエラーは無視できる可能性があります。 Description: \(error)")
-            return nil
+        // Check if the data is already cached
+        if let cachedData = loudscharsCache[identifier] {
+            nodeIndex2ID = cachedData
+        } else {
+            do {
+                nodeIndex2ID = try Array(Data(contentsOf: charsURL, options: [.uncached]))
+                // Store in cache for future use
+                loudscharsCache[identifier] = nodeIndex2ID
+            } catch {
+                debug("Error: \(identifier)に対するLOUDSファイルが存在しません。このエラーは無視できる可能性があります。 Description: \(error)")
+                return nil
+            }
         }
 
         if let bytes = LOUDS.loadLOUDSBinary(from: loudsURL) {
@@ -106,11 +162,20 @@ extension LOUDS {
 
     static func getDataForLoudstxt3(_ identifier: String, indices: [Int], option: ConvertRequestOptions) -> [DicdataElement] {
         let binary: Data
-        do {
-            let url = getLoudstxt3URL(identifier, option: option)
-            binary = try Data(contentsOf: url)
-        } catch {
-            debug("getDataForLoudstxt3: \(error)")
+        
+        // Try to get from cache first
+        if let cachedData = loudstxt3Cache[identifier] {
+            binary = cachedData
+        } else {
+            // Fall back to loading from disk if not in cache
+            do {
+                let url = getLoudstxt3URL(identifier, option: option)
+                binary = try Data(contentsOf: url)
+                // Cache the data for future use
+                loudstxt3Cache[identifier] = binary
+            } catch {
+                debug("getDataForLoudstxt3: \(error)")
+            }
             return []
         }
 
@@ -129,12 +194,21 @@ extension LOUDS {
     /// indexとの対応を維持したバージョン
     static func getDataForLoudstxt3(_ identifier: String, indices: [(trueIndex: Int, keyIndex: Int)], option: ConvertRequestOptions) -> [(loudsNodeIndex: Int, dicdata: [DicdataElement])] {
         let binary: Data
-        do {
-            let url = getLoudstxt3URL(identifier, option: option)
-            binary = try Data(contentsOf: url)
-        } catch {
-            debug("getDataForLoudstxt3: \(error)")
-            return []
+        
+        // Try to get from cache first
+        if let cachedData = loudstxt3Cache[identifier] {
+            binary = cachedData
+        } else {
+            // Fall back to loading from disk if not in cache
+            do {
+                let url = getLoudstxt3URL(identifier, option: option)
+                binary = try Data(contentsOf: url)
+                // Store in cache for future use
+                loudstxt3Cache[identifier] = binary
+            } catch {
+                debug("getDataForLoudstxt3: \(error)")
+                return []
+            }
         }
 
         let lc = binary[0..<2].toArray(of: UInt16.self)[0]
