@@ -107,8 +107,8 @@ extension LOUDS {
     static func getDataForLoudstxt3(_ identifier: String, indices: [Int], cache: Data? = nil, option: ConvertRequestOptions) -> [DicdataElement] {
         let binary: Data
         
-        if let cachedData = cache {
-            binary = cachedData
+        if let cache {
+            binary = cache
         } else {
             do {
                 let url = getLoudstxt3URL(identifier, option: option)
@@ -135,8 +135,8 @@ extension LOUDS {
     static func getDataForLoudstxt3(_ identifier: String, indices: [(trueIndex: Int, keyIndex: Int)], cache: Data? = nil, option: ConvertRequestOptions) -> [(loudsNodeIndex: Int, dicdata: [DicdataElement])] {
         let binary: Data
 
-        if let cachedData = cache {
-            binary = cachedData
+        if let cache {
+            binary = cache
         } else {
             do {
                 let url = getLoudstxt3URL(identifier, option: option)
