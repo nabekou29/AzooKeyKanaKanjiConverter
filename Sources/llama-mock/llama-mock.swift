@@ -9,8 +9,8 @@ package typealias llama_seq_id = Int32
 package struct llama_context_params {
     package var seed: Int
     package var n_ctx: Int
-    package var n_threads: UInt32
-    package var n_threads_batch: UInt32
+    package var n_threads: Int32
+    package var n_threads_batch: Int32
     package var n_batch: Int
 }
 package func llama_context_default_params() -> llama_context_params { unimplemented() }
@@ -31,6 +31,8 @@ package struct llama_model_params {
     package var use_mmap: Bool
 }
 package func llama_model_default_params() -> llama_model_params { unimplemented() }
+
+package func llama_model_get_vocab(_ model: llama_model) -> llama_vocab? { unimplemented() }
 
 package func llama_model_load_from_file(_ path: String, _ model_params: llama_model_params) -> llama_model? { unimplemented() }
 
