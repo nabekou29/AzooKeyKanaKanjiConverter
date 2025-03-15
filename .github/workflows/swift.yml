@@ -44,12 +44,13 @@ jobs:
           wget -O llama-cpp-bin.zip "https://github.com/fkunn1326/llama.cpp/releases/download/b4846/llama-b4846-bin-ubuntu-x64.zip"
           unzip llama-cpp-bin.zip -d llama-cpp-bin
       - name: Copy llama.cpp binaries
-        run: |
-          cp llama-cpp-bin/build/bin/lib*.so ./
+        run: cp llama-cpp-bin/build/bin/lib*.so ./
       - name: Build
         run: swift build -Xswiftc -strict-concurrency=complete -Xlinker -L./ -v
       - name: Run tests
-        run: swift test -c release -Xswiftc -strict-concurrency=complete -Xlinker -L./ -v
+        run: |
+          cp llama-cpp-bin/build/bin/lib*.so .build/*/release/
+          swift test -c release -Xswiftc -strict-concurrency=complete -Xlinker -L./ -v
   windows-build:
     name: Swift ${{ matrix.swift-version.tag }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
