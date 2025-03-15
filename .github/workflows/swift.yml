@@ -45,7 +45,7 @@ jobs:
           unzip llama-cpp-bin.zip -d llama-cpp-bin
       - name: Copy llama.cpp binaries
         run: |
-          cp llama-cpp-bin/lib*.so ./
+          cp llama-cpp-bin/build/bin/lib*.so ./
       - name: Build
         run: swift build -Xswiftc -strict-concurrency=complete -v
       - name: Run tests
