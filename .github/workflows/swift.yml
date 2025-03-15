@@ -47,9 +47,9 @@ jobs:
         run: |
           cp llama-cpp-bin/build/bin/lib*.so ./
       - name: Build
-        run: swift build -Xswiftc -strict-concurrency=complete -v
+        run: swift build -Xswiftc -strict-concurrency=complete -Xlinker -L./ -v
       - name: Run tests
-        run: swift test -c release -Xswiftc -strict-concurrency=complete -v
+        run: swift test -c release -Xswiftc -strict-concurrency=complete -Xlinker -L./ -v
   windows-build:
     name: Swift ${{ matrix.swift-version.tag }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
