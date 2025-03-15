@@ -46,7 +46,7 @@ jobs:
       - name: Copy llama.cpp binaries
         run: cp llama-cpp-bin/build/bin/lib*.so ./
       - name: Build
-        run: swift build -Xswiftc -strict-concurrency=complete -Xlinker -L./ -v
+        run: swift build -c release -Xswiftc -strict-concurrency=complete -Xlinker -L./ -v
       - name: Run tests
         run: |
           cp llama-cpp-bin/build/bin/lib*.so .build/*/release/
