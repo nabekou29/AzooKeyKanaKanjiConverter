@@ -146,23 +146,6 @@ if checkObjcAvailability() {
 }
 #endif
 
-#if os(Windows) || os(Linux)
-targets.append(contentsOf: [
-    .systemLibrary(
-        name: "llama.cpp"
-    ),
-    .target(
-        name: "KanaKanjiConverterModule",
-        dependencies: [
-            "SwiftUtils",
-            "llama.cpp",
-            "EfficientNGram",
-            .product(name: "Collections", package: "swift-collections"),
-        ],
-        swiftSettings: swiftSettings
-    )
-])
-#else
 if let envValue = ProcessInfo.processInfo.environment["LLAMA_MOCK"], envValue == "1" {
     targets.append(contentsOf: [
         .target(name: "llama-mock"),
@@ -178,6 +161,23 @@ if let envValue = ProcessInfo.processInfo.environment["LLAMA_MOCK"], envValue ==
         )
     ])
 } else {
+    #if os(Windows) || os(Linux)
+    targets.append(contentsOf: [
+        .systemLibrary(
+            name: "llama.cpp"
+        ),
+        .target(
+            name: "KanaKanjiConverterModule",
+            dependencies: [
+                "SwiftUtils",
+                "llama.cpp",
+                "EfficientNGram",
+                .product(name: "Collections", package: "swift-collections"),
+            ],
+            swiftSettings: swiftSettings
+        )
+    ])
+    #else
     targets.append(contentsOf: [
         .binaryTarget(
             name: "llama.cpp",
@@ -196,8 +196,8 @@ if let envValue = ProcessInfo.processInfo.environment["LLAMA_MOCK"], envValue ==
             swiftSettings: swiftSettings
         )
     ])
+    #endif
 }
-#endif
 
 let package = Package(
     name: "AzooKeyKanakanjiConverter",
