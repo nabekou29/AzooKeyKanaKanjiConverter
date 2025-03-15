@@ -19,6 +19,7 @@ public extension ConvertRequestOptions {
         sharedContainerURL: URL,
         zenzaiMode: ZenzaiMode = .off,
         textReplacer: TextReplacer = .withDefaultEmojiDictionary(),
+        preloadDictionary: Bool = false,
         metadata: ConvertRequestOptions.Metadata?
     ) -> Self {
         #if os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
@@ -46,6 +47,7 @@ public extension ConvertRequestOptions {
             sharedContainerURL: sharedContainerURL,
             textReplacer: textReplacer,
             zenzaiMode: zenzaiMode,
+            preloadDictionary: preloadDictionary,
             metadata: metadata
         )
     }

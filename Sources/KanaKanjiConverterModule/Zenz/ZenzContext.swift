@@ -360,7 +360,7 @@ final class ZenzContext {
         let outputTag = "\u{EE01}"
         let contextTag = "\u{EE02}"
         // プロンプトを作成
-        let prompt: String = switch versionDependentConfig {
+        var prompt: String = switch versionDependentConfig {
         case .v1:
             inputTag + input + outputTag
         case .v2:
@@ -384,9 +384,11 @@ final class ZenzContext {
                 conditions.joined(separator: "") + inputTag + input + outputTag
             }
         }
+        // プロンプトの前処理を適用
+        prompt = self.preprocessText(text: prompt)
         // Therefore, tokens = prompt_tokens + candidate_tokens is an appropriate operation.
         let prompt_tokens = self.tokenize(text: prompt, add_bos: true, add_eos: false)
-        let candidate_tokens = self.tokenize(text: candidate.text, add_bos: false, add_eos: false)
+        let candidate_tokens = self.tokenize(text: self.preprocessText(text: candidate.text), add_bos: false, add_eos: false)
         let tokens = prompt_tokens + candidate_tokens
         let startOffset = prompt_tokens.count - 1
         let pos_max = llama_kv_cache_seq_pos_max(self.context, 0)
@@ -522,10 +524,12 @@ final class ZenzContext {
         batch.n_tokens += 1
     }
 
-    private func tokenize(text: String, add_bos: Bool, add_eos: Bool = false) -> [llama_token] {
+    private func preprocessText(text: String) -> String {
         // replace space into ideographic space (\u3000) for zenz tokenizer
         // replace newline into null for zenz tokenizer
-        let text = text.replacingOccurrences(of: " ", with: "\u{3000}").replacingOccurrences(of: "\n", with: "")
+        return text.replacingOccurrences(of: " ", with: "\u{3000}").replacingOccurrences(of: "\n", with: "")
+    }
+    private func tokenize(text: String, add_bos: Bool, add_eos: Bool = false) -> [llama_token] {
         let utf8Count = text.utf8.count
         let n_tokens = utf8Count + (add_bos ? 1 : 0)
         let tokens = UnsafeMutablePointer<llama_token>.allocate(capacity: n_tokens)
