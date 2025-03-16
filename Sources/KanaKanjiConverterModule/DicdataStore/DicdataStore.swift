@@ -240,11 +240,11 @@ public final class DicdataStore {
         return Array(result[min(depth.lowerBound + 1, result.endIndex) ..< min(depth.upperBound + 1, result.endIndex)])
     }
 
-    private func prefixMatchLOUDS(query: String, charIDs: [UInt8], depth: Int = .max) -> [Int] {
+    private func prefixMatchLOUDS(query: String, charIDs: [UInt8], depth: Int = .max, maxCount: Int = .max) -> [Int] {
         guard let louds = self.loadLOUDS(query: query) else {
             return []
         }
-        return louds.prefixNodeIndices(chars: charIDs, maxDepth: depth)
+        return louds.prefixNodeIndices(chars: charIDs, maxDepth: depth, maxCount: maxCount)
     }
 
     package func getDicdataFromLoudstxt3(identifier: String, indices: some Sequence<Int>) -> [DicdataElement] {
@@ -567,6 +567,7 @@ public final class DicdataStore {
             return []
         }
         // 最大700件に絞ることによって低速化を回避する。
+        let maxCount = 700
         var result: [DicdataElement] = []
         let first = String(key.first!)
         let charIDs = key.map(self.character2charId)
@@ -578,16 +579,16 @@ public final class DicdataStore {
         } else {
             Int.max
         }
-        let prefixIndices = self.prefixMatchLOUDS(query: first, charIDs: charIDs, depth: depth).prefix(700)
+        let prefixIndices = self.prefixMatchLOUDS(query: first, charIDs: charIDs, depth: depth, maxCount: maxCount)
 
         result.append(
             contentsOf: self.getDicdataFromLoudstxt3(identifier: first, indices: Set(prefixIndices))
                 .filter { Self.predictionUsable[$0.rcid] }
         )
-        let userDictIndices = self.prefixMatchLOUDS(query: "user", charIDs: charIDs, depth: depth).prefix(700)
+        let userDictIndices = self.prefixMatchLOUDS(query: "user", charIDs: charIDs, maxCount: maxCount)
         result.append(contentsOf: self.getDicdataFromLoudstxt3(identifier: "user", indices: Set(consume userDictIndices)))
         if learningManager.enabled {
-            let memoryDictIndices = self.prefixMatchLOUDS(query: "memory", charIDs: charIDs).prefix(700)
+            let memoryDictIndices = self.prefixMatchLOUDS(query: "memory", charIDs: charIDs, maxCount: maxCount)
             result.append(contentsOf: self.getDicdataFromLoudstxt3(identifier: "memory", indices: Set(consume memoryDictIndices)))
             result.append(contentsOf: self.learningManager.temporaryPrefixMatch(charIDs: charIDs))
         }

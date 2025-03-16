@@ -54,7 +54,7 @@ extension Subcommands.Dict {
                 return
             }
             // ありったけ取り出す
-            let nodeIndices = louds.prefixNodeIndices(chars: [], maxDepth: .max)
+            let nodeIndices = louds.prefixNodeIndices(chars: [], maxDepth: .max, maxCount: .max)
             let store = DicdataStore(convertRequestOptions: self.requestOptions())
             let result = store.getDicdataFromLoudstxt3(identifier: self.target, indices: nodeIndices)
             var filteredResult = result
