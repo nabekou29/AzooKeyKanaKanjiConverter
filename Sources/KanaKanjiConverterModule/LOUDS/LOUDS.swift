@@ -165,13 +165,23 @@ package struct LOUDS: Sendable {
         return index
     }
 
-    @inlinable func prefixNodeIndices(nodeIndex: Int, depth: Int = 0, maxDepth: Int) -> [Int] {
+    @inlinable func prefixNodeIndices(nodeIndex: Int, depth: Int = 0, maxDepth: Int, maxCount: Int) -> [Int] {
         var childNodeIndices = Array(self.childNodeIndices(from: nodeIndex))
         if depth == maxDepth {
             return childNodeIndices
         }
         for index in childNodeIndices {
-            childNodeIndices.append(contentsOf: self.prefixNodeIndices(nodeIndex: index, depth: depth + 1, maxDepth: maxDepth))
+            if childNodeIndices.count > maxCount {
+                break
+            }
+            childNodeIndices.append(
+                contentsOf: self.prefixNodeIndices(
+                    nodeIndex: index,
+                    depth: depth + 1,
+                    maxDepth: maxDepth,
+                    maxCount: maxCount - childNodeIndices.count
+                )
+            )
         }
         return childNodeIndices
     }
@@ -182,11 +192,11 @@ package struct LOUDS: Sendable {
     /// - Parameter chars: CharIDに変換した文字列
     /// - Parameter maxDepth: 先に進む深さの最大値
     /// - Returns: 対応するloudstxt3ファイル内のインデックスのリスト
-    @inlinable package func prefixNodeIndices(chars: [UInt8], maxDepth: Int) -> [Int] {
+    @inlinable package func prefixNodeIndices(chars: [UInt8], maxDepth: Int, maxCount: Int) -> [Int] {
         guard let nodeIndex = self.searchNodeIndex(chars: chars) else {
             return []
         }
-        return self.prefixNodeIndices(nodeIndex: nodeIndex, maxDepth: maxDepth)
+        return self.prefixNodeIndices(nodeIndex: nodeIndex, maxDepth: maxDepth, maxCount: maxCount)
     }
 
     /// 部分前方一致検索を実行する
