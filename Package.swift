@@ -139,23 +139,6 @@ if checkObjcAvailability() {
 }
 #endif
 
-#if os(Windows)
-targets.append(contentsOf: [
-    .systemLibrary(
-        name: "llama.cpp"
-    ),
-    .target(
-        name: "KanaKanjiConverterModule",
-        dependencies: [
-            "SwiftUtils",
-            "llama.cpp",
-            "EfficientNGram",
-            .product(name: "Collections", package: "swift-collections"),
-        ],
-        swiftSettings: swiftSettings
-    )
-])
-#else
 if let envValue = ProcessInfo.processInfo.environment["LLAMA_MOCK"], envValue == "1" {
     targets.append(contentsOf: [
         .target(name: "llama-mock"),
@@ -171,24 +154,43 @@ if let envValue = ProcessInfo.processInfo.environment["LLAMA_MOCK"], envValue ==
         )
     ])
 } else {
-    dependencies.append(
-        .package(url: "https://github.com/ensan-hcl/llama.cpp", branch: "6b862f4")
-    )
-
+    #if os(Windows) || os(Linux)
     targets.append(contentsOf: [
+        .systemLibrary(
+            name: "llama.cpp"
+        ),
         .target(
             name: "KanaKanjiConverterModule",
             dependencies: [
                 "SwiftUtils",
+                "llama.cpp",
                 "EfficientNGram",
-                .product(name: "llama", package: "llama.cpp"),
                 .product(name: "Collections", package: "swift-collections"),
             ],
             swiftSettings: swiftSettings
         )
     ])
+    #else
+    targets.append(contentsOf: [
+        .binaryTarget(
+            name: "llama.cpp",
+            url: "https://github.com/fkunn1326/llama.cpp/releases/download/b4844/llama-b4844-xcframework.zip",
+            // this can be computed `swift package compute-checksum llama-b4844-xcframework.zip`
+            checksum: "40bd1e58e727511649e13a6de9eb577ea8be78fe4183c2e1b382b12054849f05"
+        ),
+        .target(
+            name: "KanaKanjiConverterModule",
+            dependencies: [
+                "SwiftUtils",
+                "EfficientNGram",
+                "llama.cpp",
+                .product(name: "Collections", package: "swift-collections"),
+            ],
+            swiftSettings: swiftSettings
+        )
+    ])
+    #endif
 }
-#endif
 
 let package = Package(
     name: "AzooKeyKanakanjiConverter",
