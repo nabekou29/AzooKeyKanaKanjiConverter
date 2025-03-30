@@ -5,6 +5,10 @@ extension KanaKanjiConverter {
         var candidates: [Candidate] = []
         let numberString = inputData.convertTarget
 
+        // Check if all chars are digit.
+        if numberString.contains(where: { !$0.isDigit }) {
+            return []
+        }
         if numberString.count == 3 {
             let firstDigit = Int(numberString.prefix(1))!
             let lastTwoDigits = Int(numberString.suffix(2))!
