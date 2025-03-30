@@ -17,7 +17,7 @@ final class TimeExpressionTests: XCTestCase {
         let input2 = makeDirectInput(direct: "1234")
         let input3 = makeDirectInput(direct: "999")
         let input4 = makeDirectInput(direct: "1260")
-        let input5 = makeDirectInput(direct: "1360")
+        let input5 = makeDirectInput(direct: "2440")
 
         let candidates1 = await converter.convertToTimeExpression(input1)
         let candidates2 = await converter.convertToTimeExpression(input2)
@@ -34,9 +34,9 @@ final class TimeExpressionTests: XCTestCase {
         XCTAssertEqual(candidates3.count, 1)
         XCTAssertEqual(candidates3.first?.text, "9:99")
 
-        XCTAssertEqual(candidates4.count, 1)
-        XCTAssertEqual(candidates4.first?.text, "12:60")
+        XCTAssertEqual(candidates4.count, 0)
 
-        XCTAssertEqual(candidates5.count, 0)
+        XCTAssertEqual(candidates5.count, 1)
+        XCTAssertEqual(candidates5.first?.text, "24:40")
     }
 }

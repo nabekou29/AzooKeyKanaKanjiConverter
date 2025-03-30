@@ -10,7 +10,7 @@ extension KanaKanjiConverter {
         if numberString.count == 3 {
             let firstDigit = Int(numberString.prefix(1))!
             let lastTwoDigits = Int(numberString.suffix(2))!
-            if (0...9).contains(firstDigit) && (0...60).contains(lastTwoDigits) {
+            if (0...9).contains(firstDigit) && (0...59).contains(lastTwoDigits) {
                 let timeExpression = "\(firstDigit):\(String(format: "%02d", lastTwoDigits))"
                 let candidate = Candidate(
                     text: timeExpression,
@@ -22,7 +22,7 @@ extension KanaKanjiConverter {
                 candidates.append(candidate)
             }
         } else if numberString.count == 4 {
-            if (0...12).contains(firstPart) && (0...60).contains(secondPart) {
+            if (0...24).contains(firstPart) && (0...59).contains(secondPart) {
                 let timeExpression = "\(String(format: "%02d", firstPart)):\(String(format: "%02d", secondPart))"
                 let candidate = Candidate(
                     text: timeExpression,
