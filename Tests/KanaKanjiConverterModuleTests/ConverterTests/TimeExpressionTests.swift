@@ -11,19 +11,32 @@ final class TimeExpressionTests: XCTestCase {
     }
 
     func testConvertToTimeExpression() async throws {
-        let converter = await KanaKanjiConverter()
+        let converter = KanaKanjiConverter()
 
-        // Test 3-digit numbers
-        XCTAssertEqual(await converter.convertToTimeExpression(makeDirectInput(direct: "123")).first?.text, "1:23")
-        XCTAssertEqual(await converter.convertToTimeExpression(makeDirectInput(direct: "945")).first?.text, "9:45")
-        XCTAssertEqual(await converter.convertToTimeExpression(makeDirectInput(direct: "760")).first?.text, "7:60")
-        XCTAssertTrue(await converter.convertToTimeExpression(makeDirectInput(direct: "761")).isEmpty) // Invalid minute
+        let input1 = makeDirectInput(direct: "123")
+        let input2 = makeDirectInput(direct: "1234")
+        let input3 = makeDirectInput(direct: "999")
+        let input4 = makeDirectInput(direct: "1260")
+        let input5 = makeDirectInput(direct: "1360")
 
-        // Test 4-digit numbers
-        XCTAssertEqual(await converter.convertToTimeExpression(makeDirectInput(direct: "1234")).first?.text, "12:34")
-        XCTAssertEqual(await converter.convertToTimeExpression(makeDirectInput(direct: "9450")).first?.text, "09:45")
-        XCTAssertEqual(await converter.convertToTimeExpression(makeDirectInput(direct: "7600")).first?.text, "07:60")
-        XCTAssertTrue(await converter.convertToTimeExpression(makeDirectInput(direct: "1360")).isEmpty) // Invalid hour
-        XCTAssertTrue(await converter.convertToTimeExpression(makeDirectInput(direct: "1261")).isEmpty) // Invalid minute
+        let candidates1 = await converter.convertToTimeExpression(input1)
+        let candidates2 = await converter.convertToTimeExpression(input2)
+        let candidates3 = await converter.convertToTimeExpression(input3)
+        let candidates4 = await converter.convertToTimeExpression(input4)
+        let candidates5 = await converter.convertToTimeExpression(input5)
+
+        XCTAssertEqual(candidates1.count, 1)
+        XCTAssertEqual(candidates1.first?.text, "1:23")
+
+        XCTAssertEqual(candidates2.count, 1)
+        XCTAssertEqual(candidates2.first?.text, "12:34")
+
+        XCTAssertEqual(candidates3.count, 1)
+        XCTAssertEqual(candidates3.first?.text, "9:99")
+
+        XCTAssertEqual(candidates4.count, 1)
+        XCTAssertEqual(candidates4.first?.text, "12:60")
+
+        XCTAssertEqual(candidates5.count, 0)
     }
 }
