@@ -2,8 +2,8 @@ import XCTest
 @testable import KanaKanjiConverterModule
 
 final class TimeExpressionTests: XCTestCase {
-    func testConvertToTimeExpression() {
-        let converter = KanaKanjiConverter()
+    func testConvertToTimeExpression() async throws {
+        let converter = await KanaKanjiConverter()
 
         // Test 3-digit numbers
         XCTAssertEqual(converter.convertToTimeExpression(123).first?.text, "1:23")
@@ -20,7 +20,7 @@ final class TimeExpressionTests: XCTestCase {
     }
 
     func testToTimeExpressionCandidates() async throws {
-        let converter = KanaKanjiConverter()
+        let converter = await KanaKanjiConverter()
         var c = ComposingText()
         
         // Test 3-digit numbers
