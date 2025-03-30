@@ -6,7 +6,7 @@ extension KanaKanjiConverter {
         let numberString = inputData.convertTarget
 
         // Check if all chars are digit.
-        if numberString.contains(where: { !$0.isDigit }) {
+        if numberString.contains(where: { !($0.isNumber && $0.isASCII) }) {
             return []
         }
         if numberString.count == 3 {
