@@ -156,6 +156,7 @@ import EfficientNGram
             result.append(contentsOf: self.unicodeCandidates(inputData))
         }
         result.append(contentsOf: self.toVersionCandidate(inputData, options: options))
+        result.append(contentsOf: self.convertToTimeExpression(inputData))
         return result
     }
 
