@@ -1,7 +1,14 @@
+//
+//  KanaKanjiConverter.swift
+//  AzooKeyKanaKanjiConverter
+//
+//  Created by ensan on 2020/09/03.
+//  Copyright © 2020 ensan. All rights reserved.
+//
+
 import Foundation
 import SwiftUtils
 import EfficientNGram
-import TimeExpression
 
 /// かな漢字変換の管理を受け持つクラス
 @MainActor public final class KanaKanjiConverter {
@@ -149,7 +156,7 @@ import TimeExpression
             result.append(contentsOf: self.unicodeCandidates(inputData))
         }
         result.append(contentsOf: self.toVersionCandidate(inputData, options: options))
-        result.append(contentsOf: self.toTimeExpressionCandidates(inputData))
+        result.append(contentsOf: self.convertToTimeExpression(inputData))
         return result
     }
 
@@ -779,12 +786,5 @@ import TimeExpression
         let zeroHints = self.getUniquePostCompositionPredictionCandidate(zeroHintResults, seenCandidates: seenCandidates)
         results.append(contentsOf: zeroHints.min(count: 10 - results.count, sortedBy: {$0.value > $1.value}))
         return results
-    }
-
-    private func toTimeExpressionCandidates(_ inputData: ComposingText) -> [Candidate] {
-        guard let number = Int(inputData.convertTarget) else {
-            return []
-        }
-        return self.convertToTimeExpression(number)
     }
 }
