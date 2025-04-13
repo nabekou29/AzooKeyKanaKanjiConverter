@@ -1,11 +1,17 @@
-#  anco (azooKey Cli)
+#  anco (azooKey CLI)
 
-`anco`コマンドにより、AzooKeyKanaKanjiConverterをCliで利用することができます。`anco`はデバッグ用ツールの位置付けです。
+`anco`コマンドにより、AzooKeyKanaKanjiConverterをコマンドライン上で利用することができます。`anco`はデバッグ用ツールの位置付けです。
 
-`anco`を利用するには、最初にinstallが必要です。
+`anco`を利用するには、最初にinstallが必要です。`/usr/local/bin/`に`anco`が追加されます。
 
 ```bash
 sudo sh install_cli.sh
+```
+
+Zenzaiを利用する場合は、`--zenzai`オプションを付けてください。
+
+```bash
+sudo sh install_cli.sh --zenzai
 ```
 
 例えば以下のように利用できます。
@@ -26,7 +32,7 @@ your@pc Desktop % anco にほんごにゅうりょく --disable_prediction -n 10
 
 ## 変換API
 
-`anco run`コマンドを利用して変換を行うことが出来ます。
+`anco run`コマンドを利用して変換を行うことが出来ます。`run`はデフォルトコマンドなので、`anco`だけでも`run`相当の動作をします。
 
 ## 評価API
 
@@ -48,6 +54,18 @@ $ anco evaluate ./evaluation.tsv --config_n_best 1
 ```
 
 出力はJSONフォーマットです。出力内容の安定が必要な場合`--stable`を指定することで比較的安定した出力を得られます。ただしスコアやエントロピーは辞書バージョンに依存します。
+
+## 対話的実行
+
+少しずつ入力を進めるような実用的な場面を模した環境として`anco session`コマンドが用意されています。
+
+```bash
+$ anco session --roman2kana -n 10 --disable_prediction
+
+== Type :q to end session, type :d to delete character, type :c to stop composition. For other commands, type :h ==
+```
+
+キーを入力してEnterを押すと変換候補が表示されます。`:`で始まる特殊コマンドを利用することで、削除、確定、文脈の設定などの諸操作を行うことが出来ます。
 
 ## 辞書リーダ
 
