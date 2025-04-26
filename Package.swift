@@ -15,7 +15,7 @@ var dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-algorithms", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-collections", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMajor(from: "1.0.0")),
-    .package(url: "https://github.com/ensan-hcl/swift-tokenizers", branch: "feat/minimum")
+    .package(url: "https://github.com/ensan-hcl/swift-tokenizers", from: "0.0.1")
 ]
 
 var efficientNGramDependencies: [Target.Dependency] = [
@@ -24,7 +24,7 @@ var efficientNGramDependencies: [Target.Dependency] = [
 
 #if (!os(Linux) || !canImport(Android)) && !os(Windows)
 // Android環境・Windows環境ではSwiftyMarisaが利用できないため、EfficientNGramは除外する。
-dependencies.append(.package(url: "https://github.com/ensan-hcl/SwiftyMarisa", branch: "6e145aef5583aac96dd7ff8f9fbb9944d893128e"))
+dependencies.append(.package(url: "https://github.com/ensan-hcl/SwiftyMarisa", from: "0.0.1"))
 efficientNGramDependencies.append(.product(name: "SwiftyMarisa", package: "SwiftyMarisa", condition: .when(traits: ["Zenzai"])))
 #endif
 
