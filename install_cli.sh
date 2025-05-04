@@ -20,8 +20,8 @@ else
 fi
 
 # Copy Required Resources
-cp -R .build/release/llama.framework /usr/local/lib/
+sudo cp -R .build/release/llama.framework /usr/local/lib/
 # add rpath
 install_name_tool -add_rpath /usr/local/lib/ .build/release/CliTool
 # Install
-cp -f .build/release/CliTool /usr/local/bin/anco
+sudo cp -f .build/release/CliTool /usr/local/bin/anco
