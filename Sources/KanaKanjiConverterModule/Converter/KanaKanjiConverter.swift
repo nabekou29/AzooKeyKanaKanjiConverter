@@ -23,7 +23,8 @@ import EfficientNGram
         EmailAddressSpecialCandidateProvider(),
         UnicodeSpecialCandidateProvider(),
         VersionSpecialCandidateProvider(),
-        TimeExpressionSpecialCandidateProvider()
+        TimeExpressionSpecialCandidateProvider(),
+        CommaSeparatedNumberSpecialCandidateProvider()
     ]
     @MainActor private var checker = SpellChecker()
     private var checkerInitialized: [KeyboardLanguage: Bool] = [.none: true, .ja_JP: true]
