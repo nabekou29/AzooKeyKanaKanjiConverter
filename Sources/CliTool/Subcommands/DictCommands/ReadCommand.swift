@@ -106,8 +106,6 @@ extension Subcommands.Dict {
                 requireJapanesePrediction: false,
                 requireEnglishPrediction: false,
                 keyboardLanguage: .ja_JP,
-                typographyLetterCandidate: false,
-                unicodeCandidate: true,
                 englishCandidateInRoman2KanaInput: true,
                 fullWidthRomanCandidate: false,
                 halfWidthKanaCandidate: false,
@@ -117,6 +115,7 @@ extension Subcommands.Dict {
                 memoryDirectoryURL: URL(fileURLWithPath: self.dictionaryDirectory),
                 sharedContainerURL: URL(fileURLWithPath: self.dictionaryDirectory),
                 textReplacer: .empty,
+                specialCandidateProviders: nil,
                 metadata: .init(versionString: "anco for debugging")
             )
         }
