@@ -655,6 +655,19 @@ final class LearningManager {
 
     init() {
         self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: self.options.memoryDirectoryURL)
+        if self.memoryCollapsed && options.learningType.needUsingMemory {
+            do {
+                try LongTermLearningMemory.merge(
+                    tempTrie: TemporalLearningMemoryTrie(),
+                    directoryURL: self.options.memoryDirectoryURL,
+                    maxMemoryCount: options.maxMemoryCount,
+                    char2UInt8: char2UInt8
+                )
+            } catch {
+                debug("LearningManager init: automatic merge failed", error)
+            }
+            self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: self.options.memoryDirectoryURL)
+        }
         if memoryCollapsed {
             // 学習データが壊れている状態であることを警告する
             debug("LearningManager init: Memory Collapsed")
