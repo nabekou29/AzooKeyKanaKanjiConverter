@@ -18,6 +18,13 @@ import EfficientNGram
     }
 
     private var converter = Kana2Kanji()
+    nonisolated(unsafe) public static let defaultSpecialCandidateProviders: [any SpecialCandidateProvider] = [
+        CalendarSpecialCandidateProvider(),
+        EmailAddressSpecialCandidateProvider(),
+        UnicodeSpecialCandidateProvider(),
+        VersionSpecialCandidateProvider(),
+        TimeExpressionSpecialCandidateProvider()
+    ]
     @MainActor private var checker = SpellChecker()
     private var checkerInitialized: [KeyboardLanguage: Bool] = [.none: true, .ja_JP: true]
 
@@ -141,23 +148,10 @@ import EfficientNGram
     ///   - string: 入力されたString
     /// - Returns:
     ///   `賢い変換候補
-    private func getWiseCandidate(_ inputData: ComposingText, options: ConvertRequestOptions) -> [Candidate] {
-        var result = [Candidate]()
-
-        // toWarekiCandidates/toSeirekiCandidatesは以前は設定可能にしていたが、特にoffにする需要がなさそうなので常時有効化した
-        result.append(contentsOf: self.toWarekiCandidates(inputData))
-        result.append(contentsOf: self.toSeirekiCandidates(inputData))
-        result.append(contentsOf: self.toEmailAddressCandidates(inputData))
-
-        if options.typographyLetterCandidate {
-            result.append(contentsOf: self.typographicalCandidates(inputData))
+    private func getSpecialCandidate(_ inputData: ComposingText, options: ConvertRequestOptions) -> [Candidate] {
+        options.specialCandidateProviders.flatMap { provider in
+            provider.provideCandidates(converter: self, inputData: inputData, options: options)
         }
-        if options.unicodeCandidate {
-            result.append(contentsOf: self.unicodeCandidates(inputData))
-        }
-        result.append(contentsOf: self.toVersionCandidate(inputData, options: options))
-        result.append(contentsOf: self.convertToTimeExpression(inputData))
-        return result
     }
 
     /// 変換候補の重複を除去する関数。
@@ -563,7 +557,7 @@ import EfficientNGram
         seenCandidate.formUnion(word_candidates.map {$0.text})
 
         // 賢く変換するパターン（任意件数）
-        let wise_candidates: [Candidate] = self.getUniqueCandidate(self.getWiseCandidate(inputData, options: options), seenCandidates: seenCandidate)
+        let wise_candidates: [Candidate] = self.getUniqueCandidate(self.getSpecialCandidate(inputData, options: options), seenCandidates: seenCandidate)
         // 途中でwise_candidatesを挟む
         word_candidates.insert(contentsOf: wise_candidates, at: min(5, word_candidates.endIndex))
 
