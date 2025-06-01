@@ -18,8 +18,9 @@ final class LearningMemoryTests: XCTestCase {
         FileManager.default.createFile(atPath: pauseURL.path, contents: Data())
         XCTAssertTrue(LongTermLearningMemory.memoryCollapsed(directoryURL: dir))
 
+        // `init`に副作用がある
         _ = LearningManager()
-
+        // 学習の破壊状態が回復されていることを確認
         XCTAssertFalse(LongTermLearningMemory.memoryCollapsed(directoryURL: dir))
         try? FileManager.default.removeItem(at: pauseURL)
     }
@@ -29,13 +30,13 @@ final class LearningMemoryTests: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        var manager = LearningManager()
+        let manager = LearningManager()
         var options = ConvertRequestOptions.default
         options.dictionaryResourceURL = Self.resourceURL
         options.memoryDirectoryURL = dir
-        options.learningType = .onlyOutput
+        options.learningType = .inputAndOutput
         options.maxMemoryCount = 32
-        manager.setRequestOptions(options: options)
+        _ = manager.setRequestOptions(options: options)
 
         let element = DicdataElement(word: "テスト", ruby: "テスト", cid: CIDData.一般名詞.cid, mid: MIDData.一般.mid, value: -10)
         manager.update(data: [element])
