@@ -11,15 +11,36 @@ import XCTest
 final class LearningMemoryTests: XCTestCase {
     static let resourceURL = Bundle.module.resourceURL!.appendingPathComponent("DictionaryMock", isDirectory: true)
 
+    private func getOptionsForMemoryTest(memoryDirectoryURL: URL) -> ConvertRequestOptions {
+        var options = ConvertRequestOptions.default
+        options.memoryDirectoryURL = memoryDirectoryURL
+        options.dictionaryResourceURL = Self.resourceURL
+        options.learningType = .inputAndOutput
+        options.maxMemoryCount = 32
+        return options
+    }
+
     func testPauseFileIsClearedOnInit() throws {
-        let dir = ConvertRequestOptions.default.memoryDirectoryURL
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("LearningMemoryTest-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let options = self.getOptionsForMemoryTest(memoryDirectoryURL: dir)
+        let manager = LearningManager()
+        _ = manager.setRequestOptions(options)
+
+        let element = DicdataElement(word: "テスト", ruby: "テスト", cid: CIDData.一般名詞.cid, mid: MIDData.一般.mid, value: -10)
+        manager.update(data: [element])
+        manager.save()
+
+        // ポーズファイルを設置
         let pauseURL = dir.appendingPathComponent(".pause", isDirectory: false)
         FileManager.default.createFile(atPath: pauseURL.path, contents: Data())
         XCTAssertTrue(LongTermLearningMemory.memoryCollapsed(directoryURL: dir))
 
-        // `init`に副作用がある
-        _ = LearningManager()
+        // ここで副作用が発生
+        _ = manager.setRequestOptions(options)
+
         // 学習の破壊状態が回復されていることを確認
         XCTAssertFalse(LongTermLearningMemory.memoryCollapsed(directoryURL: dir))
         try? FileManager.default.removeItem(at: pauseURL)
@@ -30,13 +51,9 @@ final class LearningMemoryTests: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
 
+        let options = self.getOptionsForMemoryTest(memoryDirectoryURL: dir)
         let manager = LearningManager()
-        var options = ConvertRequestOptions.default
-        options.dictionaryResourceURL = Self.resourceURL
-        options.memoryDirectoryURL = dir
-        options.learningType = .inputAndOutput
-        options.maxMemoryCount = 32
-        _ = manager.setRequestOptions(options: options)
+        _ = manager.setRequestOptions(options)
 
         let element = DicdataElement(word: "テスト", ruby: "テスト", cid: CIDData.一般名詞.cid, mid: MIDData.一般.mid, value: -10)
         manager.update(data: [element])

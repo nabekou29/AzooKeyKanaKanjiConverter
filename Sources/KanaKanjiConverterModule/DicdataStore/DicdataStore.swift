@@ -139,7 +139,7 @@ public final class DicdataStore {
             } else {
                 self.requestOptions = value
             }
-            let shouldReset = self.learningManager.setRequestOptions(options: value)
+            let shouldReset = self.learningManager.setRequestOptions(value)
             if shouldReset {
                 self.reloadMemory()
             }

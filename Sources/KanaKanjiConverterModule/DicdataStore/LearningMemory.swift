@@ -653,47 +653,49 @@ final class LearningManager {
         (!self.memoryCollapsed) && self.options.learningType.needUsingMemory
     }
 
-    init() {
-        self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: self.options.memoryDirectoryURL)
-        if self.memoryCollapsed && options.learningType.needUsingMemory {
+    init() {}
+
+    /// - Returns: Whether cache should be reseted or not.
+    func setRequestOptions(_ newOptions: ConvertRequestOptions) -> Bool {
+        // 更新の必要がなければ何もしない
+        if !newOptions.learningType.needUsingMemory {
+            self.options = newOptions
+            return false
+        }
+        // 学習の壊れ状態を確認
+        self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: newOptions.memoryDirectoryURL)
+        if self.memoryCollapsed && newOptions.learningType.needUsingMemory {
             do {
                 try LongTermLearningMemory.merge(
                     tempTrie: TemporalLearningMemoryTrie(),
-                    directoryURL: self.options.memoryDirectoryURL,
-                    maxMemoryCount: options.maxMemoryCount,
+                    directoryURL: newOptions.memoryDirectoryURL,
+                    maxMemoryCount: newOptions.maxMemoryCount,
                     char2UInt8: char2UInt8
                 )
             } catch {
-                debug("LearningManager init: automatic merge failed", error)
+                debug(#file, #function, "automatic merge failed", error)
             }
-            self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: self.options.memoryDirectoryURL)
+            self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: newOptions.memoryDirectoryURL)
         }
-        if memoryCollapsed {
+        if self.memoryCollapsed {
             // 学習データが壊れている状態であることを警告する
-            debug("LearningManager init: Memory Collapsed")
+            debug(#file, #function, "LearningManager init: Memory Collapsed")
         }
-        if !options.learningType.needUsingMemory {
-            return
-        }
-        Self.updateChar2Int8(bundleURL: options.dictionaryResourceURL, target: &char2UInt8)
-    }
-
-    /// - Returns: Whether cache should be reseted or not.
-    func setRequestOptions(options: ConvertRequestOptions) -> Bool {
         // 変更があったら`char2Int8`を読み込み直す
-        if options.dictionaryResourceURL != self.options.dictionaryResourceURL {
-            Self.updateChar2Int8(bundleURL: options.dictionaryResourceURL, target: &char2UInt8)
+        if newOptions.dictionaryResourceURL != self.options.dictionaryResourceURL {
+            Self.updateChar2Int8(bundleURL: newOptions.dictionaryResourceURL, target: &char2UInt8)
         }
-        self.options = options
+        // ここで更新
+        self.options = newOptions
 
-        switch options.learningType {
+        switch self.options.learningType {
         case .inputAndOutput, .onlyOutput: break
         case .nothing:
             self.temporaryMemory = TemporalLearningMemoryTrie()
         }
 
         // リセットチェックも実施
-        if options.shouldResetMemory {
+        if self.options.shouldResetMemory {
             self.reset()
             self.options.shouldResetMemory = false
             return true
