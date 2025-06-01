@@ -139,7 +139,7 @@ public final class DicdataStore {
             } else {
                 self.requestOptions = value
             }
-            let shouldReset = self.learningManager.setRequestOptions(options: value)
+            let shouldReset = self.learningManager.setRequestOptions(value)
             if shouldReset {
                 self.reloadMemory()
             }
@@ -226,7 +226,7 @@ public final class DicdataStore {
         }
     }
 
-    private func perfectMatchLOUDS(query: String, charIDs: [UInt8]) -> [Int] {
+    func perfectMatchLOUDS(query: String, charIDs: [UInt8]) -> [Int] {
         guard let louds = self.loadLOUDS(query: query) else {
             return []
         }

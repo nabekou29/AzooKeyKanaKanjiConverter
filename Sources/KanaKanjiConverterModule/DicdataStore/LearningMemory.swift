@@ -626,7 +626,7 @@ final class LearningManager {
             debug("Error: louds/charID.chidが存在しません。このエラーは深刻ですが、テスト時には無視できる場合があります。Description: \(error)")
         }
     }
-    private var char2UInt8: [Character: UInt8] = [:]
+    var char2UInt8: [Character: UInt8] = [:]
 
     static var today: UInt16 {
         UInt16(Int(Date().timeIntervalSince1970) / 86400) - 19000
@@ -653,34 +653,50 @@ final class LearningManager {
         (!self.memoryCollapsed) && self.options.learningType.needUsingMemory
     }
 
-    init() {
-        self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: self.options.memoryDirectoryURL)
-        if memoryCollapsed {
-            // 学習データが壊れている状態であることを警告する
-            debug("LearningManager init: Memory Collapsed")
-        }
-        if !options.learningType.needUsingMemory {
-            return
-        }
-        Self.updateChar2Int8(bundleURL: options.dictionaryResourceURL, target: &char2UInt8)
-    }
+    init() {}
 
     /// - Returns: Whether cache should be reseted or not.
-    func setRequestOptions(options: ConvertRequestOptions) -> Bool {
-        // 変更があったら`char2Int8`を読み込み直す
-        if options.dictionaryResourceURL != self.options.dictionaryResourceURL {
-            Self.updateChar2Int8(bundleURL: options.dictionaryResourceURL, target: &char2UInt8)
+    func setRequestOptions(_ newOptions: ConvertRequestOptions) -> Bool {
+        // 更新の必要がなければ何もしない
+        if !newOptions.learningType.needUsingMemory {
+            self.options = newOptions
+            return false
         }
-        self.options = options
+        // 変更があったら`char2Int8`を読み込み直す
+        if newOptions.dictionaryResourceURL != self.options.dictionaryResourceURL {
+            Self.updateChar2Int8(bundleURL: newOptions.dictionaryResourceURL, target: &self.char2UInt8)
+        }
+        // ここで更新
+        self.options = newOptions
 
-        switch options.learningType {
+        // 学習の壊れ状態を確認
+        self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: newOptions.memoryDirectoryURL)
+        if self.memoryCollapsed && newOptions.learningType.needUsingMemory {
+            do {
+                try LongTermLearningMemory.merge(
+                    tempTrie: TemporalLearningMemoryTrie(),
+                    directoryURL: newOptions.memoryDirectoryURL,
+                    maxMemoryCount: newOptions.maxMemoryCount,
+                    char2UInt8: self.char2UInt8
+                )
+            } catch {
+                debug(#file, #function, "automatic merge failed", error)
+            }
+            self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: newOptions.memoryDirectoryURL)
+        }
+        if self.memoryCollapsed {
+            // 学習データが壊れている状態であることを警告する
+            debug(#file, #function, "LearningManager init: Memory Collapsed")
+        }
+
+        switch self.options.learningType {
         case .inputAndOutput, .onlyOutput: break
         case .nothing:
             self.temporaryMemory = TemporalLearningMemoryTrie()
         }
 
         // リセットチェックも実施
-        if options.shouldResetMemory {
+        if self.options.shouldResetMemory {
             self.reset()
             self.options.shouldResetMemory = false
             return true

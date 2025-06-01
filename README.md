@@ -76,6 +76,8 @@ let options = ConvertRequestOptions.withDefaultDictionary(
 )
 ```
 
+開く際に保存処理が中断された `.pause` ファイルが残っている場合は、変換器が自動的に復旧を試みてファイルを削除します。
+
 ### `ComposingText`
 `ComposingText`は入力管理を行いつつ変換をリクエストするためのAPIです。ローマ字入力などを適切にハンドルするために利用できます。詳しくは[ドキュメント](./Docs/composing_text.md)を参照してください。
 
