@@ -67,7 +67,9 @@ public final class DicdataStore {
                 self.mmValue = [PValue].init(repeating: .zero, count: self.midCount * self.midCount)
             }
         }
+        self.reloadUser()
         _ = self.loadLOUDS(query: "user")
+        self.reloadMemory()
         _ = self.loadLOUDS(query: "memory")
 
         if requestOptions.preloadDictionary {
