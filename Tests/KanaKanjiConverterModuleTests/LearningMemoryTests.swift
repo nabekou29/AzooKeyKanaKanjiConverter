@@ -1,10 +1,3 @@
-//
-//  LearningMemoryTests.swift
-//  KanaKanjiConverterModuleTests
-//
-//  Created by Codex on 2025/05/25.
-//
-
 @testable import KanaKanjiConverterModule
 import XCTest
 
