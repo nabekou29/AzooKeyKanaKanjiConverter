@@ -72,7 +72,7 @@ let options = ConvertRequestOptions.withDefaultDictionary(
     // ユーザ辞書データのあるディレクトリのURL（書類フォルダを指定）
     sharedContainerURL: .documentsDirectory, 
     // メタデータ
-  metadata: .init(versionString: "You App Version X")
+    metadata: .init(versionString: "You App Version X")
 )
 ```
 
