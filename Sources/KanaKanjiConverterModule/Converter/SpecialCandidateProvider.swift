@@ -45,6 +45,13 @@ public struct TimeExpressionSpecialCandidateProvider: SpecialCandidateProvider {
     }
 }
 
+public struct CommaSeparatedNumberSpecialCandidateProvider: SpecialCandidateProvider {
+    public init() {}
+    @MainActor public func provideCandidates(converter: KanaKanjiConverter, inputData: ComposingText, options _: ConvertRequestOptions) -> [Candidate] {
+        converter.commaSeparatedNumberCandidates(inputData)
+    }
+}
+
 public extension SpecialCandidateProvider where Self == CalendarSpecialCandidateProvider {
     static var calendar: Self { .init() }
 }
@@ -67,4 +74,8 @@ public extension SpecialCandidateProvider where Self == VersionSpecialCandidateP
 
 public extension SpecialCandidateProvider where Self == TimeExpressionSpecialCandidateProvider {
     static var timeExpression: Self { .init() }
+}
+
+public extension SpecialCandidateProvider where Self == CommaSeparatedNumberSpecialCandidateProvider {
+    static var commaSeparatedNumber: Self { .init() }
 }

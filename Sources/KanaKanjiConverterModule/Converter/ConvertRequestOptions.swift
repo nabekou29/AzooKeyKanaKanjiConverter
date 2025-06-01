@@ -83,6 +83,7 @@ public struct ConvertRequestOptions: Sendable {
         specialCandidateProviders.append(.timeExpression)
         specialCandidateProviders.append(.calendar)
         specialCandidateProviders.append(.version)
+        specialCandidateProviders.append(.commaSeparatedNumber)
 
         self.N_best = N_best
         self.requireJapanesePrediction = requireJapanesePrediction

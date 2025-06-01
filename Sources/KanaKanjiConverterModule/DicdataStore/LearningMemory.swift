@@ -858,6 +858,7 @@ final class LearningManager {
 
     func save() {
         if !options.learningType.needUpdateMemory {
+            debug(#function, "options.learningType=\(options.learningType)", "skip memory update")
             return
         }
         do {

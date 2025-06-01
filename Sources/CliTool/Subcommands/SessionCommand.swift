@@ -17,6 +17,8 @@ extension Subcommands {
         var disablePrediction = false
         @Flag(name: [.customLong("enable_memory")], help: "Enable memory.")
         var enableLearning = false
+        @Option(name: [.customLong("readonly_memory")], help: "Enable readonly memory.")
+        var readOnlyMemoryPath: String?
         @Flag(name: [.customLong("only_whole_conversion")], help: "Show only whole conversion (完全一致変換).")
         var onlyWholeConversion = false
         @Flag(name: [.customLong("report_score")], help: "Show internal score for the candidate.")
@@ -73,7 +75,19 @@ extension Subcommands {
             if !self.zenzWeightPath.isEmpty && (!self.zenzV1 && !self.zenzV2 && !self.zenzV3) {
                 print("zenz version is not specified. By default, zenz-v3 will be used.")
             }
-            let memoryDirectory = if self.enableLearning {
+            let learningType: LearningType = if self.readOnlyMemoryPath != nil {
+                // 読み取りのみ
+                .onlyOutput
+            } else if self.enableLearning {
+                // 読み書き
+                .inputAndOutput
+            } else {
+                // 読み書きなし
+                .nothing
+            }
+            let memoryDirectory = if let readOnlyMemoryPath {
+                URL(fileURLWithPath: readOnlyMemoryPath)
+            } else if self.enableLearning {
                 if let dir = self.getTemporaryDirectory() {
                     dir
                 } else {
@@ -82,8 +96,12 @@ extension Subcommands {
             } else {
                 URL(fileURLWithPath: "")
             }
+            print("Working with \(learningType) mode. Memory path is \(memoryDirectory).")
 
             let converter = KanaKanjiConverter()
+            converter.sendToDicdataStore(
+                .setRequestOptions(requestOptions(learningType: learningType, memoryDirectory: memoryDirectory, leftSideContext: nil))
+            )
             var composingText = ComposingText()
             let inputStyle: InputStyle = self.roman2kana ? .roman2kana : .direct
             var lastCandidates: [Candidate] = []
@@ -142,14 +160,18 @@ extension Subcommands {
                     composingText.stopComposition()
                     converter.stopComposition()
                     converter.sendToDicdataStore(.closeKeyboard)
-                    print("saved")
+                    if learningType.needUpdateMemory {
+                        print("saved")
+                    } else {
+                        print("anything should not be saved because the learning type is not for update memory")
+                    }
                     continue
                 case ":p", ":pred":
                     // 次の文字の予測を取得する
                     let results = converter.predictNextCharacter(
                         leftSideContext: leftSideContext,
                         count: 10,
-                        options: requestOptions(memoryDirectory: memoryDirectory, leftSideContext: leftSideContext)
+                        options: requestOptions(learningType: learningType, memoryDirectory: memoryDirectory, leftSideContext: leftSideContext)
                     )
                     if let firstCandidate = results.first {
                         leftSideContext.append(firstCandidate.character)
@@ -212,7 +234,7 @@ extension Subcommands {
                 }
                 print(composingText.convertTarget)
                 let start = Date()
-                let result = converter.requestCandidates(composingText, options: requestOptions(memoryDirectory: memoryDirectory, leftSideContext: leftSideContext))
+                let result = converter.requestCandidates(composingText, options: requestOptions(learningType: learningType, memoryDirectory: memoryDirectory, leftSideContext: leftSideContext))
                 let mainResults = result.mainResults.filter {
                     !self.onlyWholeConversion || $0.data.reduce(into: "", {$0.append(contentsOf: $1.ruby)}) == input.toKatakana()
                 }
@@ -239,7 +261,7 @@ extension Subcommands {
             }
         }
 
-        func requestOptions(memoryDirectory: URL, leftSideContext: String) -> ConvertRequestOptions {
+        func requestOptions(learningType: LearningType, memoryDirectory: URL, leftSideContext: String?) -> ConvertRequestOptions {
             let zenzaiVersionDependentMode: ConvertRequestOptions.ZenzaiVersionDependentMode = if self.zenzV1 {
                 .v1
             } else if self.zenzV2 {
@@ -271,8 +293,7 @@ extension Subcommands {
                 englishCandidateInRoman2KanaInput: true,
                 fullWidthRomanCandidate: false,
                 halfWidthKanaCandidate: false,
-                learningType: enableLearning ? .inputAndOutput : .nothing,
-                maxMemoryCount: 0,
+                learningType: learningType,
                 shouldResetMemory: false,
                 memoryDirectoryURL: memoryDirectory,
                 sharedContainerURL: URL(fileURLWithPath: ""),

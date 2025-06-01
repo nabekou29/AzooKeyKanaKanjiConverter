@@ -5,13 +5,19 @@
 `anco`を利用するには、最初にinstallが必要です。`/usr/local/bin/`に`anco`が追加されます。
 
 ```bash
-sudo sh install_cli.sh
+./install_cli.sh
 ```
 
 Zenzaiを利用する場合は、`--zenzai`オプションを付けてください。
 
 ```bash
-sudo sh install_cli.sh --zenzai
+./install_cli.sh --zenzai
+```
+
+デフォルトでは、ほとんどの情報は出力されません。デバッグモードで実行するには`--debug`オプションを付けてください。
+
+```bash
+./install_cli.sh --debug
 ```
 
 例えば以下のように利用できます。
@@ -55,7 +61,7 @@ $ anco evaluate ./evaluation.tsv --config_n_best 1
 
 出力はJSONフォーマットです。出力内容の安定が必要な場合`--stable`を指定することで比較的安定した出力を得られます。ただしスコアやエントロピーは辞書バージョンに依存します。
 
-## 対話的実行
+## 対話的実行API
 
 少しずつ入力を進めるような実用的な場面を模した環境として`anco session`コマンドが用意されています。
 
@@ -66,6 +72,55 @@ $ anco session --roman2kana -n 10 --disable_prediction
 ```
 
 キーを入力してEnterを押すと変換候補が表示されます。`:`で始まる特殊コマンドを利用することで、削除、確定、文脈の設定などの諸操作を行うことが出来ます。
+
+### リプレイ
+
+`--replay`を用いると、セッションの中での一連の動作を再現することができます。
+
+```yaml
+anco session --roman2kana -n 10 --disable_prediction --replay history.txt
+```
+
+`history.txt`は例えば以下のような内容が含まれます。
+
+```
+a
+i
+u
+e
+e
+:del
+o
+:0
+```
+
+現在実行中のセッションから`history.txt`を作成するには`:dump history.txt`と入力します。
+
+### 学習機能のデバッグ
+学習機能のデバッグのため、セッションコマンドには複数の機能が用意されています。`--enable_memory`の状態では、デフォルトで学習が有効になり、一時ディレクトリに学習データが蓄積されます。
+
+```bash
+$ anco session --roman2kana -n 10 --disable_prediction --enable_memory
+```
+
+セーブを実施するには以下のように`:save`を入力します。
+
+```txt
+rime
+:h
+:n
+:14
+:4
+:save
+```
+
+すでに存在する学習データをread onlyで読み込むこともできます。
+
+```bash
+$ anco session --roman2kana -n 10 --disable_prediction --readonly_memory ./memory
+```
+
+この場合、`:save`コマンドは何も行いません。
 
 ## 辞書リーダ
 
