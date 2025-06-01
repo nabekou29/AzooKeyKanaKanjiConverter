@@ -24,7 +24,7 @@ public enum LearningType: Int, CaseIterable, Sendable {
     case onlyOutput
     case nothing
 
-    var needUpdateMemory: Bool {
+    package var needUpdateMemory: Bool {
         self == .inputAndOutput
     }
 
