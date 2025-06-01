@@ -626,7 +626,7 @@ final class LearningManager {
             debug("Error: louds/charID.chidが存在しません。このエラーは深刻ですが、テスト時には無視できる場合があります。Description: \(error)")
         }
     }
-    private var char2UInt8: [Character: UInt8] = [:]
+    var char2UInt8: [Character: UInt8] = [:]
 
     static var today: UInt16 {
         UInt16(Int(Date().timeIntervalSince1970) / 86400) - 19000
@@ -662,6 +662,13 @@ final class LearningManager {
             self.options = newOptions
             return false
         }
+        // 変更があったら`char2Int8`を読み込み直す
+        if newOptions.dictionaryResourceURL != self.options.dictionaryResourceURL {
+            Self.updateChar2Int8(bundleURL: newOptions.dictionaryResourceURL, target: &self.char2UInt8)
+        }
+        // ここで更新
+        self.options = newOptions
+
         // 学習の壊れ状態を確認
         self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: newOptions.memoryDirectoryURL)
         if self.memoryCollapsed && newOptions.learningType.needUsingMemory {
@@ -670,7 +677,7 @@ final class LearningManager {
                     tempTrie: TemporalLearningMemoryTrie(),
                     directoryURL: newOptions.memoryDirectoryURL,
                     maxMemoryCount: newOptions.maxMemoryCount,
-                    char2UInt8: char2UInt8
+                    char2UInt8: self.char2UInt8
                 )
             } catch {
                 debug(#file, #function, "automatic merge failed", error)
@@ -681,12 +688,6 @@ final class LearningManager {
             // 学習データが壊れている状態であることを警告する
             debug(#file, #function, "LearningManager init: Memory Collapsed")
         }
-        // 変更があったら`char2Int8`を読み込み直す
-        if newOptions.dictionaryResourceURL != self.options.dictionaryResourceURL {
-            Self.updateChar2Int8(bundleURL: newOptions.dictionaryResourceURL, target: &char2UInt8)
-        }
-        // ここで更新
-        self.options = newOptions
 
         switch self.options.learningType {
         case .inputAndOutput, .onlyOutput: break

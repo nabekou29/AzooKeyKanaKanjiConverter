@@ -69,5 +69,42 @@ final class LearningMemoryTests: XCTestCase {
         let filesAfter = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
         XCTAssertTrue(filesAfter.isEmpty)
     }
+
+    func testForgetMemory() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("LearningManagerPersistence-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let options = self.getOptionsForMemoryTest(memoryDirectoryURL: dir)
+        let manager = LearningManager()
+        _ = manager.setRequestOptions(options)
+        let element = DicdataElement(word: "テスト", ruby: "テスト", cid: CIDData.一般名詞.cid, mid: MIDData.一般.mid, value: -10)
+        manager.update(data: [element])
+        manager.save()
+
+        let dicdataStore = DicdataStore(requestOptions: options)
+        dicdataStore.sendToDicdataStore(.setRequestOptions(options))
+        let charIDs = "テスト".map { dicdataStore.character2charId($0) }
+        let indices = dicdataStore.perfectMatchLOUDS(query: "memory", charIDs: charIDs)
+        let dicdata = dicdataStore.getDicdataFromLoudstxt3(identifier: "memory", indices: indices)
+        XCTAssertFalse(dicdata.isEmpty)
+        XCTAssertTrue(dicdata.contains { $0.word == element.word && $0.ruby == element.ruby })
+
+        dicdataStore.sendToDicdataStore(
+            .forgetMemory(
+                Candidate(
+                    text: element.word,
+                    value: element.value(),
+                    correspondingCount: 3,
+                    lastMid: element.mid,
+                    data: [element]
+                )
+            )
+        )
+
+        let indices2 = dicdataStore.perfectMatchLOUDS(query: "memory", charIDs: charIDs)
+        let dicdata2 = dicdataStore.getDicdataFromLoudstxt3(identifier: "memory", indices: indices2)
+        XCTAssertFalse(dicdata2.contains { $0.word == element.word && $0.ruby == element.ruby })
+    }
 }
 
