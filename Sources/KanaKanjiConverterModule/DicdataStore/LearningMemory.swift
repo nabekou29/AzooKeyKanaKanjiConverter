@@ -226,7 +226,7 @@ struct LongTermLearningMemory {
 
         debug("LongTermLearningMemory merge entryCount", entryCount, ltMetadata.count)
 
-        let forgetTargetWords = forgetTargets.map { $0.word }
+        let forgetTargetWords = Set(forgetTargets.map { $0.word })
         // それぞれのloudstxt3ファイルに対して処理を行う
         for loudstxtIndex in 0 ..< Int(entryCount) / txtFileSplit + 1 {
             let loudstxtData: Data
