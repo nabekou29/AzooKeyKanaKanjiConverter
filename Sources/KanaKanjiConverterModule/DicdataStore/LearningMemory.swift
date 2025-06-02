@@ -226,6 +226,7 @@ struct LongTermLearningMemory {
 
         debug("LongTermLearningMemory merge entryCount", entryCount, ltMetadata.count)
 
+        let forgetTargetWords = forgetTargets.map { $0.word }
         // それぞれのloudstxt3ファイルに対して処理を行う
         for loudstxtIndex in 0 ..< Int(entryCount) / txtFileSplit + 1 {
             let loudstxtData: Data
@@ -262,8 +263,8 @@ struct LongTermLearningMemory {
                 var newMetadata: [MetadataElement] = []
                 assert(elements.count == metadata.count, "elements count and metadata count must be equal.")
                 for (dicdataElement, metadataElement) in zip(elements, metadata) {
-                    // 忘却対象である場合は弾く
-                    if forgetTargets.contains(dicdataElement) {
+                    // 忘却対象である場合は弾く（粗いチェック）
+                    if forgetTargetWords.contains(dicdataElement.word) {
                         debug("LongTermLearningMemory merge stopped because it is a forget target", dicdataElement)
                         continue
                     }
@@ -564,8 +565,10 @@ struct TemporalLearningMemoryTrie {
             }
         }
         // 存在する場合
-        // dataIndicesから削除する(dicdataの方は触らない)
-        nodes[index].dataIndices.removeAll(where: {self.dicdata[$0] == dicdataElement})
+        // 判定を緩めにする（表層形が一致すればすべて削除する）
+        nodes[index].dataIndices.removeAll {
+            self.dicdata[$0].word == dicdataElement.word
+        }
         return true
     }
 
