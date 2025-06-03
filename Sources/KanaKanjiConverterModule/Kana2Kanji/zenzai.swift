@@ -182,7 +182,7 @@ extension Kana2Kanji {
         candidateIndex: Int,
         candidates: [Candidate],
         reviewResult: consuming ZenzContext.CandidateEvaluationResult,
-        constraint: inout PrefixConstraint
+        constraint: inout PrefixConstraint,
     ) -> NextAction {
         switch reviewResult {
         case .error:
@@ -200,13 +200,18 @@ extension Kana2Kanji {
                 return .return(constraint: PrefixConstraint([]), alternativeConstraints: [], satisfied: false)
             }
             // 制約が得られたので、更新する
+            let isIncrementalUpdate = prefixConstraint.hasPrefix(constraint.constraint)
             constraint = PrefixConstraint(prefixConstraint)
             debug("update constraint:", constraint)
-            // もし制約を満たす候補があるならそれを使って再レビューチャレンジを戦うことで、推論を減らせる
-            for (i, candidate) in candidates.indexed() where i != candidateIndex {
-                if candidate.text.utf8.hasPrefix(prefixConstraint) && self.heuristicRetryValidation(candidate.text) {
-                    debug("found \(candidate.text) as another retry")
-                    return .retry(candidateIndex: i)
+            if isIncrementalUpdate {
+                // もし制約を満たす候補があるならそれを使って再レビューチャレンジを戦うことで、推論を減らせる
+                // この処理の正当性は、prefix constraintが漸進的に更新され、candidatesの構築時に可能な候補がすべて確認されたことに由来する
+                // このため、学習候補などが最終ドラフトとして採択され、prefix constraintが漸進的更新になっていない場合（!isIncrementalUpdate）この処理は行わない
+                for (i, candidate) in candidates.indexed() where i != candidateIndex {
+                    if candidate.text.utf8.hasPrefix(prefixConstraint) && self.heuristicRetryValidation(candidate.text) {
+                        debug("found \(candidate.text) as another retry")
+                        return .retry(candidateIndex: i)
+                    }
                 }
             }
             return .continue
@@ -219,12 +224,16 @@ extension Kana2Kanji {
             }
             // 制約が得られたので、更新する
             debug("update whole constraint:", wholeConstraint)
+            let isIncrementalUpdate = wholeConstraint.utf8.hasPrefix(constraint.constraint)
             constraint = PrefixConstraint(Array(wholeConstraint.utf8), hasEOS: true)
-            // もし制約を満たす候補があるならそれを使って再レビューチャレンジを戦うことで、推論を減らせる
-            for (i, candidate) in candidates.indexed() where i != candidateIndex {
-                if candidate.text == wholeConstraint && self.heuristicRetryValidation(candidate.text) {
-                    debug("found \(candidate.text) as another retry")
-                    return .retry(candidateIndex: i)
+            if isIncrementalUpdate {
+                // もし制約を満たす候補があるならそれを使って再レビューチャレンジを戦うことで、推論を減らせる
+                // 上記と同様に、prefix constraintが漸進的更新になっていない場合（!isIncrementalUpdate）この処理は行わない
+                for (i, candidate) in candidates.indexed() where i != candidateIndex {
+                    if candidate.text == wholeConstraint && self.heuristicRetryValidation(candidate.text) {
+                        debug("found \(candidate.text) as another retry")
+                        return .retry(candidateIndex: i)
+                    }
                 }
             }
             return .continue
