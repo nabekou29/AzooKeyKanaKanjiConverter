@@ -24,7 +24,7 @@ let options = ConvertRequestOptions.withDefaultDictionary(
     requireJapanesePrediction: true,
     requireEnglishPrediction: true,
     keyboardLanguage: .ja_JP,
-    learningType: .temporary,
+    learningType: .inputAndOutput,
     memoryDirectoryURL: documents,
     sharedContainerURL: documents
 )
