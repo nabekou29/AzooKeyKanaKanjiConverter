@@ -8,6 +8,7 @@ AzooKeyKanaKanjiConverterは[azooKey](https://github.com/ensan-hcl/azooKey)の�
 iOS 16以降, macOS 13以降, visionOS 1以降, Ubuntu 22.04以降で動作を確認しています。Swift 6.1以上が必要です。
 
 AzooKeyKanaKanjiConverterの開発については[開発ガイド](Docs/development_guide.md)をご覧ください。
+学習データの保存先やリセット方法については[Docs/learning_data.md](Docs/learning_data.md)を参照してください。
 
 ## KanaKanjiConverterModule
 かな漢字変換を受け持つモジュールです。
