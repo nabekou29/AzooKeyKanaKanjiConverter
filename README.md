@@ -58,6 +58,9 @@ print(results.mainResults.first!.text)  // azooKeyは新時代のキーボード
 `ConvertRequestOptions`は変換リクエストに必要な設定値です。例えば以下のように設定します。
 
 ```swift
+let documents = FileManager.default
+    .urls(for: .documentDirectory, in: .userDomainMask)
+    .first!
 let options = ConvertRequestOptions.withDefaultDictionary(
     // 日本語予測変換
     requireJapanesePrediction: true,
@@ -68,9 +71,9 @@ let options = ConvertRequestOptions.withDefaultDictionary(
     // 学習タイプ 
     learningType: .nothing, 
     // 学習データを保存するディレクトリのURL（書類フォルダを指定）
-    memoryDirectoryURL: .documentsDirectory, 
+    memoryDirectoryURL: documents,
     // ユーザ辞書データのあるディレクトリのURL（書類フォルダを指定）
-    sharedContainerURL: .documentsDirectory, 
+    sharedContainerURL: documents,
     // メタデータ
     metadata: .init(versionString: "You App Version X")
 )
@@ -138,6 +141,10 @@ AzooKeyKanaKanjiConverterのデフォルト辞書として[azooKey_dictionary_st
 // デフォルト辞書を含まない変換モジュールを指定
 import KanaKanjiConverterModule
 
+let documents = FileManager.default
+    .urls(for: .documentDirectory, in: .userDomainMask)
+    .first!
+
 let options = ConvertRequestOptions(
     // 日本語予測変換
     requireJapanesePrediction: true,
@@ -151,9 +158,9 @@ let options = ConvertRequestOptions(
     // 辞書データのURL（先ほど追加した辞書リソースを指定）
     dictionaryResourceURL: Bundle.main.bundleURL.appending(path: "Dictionary", directoryHint: .isDirectory),
     // 学習データを保存するディレクトリのURL（書類フォルダを指定）
-    memoryDirectoryURL: .documentsDirectory, 
+    memoryDirectoryURL: documents,
     // ユーザ辞書データのあるディレクトリのURL（書類フォルダを指定）
-    sharedContainerURL: .documentsDirectory, 
+    sharedContainerURL: documents,
     // メタデータ
     metadata: .init(versionString: "You App Version X")
 )

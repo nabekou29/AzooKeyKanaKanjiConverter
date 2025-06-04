@@ -17,11 +17,16 @@ AzooKeyKanaKanjiConverter では、ユーザが変換候補を選択した結果
 `ConvertRequestOptions` の `memoryDirectoryURL` に書き込み可能なディレクトリを指定してください。通常はアプリの書類フォルダなどを指定します。英語用と日本語用など、キーボードのターゲットごとに学習データを分けたい場合は、言語ごとに別のディレクトリを指定してください。
 
 ```swift
+let documents = FileManager.default
+    .urls(for: .documentDirectory, in: .userDomainMask)
+    .first!
 let options = ConvertRequestOptions.withDefaultDictionary(
+    requireJapanesePrediction: true,
+    requireEnglishPrediction: true,
     keyboardLanguage: .ja_JP,
     learningType: .temporary,
-    memoryDirectoryURL: .documentsDirectory,
-    sharedContainerURL: .documentsDirectory
+    memoryDirectoryURL: documents,
+    sharedContainerURL: documents
 )
 ```
 
