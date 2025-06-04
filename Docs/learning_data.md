@@ -33,3 +33,22 @@ let options = ConvertRequestOptions.withDefaultDictionary(
 ## 学習データのリセット
 
 変換候補の長押しから個別に学習をリセットできます。ディレクトリを削除することで全ての学習内容を消去することも可能です。
+
+プログラムから一括で学習データを初期化したい場合は、`shouldResetMemory` オプションを
+`true` にして `ConvertRequestOptions` を生成します。初期化後1回だけ
+`LearningMemory` が自動的にファイルを削除します。
+
+```swift
+let options = ConvertRequestOptions.withDefaultDictionary(
+    requireJapanesePrediction: true,
+    requireEnglishPrediction: true,
+    keyboardLanguage: .ja_JP,
+    learningType: .inputAndOutput,
+    shouldResetMemory: true,
+    memoryDirectoryURL: documents,
+    sharedContainerURL: documents
+)
+```
+
+ファイルの完全削除のみを実行したい場合は
+`LongTermLearningMemory.reset(directoryURL:)` を直接呼び出してください。
