@@ -649,11 +649,15 @@ final class LearningManager {
     }
 
     private var temporaryMemory: TemporalLearningMemoryTrie = .init()
-    private var options: ConvertRequestOptions = .default
+    private var options: ConvertRequestOptions?
     private var memoryCollapsed: Bool = false
 
     var enabled: Bool {
-        (!self.memoryCollapsed) && self.options.learningType.needUsingMemory
+        if let options {
+            (!self.memoryCollapsed) && options.learningType.needUsingMemory
+        } else {
+            false
+        }
     }
 
     init() {}
@@ -666,7 +670,7 @@ final class LearningManager {
             return false
         }
         // 変更があったら`char2Int8`を読み込み直す
-        if newOptions.dictionaryResourceURL != self.options.dictionaryResourceURL {
+        if newOptions.dictionaryResourceURL != self.options?.dictionaryResourceURL {
             Self.updateChar2Int8(bundleURL: newOptions.dictionaryResourceURL, target: &self.char2UInt8)
         }
         // ここで更新
@@ -692,37 +696,37 @@ final class LearningManager {
             debug(#file, #function, "LearningManager init: Memory Collapsed")
         }
 
-        switch self.options.learningType {
+        switch self.options!.learningType {
         case .inputAndOutput, .onlyOutput: break
         case .nothing:
             self.temporaryMemory = TemporalLearningMemoryTrie()
         }
 
         // リセットチェックも実施
-        if self.options.shouldResetMemory {
+        if self.options!.shouldResetMemory {
             self.reset()
-            self.options.shouldResetMemory = false
+            self.options!.shouldResetMemory = false
             return true
         }
         return false
     }
 
     func temporaryPerfectMatch(charIDs: [UInt8]) -> [DicdataElement] {
-        if !options.learningType.needUsingMemory {
+        guard let options, options.learningType.needUsingMemory else {
             return []
         }
         return self.temporaryMemory.perfectMatch(chars: charIDs)
     }
 
     func temporaryThroughMatch(charIDs: [UInt8], depth: Range<Int>) -> [DicdataElement] {
-        if !options.learningType.needUsingMemory {
+        guard let options, options.learningType.needUsingMemory else {
             return []
         }
         return self.temporaryMemory.throughMatch(chars: charIDs, depth: depth)
     }
 
     func temporaryPrefixMatch(charIDs: [UInt8]) -> [DicdataElement] {
-        if !options.learningType.needUsingMemory {
+        guard let options, options.learningType.needUsingMemory else {
             return []
         }
         return self.temporaryMemory.prefixMatch(chars: charIDs)
@@ -734,7 +738,7 @@ final class LearningManager {
 
     /// `updatePart`のみを更新する。`data`の部分は更新しない。
     func update(data: [DicdataElement], updatePart: [DicdataElement]) {
-        if !options.learningType.needUpdateMemory {
+        guard let options, options.learningType.needUpdateMemory else {
             return
         }
         // 単語単位
@@ -842,6 +846,9 @@ final class LearningManager {
 
     /// データに含まれる語彙の学習をリセットする関数
     func forgetMemory(data: [DicdataElement]) {
+        guard let options, options.learningType.needUpdateMemory else {
+            return
+        }
         // 1. temporary memoryを削除する
         for element in data {
             guard let chars = Self.keyToChars(element.ruby, char2UInt8: char2UInt8) else {
@@ -851,7 +858,7 @@ final class LearningManager {
         }
         // 2. longterm memoryを削除する
         do {
-            try LongTermLearningMemory.merge(tempTrie: self.temporaryMemory, forgetTargets: data, directoryURL: self.options.memoryDirectoryURL, maxMemoryCount: options.maxMemoryCount, char2UInt8: char2UInt8)
+            try LongTermLearningMemory.merge(tempTrie: self.temporaryMemory, forgetTargets: data, directoryURL: options.memoryDirectoryURL, maxMemoryCount: options.maxMemoryCount, char2UInt8: char2UInt8)
             // マージが済んだので、temporaryMemoryを空にする
             self.temporaryMemory = TemporalLearningMemoryTrie()
         } catch {
@@ -859,16 +866,16 @@ final class LearningManager {
             debug("LearningManager resetLearning: Failed to save LongTermLearningMemory", error)
         }
         // 状態を更新する
-        self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: self.options.memoryDirectoryURL)
+        self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: options.memoryDirectoryURL)
     }
 
     func save() {
-        if !options.learningType.needUpdateMemory {
-            debug(#function, "options.learningType=\(options.learningType)", "skip memory update")
+        guard let options, options.learningType.needUpdateMemory else {
+            debug(#function, "options.learningType=\(options?.learningType as _?)", "skip memory update")
             return
         }
         do {
-            try LongTermLearningMemory.merge(tempTrie: self.temporaryMemory, directoryURL: self.options.memoryDirectoryURL, maxMemoryCount: options.maxMemoryCount, char2UInt8: char2UInt8)
+            try LongTermLearningMemory.merge(tempTrie: self.temporaryMemory, directoryURL: options.memoryDirectoryURL, maxMemoryCount: options.maxMemoryCount, char2UInt8: char2UInt8)
             // マージが済んだので、temporaryMemoryを空にする
             self.temporaryMemory = TemporalLearningMemoryTrie()
         } catch {
@@ -876,13 +883,16 @@ final class LearningManager {
             debug("LearningManager save: Failed to save LongTermLearningMemory", error)
         }
         // 状態を更新する
-        self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: self.options.memoryDirectoryURL)
+        self.memoryCollapsed = LongTermLearningMemory.memoryCollapsed(directoryURL: options.memoryDirectoryURL)
     }
 
     func reset() {
+        guard let options else {
+            return
+        }
         self.temporaryMemory = TemporalLearningMemoryTrie()
         do {
-            try LongTermLearningMemory.reset(directoryURL: self.options.memoryDirectoryURL)
+            try LongTermLearningMemory.reset(directoryURL: options.memoryDirectoryURL)
         } catch {
             debug("LearningManager reset failed", error)
         }
