@@ -153,7 +153,7 @@ targets.append(
         name: "KanaKanjiConverterModule",
         dependencies: [
             "SwiftUtils",
-            .target(name: "EfficientNGram", condition: .when(traits: ["Zenzai"])),
+            .target(name: "EfficientNGram"),
             .target(name: "llama.cpp", condition: .when(traits: ["Zenzai"])),
             .product(name: "Collections", package: "swift-collections"),
         ],
