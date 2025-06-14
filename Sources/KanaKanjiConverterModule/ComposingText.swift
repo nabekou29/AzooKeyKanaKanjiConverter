@@ -501,7 +501,7 @@ extension ComposingText {
     /// - Returns: 領域がvalidであれば`convertTarget`を返し、invalidなら`nil`を返す。
     /// - Note: `elements = [r(k, a, n, s, h, a)]`のとき、`k,a,n,s,h,a`や`k, a`は正当だが`a, n`や`s, h`は正当ではない。`k, a, n`は特に正当であるとみなす。
     static func getConvertTargetIfRightSideIsValid(lastElement: InputElement, of originalElements: [InputElement], to rightIndex: Int, convertTargetElements: [ConvertTargetElement]) -> [Character]? {
-        debug("getConvertTargetIfRightSideIsValid", lastElement, rightIndex)
+        debug(#function, lastElement, rightIndex)
         if originalElements.endIndex < rightIndex {
             return nil
         }

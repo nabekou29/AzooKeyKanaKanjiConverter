@@ -13,6 +13,8 @@ extension Subcommands {
         var displayTopN: Int = 1
         @Option(name: [.customLong("zenz")], help: "gguf format model weight for zenz.")
         var zenzWeightPath: String = ""
+        @Flag(name: [.customLong("mix_english_candidate")], help: "Enable mixing English Candidates.")
+        var mixEnglishCandidate = false
         @Flag(name: [.customLong("disable_prediction")], help: "Disable producing prediction candidates.")
         var disablePrediction = false
         @Flag(name: [.customLong("enable_memory")], help: "Enable memory.")
@@ -290,7 +292,7 @@ extension Subcommands {
                 keyboardLanguage: .ja_JP,
                 typographyLetterCandidate: false,
                 unicodeCandidate: true,
-                englishCandidateInRoman2KanaInput: true,
+                englishCandidateInRoman2KanaInput: self.mixEnglishCandidate,
                 fullWidthRomanCandidate: false,
                 halfWidthKanaCandidate: false,
                 learningType: learningType,

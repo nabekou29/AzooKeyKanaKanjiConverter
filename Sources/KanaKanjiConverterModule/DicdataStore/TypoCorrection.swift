@@ -23,7 +23,7 @@ extension ComposingText {
     /// `left <= rightIndexRange.startIndex`が常に成り立つ
     func getRangesWithTypos(_ left: Int, rightIndexRange: Range<Int>) -> [[Character]: (endIndex: Int, penalty: PValue)] {
         let count = rightIndexRange.endIndex - left
-        debug("getRangesWithTypos", left, rightIndexRange, count)
+        debug(#function, left, rightIndexRange, count)
         let nodes = (0..<count).map {(i: Int) in
             Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
                 let j = i + k
@@ -100,15 +100,16 @@ extension ComposingText {
     /// closedRangeでもらう
     /// 例えば`left=4, rightIndexRange=6..<10`の場合、`4...6, 4...7, 4...8, 4...9`の範囲で計算する
     /// `left <= rightIndexRange.startIndex`が常に成り立つ
-    func getRanges(_ left: Int, rightIndexRange: Range<Int>) -> [[Character]: Int] {
+    func getRangesWithoutTypos(_ left: Int, rightIndexRange: Range<Int>) -> [[Character]: Int] {
         let count = rightIndexRange.endIndex - left
-        debug("getRangesWithTypos", left, rightIndexRange, count)
+        debug(#function, left, rightIndexRange, count)
         let nodes = (0..<count).map {(i: Int) in
             Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
                 let j = i + k
                 if count <= j {
                     return []
                 }
+                // frozen: trueとしているため、typo候補は含まれない
                 return Self.getTypo(self.input[left + i ... left + j], frozen: true)
             }
         }

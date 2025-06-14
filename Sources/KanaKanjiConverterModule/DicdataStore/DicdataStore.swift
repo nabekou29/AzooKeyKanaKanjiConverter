@@ -281,7 +281,7 @@ public final class DicdataStore {
         let toIndexLeft = toIndexRange?.startIndex ?? fromIndex
         let toIndexRight = min(toIndexRange?.endIndex ?? inputData.input.count, fromIndex + self.maxlength)
         if fromIndex > toIndexLeft || toIndexLeft >= toIndexRight {
-            debug("getLOUDSDataInRange: index is wrong")
+            debug(#function, "index is wrong")
             return []
         }
 
@@ -388,15 +388,12 @@ public final class DicdataStore {
     private func getFrozenLOUDSDataInRange(inputData: ComposingText, from fromIndex: Int, toIndexRange: Range<Int>? = nil) -> [LatticeNode] {
         let toIndexLeft = toIndexRange?.startIndex ?? fromIndex
         let toIndexRight = min(toIndexRange?.endIndex ?? inputData.input.count, fromIndex + self.maxlength)
-        debug("getLOUDSDataInRange", fromIndex, toIndexRange?.description ?? "nil", toIndexLeft, toIndexRight)
+        debug(#function, fromIndex, toIndexRange?.description ?? "nil", toIndexLeft, toIndexRight)
         if fromIndex > toIndexLeft || toIndexLeft >= toIndexRight {
-            debug("getLOUDSDataInRange: index is wrong")
+            debug(#function, "index is wrong")
             return []
         }
 
-        let segments = (fromIndex ..< toIndexRight).reduce(into: []) { (segments: inout [String], rightIndex: Int) in
-            segments.append((segments.last ?? "") + String(inputData.input[rightIndex].character.toKatakana()))
-        }
         let character = String(inputData.input[fromIndex].character.toKatakana())
         let characterNode = LatticeNode(data: DicdataElement(word: character, ruby: character, cid: CIDData.一般名詞.cid, mid: MIDData.一般.mid, value: -10), inputRange: fromIndex ..< fromIndex + 1)
         if fromIndex == .zero {
@@ -404,9 +401,10 @@ public final class DicdataStore {
         }
 
         // MARK: 誤り訂正なし
-        let stringToEndIndex = inputData.getRanges(fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
+        let stringToEndIndex = inputData.getRangesWithoutTypos(fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
         // MARK: 検索対象を列挙していく。
         guard let (minString, maxString) = stringToEndIndex.keys.minAndMax(by: {$0.count < $1.count}) else {
+            debug(#function, "minString/maxString is nil", stringToEndIndex)
             return [characterNode]
         }
         let maxIDs = maxString.map(self.character2charId)
@@ -424,11 +422,10 @@ public final class DicdataStore {
             // temporalな学習結果にpenaltyを加えて追加する
             dicdata.append(contentsOf: self.learningManager.temporaryThroughMatch(charIDs: consume maxIDs, depth: depth))
         }
-        for i in toIndexLeft ..< toIndexRight {
-            dicdata.append(contentsOf: self.getWiseDicdata(convertTarget: segments[i - fromIndex], inputData: inputData, inputRange: fromIndex ..< i + 1))
-        }
-        for item in stringToEndIndex {
-            dicdata.append(contentsOf: self.getMatchDynamicUserDict(String(item.key)))
+        for (key, value) in stringToEndIndex {
+            let convertTarget = String(key)
+            dicdata.append(contentsOf: self.getWiseDicdata(convertTarget: convertTarget, inputData: inputData, inputRange: fromIndex ..< value + 1))
+            dicdata.append(contentsOf: self.getMatchDynamicUserDict(convertTarget))
         }
         if fromIndex == .zero {
             return dicdata.compactMap {
@@ -629,7 +626,8 @@ public final class DicdataStore {
 
         // ローマ字入力の場合、単体でひらがな・カタカナ化した候補も追加
         if requestOptions.keyboardLanguage != .en_US && inputData.input[inputRange].allSatisfy({$0.inputStyle == .roman2kana}) {
-            if let katakana = Roman2Kana.katakanaChanges[convertTarget], let hiragana = Roman2Kana.hiraganaChanges[Array(convertTarget)] {
+            let roman = String(inputData.input[inputRange].map(\.character))
+            if let katakana = Roman2Kana.katakanaChanges[roman], let hiragana = Roman2Kana.hiraganaChanges[Array(roman)] {
                 result.append(DicdataElement(word: String(hiragana), ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -13))
                 result.append(DicdataElement(ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -14))
             }
