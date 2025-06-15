@@ -5,20 +5,20 @@
 //  Created by ensan on 2023/04/30.
 //
 
-import Algorithms
+package import Algorithms
 import Foundation
 
-public extension Sequence {
+package extension Sequence {
     /// Returns a sequence that contains the elements of this sequence followed by the elements of the given sequence.
     /// - Parameters:
     ///   - sequence: A sequence of elements to chain.
     /// - Returns: A sequence that contains the elements of this sequence followed by the elements of the given sequence.
-    @inlinable func chained<S: Sequence<Element>>(_ sequence: S) -> Chain2Sequence<Self, S> {
+    func chained<S: Sequence<Element>>(_ sequence: S) -> Chain2Sequence<Self, S> {
         chain(self, sequence)
     }
 }
 
-public extension Collection {
+package extension Collection {
     /// Returns a `Set` containing the elements of this sequence with transformed values.
     /// - Parameters:
     ///   - transform: A closure that transforms each element of this sequence into a value that can be hashed.
@@ -60,18 +60,18 @@ public extension Collection {
     }
 }
 
-public extension MutableCollection {
+package extension MutableCollection {
     /// Calls the given closure with a pointer to the array's mutable contiguous storage.
     /// - Parameter
     ///   - transform: A closure that takes a pointer to the array's mutable contiguous storage.
-    @inlinable mutating func mutatingForeach(transform closure: (inout Element) throws -> Void) rethrows {
+    @inlinable mutating func mutatingForEach(transform closure: (inout Element) throws -> Void) rethrows {
         for index in self.indices {
             try closure(&self[index])
         }
     }
 }
 
-public extension Collection {
+package extension Collection {
     /// Returns a SubSequence containing the elements of this sequence up to the first element that does not satisfy the given predicate.
     /// - Parameters:
     ///   - condition: A closure that takes an element of the sequence as its argument and returns a Boolean value indicating whether the element should be included.
@@ -85,7 +85,7 @@ public extension Collection {
     }
 }
 
-public extension Collection where Self.Element: Equatable {
+package extension Collection where Self.Element: Equatable {
     /// Returns a Bool value indicating whether the collection has the given prefix.
     /// - Parameters:
     ///   - prefix: A collection to search for at the start of this collection.

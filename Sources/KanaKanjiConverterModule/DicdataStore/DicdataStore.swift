@@ -125,7 +125,7 @@ public final class DicdataStore {
             self.closeKeyboard()
         case .importOSUserDict(let dicdata), .importDynamicUserDict(let dicdata):
             self.dynamicUserDict = dicdata
-            self.dynamicUserDict.mutatingForeach {
+            self.dynamicUserDict.mutatingForEach {
                 $0.metadata = .isFromUserDictionary
             }
         case let .forgetMemory(candidate):
@@ -258,12 +258,12 @@ public final class DicdataStore {
             data.append(contentsOf: LOUDS.getDataForLoudstxt3(identifier + "\(key)", indices: value.map {$0 & 2047}, cache: self.loudstxts[identifier + "\(key)"], option: self.requestOptions))
         }
         if identifier == "memory" {
-            data.mutatingForeach {
+            data.mutatingForEach {
                 $0.metadata = .isLearned
             }
         }
         if identifier == "user" {
-            data.mutatingForeach {
+            data.mutatingForEach {
                 $0.metadata = .isFromUserDictionary
             }
         }

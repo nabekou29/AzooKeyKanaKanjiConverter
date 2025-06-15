@@ -8,16 +8,16 @@
 
 import Foundation
 
-public extension StringProtocol {
+package extension StringProtocol {
     /// ローマ字と数字のみかどうか
     ///  - note: 空文字列の場合`false`を返す。
-    @inlinable
+    @usableFromInline
     var onlyRomanAlphabetOrNumber: Bool {
         !isEmpty && range(of: "[^a-zA-Z0-9]", options: .regularExpression) == nil
     }
     /// ローマ字のみかどうか
     ///  - note: 空文字列の場合`false`を返す。
-    @inlinable
+    @usableFromInline
     var onlyRomanAlphabet: Bool {
         !isEmpty && range(of: "[^a-zA-Z]", options: .regularExpression) == nil
     }
@@ -35,20 +35,21 @@ public extension StringProtocol {
     }
     /// 英語として許容可能な文字のみで構成されているか。
     ///  - note: 空文字列の場合`false`を返す。
-    @inlinable
+    @usableFromInline
     var isEnglishSentence: Bool {
         !isEmpty && range(of: "[^0-9a-zA-Z\n !'_<>\\[\\]{}*@`\\^|~=\"#$%&\\+\\(\\),\\-\\./:;?’\\\\]", options: .regularExpression) == nil
     }
 
     /// 仮名か
-    @inlinable
+    @usableFromInline
     var isKana: Bool {
         !isEmpty && range(of: "[^ぁ-ゖァ-ヶ]", options: .regularExpression) == nil
     }
 
     /// Returns a String value in which Hiraganas are all converted to Katakana.
     /// - Returns: A String value in which Hiraganas are all converted to Katakana.
-    @inlinable func toKatakana() -> String {
+    @usableFromInline
+    func toKatakana() -> String {
         // カタカナはutf16で常に2バイトなので、utf16単位で処理して良い
         let result = self.utf16.map { scalar -> UInt16 in
             if 0x3041 <= scalar && scalar <= 0x3096 {
@@ -62,7 +63,8 @@ public extension StringProtocol {
 
     /// Returns a String value in which Katakana are all converted to Hiragana.
     /// - Returns: A String value in which Katakana are all converted to Hiragana.
-    @inlinable func toHiragana() -> String {
+    @usableFromInline
+    func toHiragana() -> String {
         // ひらがなはutf16で常に2バイトなので、utf16単位で処理して良い
         let result = self.utf16.map { scalar -> UInt16 in
             if 0x30A1 <= scalar && scalar <= 0x30F6 {

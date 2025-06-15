@@ -6,7 +6,7 @@
 //  Copyright © 2023 ensan. All rights reserved.
 //
 
-import Foundation
+public import Foundation
 import SwiftUtils
 
 /// `TextReplacer`は前後の文脈に基づいて、現在のカーソル位置の語の置き換えを提案するためのモジュールである。
