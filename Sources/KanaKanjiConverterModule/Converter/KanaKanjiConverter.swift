@@ -6,7 +6,8 @@
 //  Copyright © 2020 ensan. All rights reserved.
 //
 
-import Foundation
+import Algorithms
+package import Foundation
 import SwiftUtils
 import EfficientNGram
 
@@ -18,7 +19,7 @@ import EfficientNGram
     }
 
     private var converter = Kana2Kanji()
-    nonisolated(unsafe) public static let defaultSpecialCandidateProviders: [any SpecialCandidateProvider] = [
+    nonisolated public static let defaultSpecialCandidateProviders: [any SpecialCandidateProvider] = [
         CalendarSpecialCandidateProvider(),
         EmailAddressSpecialCandidateProvider(),
         UnicodeSpecialCandidateProvider(),
@@ -581,7 +582,7 @@ import EfficientNGram
         result.append(contentsOf: clause_candidates)
         result.append(contentsOf: word_candidates)
 
-        result.mutatingForeach { item in
+        result.mutatingForEach { item in
             item.withActions(self.getAppropriateActions(item))
             item.parseTemplate()
         }

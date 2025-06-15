@@ -1,3 +1,4 @@
+import Algorithms
 import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
 import Foundation

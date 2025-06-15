@@ -7,6 +7,8 @@
 //
 
 import Foundation
+import SwiftUtils
+
 enum Roman2Kana {
     static let katakanaChanges: [String: String] = Dictionary(uniqueKeysWithValues: hiraganaChanges.map { (String($0.key), String($0.value).toKatakana()) })
     static let hiraganaChanges: [[Character]: [Character]] = Dictionary(uniqueKeysWithValues: [

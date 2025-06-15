@@ -5,15 +5,15 @@
 //  Created by ensan on 2023/04/30.
 //
 
-import Algorithms
+package import Algorithms
 import Foundation
 
-public extension Sequence {
+package extension Sequence {
     /// Returns a sequence that contains the elements of this sequence followed by the elements of the given sequence.
     /// - Parameters:
     ///   - sequence: A sequence of elements to chain.
     /// - Returns: A sequence that contains the elements of this sequence followed by the elements of the given sequence.
-    @inlinable func chained<S: Sequence<Element>>(_ sequence: S) -> Chain2Sequence<Self, S> {
+    func chained<S: Sequence<Element>>(_ sequence: S) -> Chain2Sequence<Self, S> {
         chain(self, sequence)
     }
 }
@@ -64,7 +64,7 @@ public extension MutableCollection {
     /// Calls the given closure with a pointer to the array's mutable contiguous storage.
     /// - Parameter
     ///   - transform: A closure that takes a pointer to the array's mutable contiguous storage.
-    @inlinable mutating func mutatingForeach(transform closure: (inout Element) throws -> Void) rethrows {
+    @inlinable mutating func mutatingForEach(transform closure: (inout Element) throws -> Void) rethrows {
         for index in self.indices {
             try closure(&self[index])
         }

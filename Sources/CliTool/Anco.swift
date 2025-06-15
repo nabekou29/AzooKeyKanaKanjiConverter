@@ -2,8 +2,8 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
 
 @main
-public struct Anco: AsyncParsableCommand {
-    public static let configuration = CommandConfiguration(
+struct Anco: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
         abstract: "Anco is A(zooKey) Kana-Ka(n)ji (co)nverter",
         subcommands: [
             Subcommands.Run.self,
@@ -17,5 +17,5 @@ public struct Anco: AsyncParsableCommand {
         defaultSubcommand: Subcommands.Run.self
     )
 
-    public init() {}
+    init() {}
 }

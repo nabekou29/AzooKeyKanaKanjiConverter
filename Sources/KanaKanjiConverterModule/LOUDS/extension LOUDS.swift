@@ -6,7 +6,7 @@
 //  Copyright © 2020 ensan. All rights reserved.
 //
 
-import Foundation
+package import Foundation
 import SwiftUtils
 
 extension LOUDS {

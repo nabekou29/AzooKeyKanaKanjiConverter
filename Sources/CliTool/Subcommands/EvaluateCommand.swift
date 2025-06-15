@@ -1,6 +1,7 @@
 import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
 import Foundation
+import SwiftUtils
 
 extension Subcommands {
     struct Evaluate: AsyncParsableCommand {
@@ -73,9 +74,9 @@ extension Subcommands {
             if stable {
                 result.execution_time = 0
                 result.timestamp = 0
-                result.items.mutatingForeach {
+                result.items.mutatingForEach {
                     $0.entropy = Double(Int($0.entropy * 10)) / 10
-                    $0.outputs.mutatingForeach {
+                    $0.outputs.mutatingForEach {
                         $0.score = Double(Int($0.score))
                     }
                 }

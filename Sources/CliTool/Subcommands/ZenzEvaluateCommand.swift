@@ -1,6 +1,7 @@
 import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
 import Foundation
+import SwiftUtils
 
 extension Subcommands {
     struct ZenzEvaluate: AsyncParsableCommand {
@@ -68,8 +69,8 @@ extension Subcommands {
             if stable {
                 result.execution_time = 0
                 result.timestamp = 0
-                result.items.mutatingForeach {
-                    $0.outputs.mutatingForeach {
+                result.items.mutatingForEach {
+                    $0.outputs.mutatingForEach {
                         $0.score = Double(Int($0.score))
                     }
                 }

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SwiftUtils
 
 extension KanaKanjiConverter {
     /// 西暦に変換した結果を返す関数。

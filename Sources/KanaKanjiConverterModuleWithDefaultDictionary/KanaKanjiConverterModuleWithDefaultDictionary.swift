@@ -1,5 +1,5 @@
-@_exported import KanaKanjiConverterModule
-import Foundation
+@_exported public import KanaKanjiConverterModule
+public import Foundation
 
 public extension ConvertRequestOptions {
     static func withDefaultDictionary(

@@ -6,7 +6,7 @@
 //  Copyright © 2022 ensan. All rights reserved.
 //
 
-import Foundation
+public import Foundation
 
 public struct ConvertRequestOptions: Sendable {
     /// 変換リクエストに必要な設定データ

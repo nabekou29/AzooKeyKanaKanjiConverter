@@ -6,7 +6,7 @@
 //  Copyright © 2020 ensan. All rights reserved.
 //
 
-import Foundation
+public import Foundation
 import SwiftUtils
 
 public struct TemplateData: Codable, Sendable {
