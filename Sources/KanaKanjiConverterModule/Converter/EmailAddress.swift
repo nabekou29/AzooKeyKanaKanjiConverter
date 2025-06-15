@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUtils
 
 extension KanaKanjiConverter {
     private static let domains = [

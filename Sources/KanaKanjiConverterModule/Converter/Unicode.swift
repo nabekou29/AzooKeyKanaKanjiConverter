@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SwiftUtils
 
 extension KanaKanjiConverter {
     /// unicode文字列`"uxxxx, Uxxxx, u+xxxx, U+xxxx"`を対応する記号に変換する関数

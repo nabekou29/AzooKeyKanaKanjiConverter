@@ -6,6 +6,7 @@
 //  Copyright © 2020 ensan. All rights reserved.
 //
 
+import Algorithms
 import Foundation
 import SwiftUtils
 import EfficientNGram
@@ -18,7 +19,7 @@ import EfficientNGram
     }
 
     private var converter = Kana2Kanji()
-    nonisolated(unsafe) public static let defaultSpecialCandidateProviders: [any SpecialCandidateProvider] = [
+    public static let defaultSpecialCandidateProviders: [any SpecialCandidateProvider] = [
         CalendarSpecialCandidateProvider(),
         EmailAddressSpecialCandidateProvider(),
         UnicodeSpecialCandidateProvider(),

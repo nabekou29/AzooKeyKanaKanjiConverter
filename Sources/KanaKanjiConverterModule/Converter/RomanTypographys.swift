@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SwiftUtils
 
 private extension UnicodeScalar {
     /// ローマ字の大文字かどうか

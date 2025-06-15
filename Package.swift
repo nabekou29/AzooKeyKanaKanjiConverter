@@ -6,6 +6,7 @@ import Foundation
 
 let swiftSettings: [SwiftSetting] = [
     .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("MemberImportVisibility"),
     .interoperabilityMode(.Cxx, .when(traits: ["Zenzai"]))
 ]
 

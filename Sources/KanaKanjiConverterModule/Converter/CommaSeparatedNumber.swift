@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUtils
 
 extension KanaKanjiConverter {
     func commaSeparatedNumberCandidates(_ inputData: ComposingText) -> [Candidate] {
@@ -18,7 +19,7 @@ extension KanaKanjiConverter {
         let integerPart = parts[0]
         guard integerPart.count > 3 else { return [] }
 
-        var reversed = Array(integerPart.reversed())
+        let reversed = Array(integerPart.reversed())
         var formatted = ""
         for (i, ch) in reversed.enumerated() {
             if i > 0 && i % 3 == 0 {

@@ -1,6 +1,7 @@
 import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
 import Foundation
+import SwiftUtils
 
 extension Subcommands {
     struct ZenzEvaluate: AsyncParsableCommand {
