@@ -18,7 +18,7 @@ package extension Sequence {
     }
 }
 
-package extension Collection {
+public extension Collection {
     /// Returns a `Set` containing the elements of this sequence with transformed values.
     /// - Parameters:
     ///   - transform: A closure that transforms each element of this sequence into a value that can be hashed.
@@ -60,7 +60,7 @@ package extension Collection {
     }
 }
 
-package extension MutableCollection {
+public extension MutableCollection {
     /// Calls the given closure with a pointer to the array's mutable contiguous storage.
     /// - Parameter
     ///   - transform: A closure that takes a pointer to the array's mutable contiguous storage.
@@ -71,7 +71,7 @@ package extension MutableCollection {
     }
 }
 
-package extension Collection {
+public extension Collection {
     /// Returns a SubSequence containing the elements of this sequence up to the first element that does not satisfy the given predicate.
     /// - Parameters:
     ///   - condition: A closure that takes an element of the sequence as its argument and returns a Boolean value indicating whether the element should be included.
@@ -85,7 +85,7 @@ package extension Collection {
     }
 }
 
-package extension Collection where Self.Element: Equatable {
+public extension Collection where Self.Element: Equatable {
     /// Returns a Bool value indicating whether the collection has the given prefix.
     /// - Parameters:
     ///   - prefix: A collection to search for at the start of this collection.

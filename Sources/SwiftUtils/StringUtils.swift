@@ -6,26 +6,26 @@
 //  Copyright © 2020 ensan. All rights reserved.
 //
 
-import Foundation
+public import Foundation
 
-package extension StringProtocol {
+extension StringProtocol {
     /// ローマ字と数字のみかどうか
     ///  - note: 空文字列の場合`false`を返す。
-    @usableFromInline
-    var onlyRomanAlphabetOrNumber: Bool {
+    @inlinable
+    package var onlyRomanAlphabetOrNumber: Bool {
         !isEmpty && range(of: "[^a-zA-Z0-9]", options: .regularExpression) == nil
     }
     /// ローマ字のみかどうか
     ///  - note: 空文字列の場合`false`を返す。
-    @usableFromInline
-    var onlyRomanAlphabet: Bool {
+    @inlinable
+    package var onlyRomanAlphabet: Bool {
         !isEmpty && range(of: "[^a-zA-Z]", options: .regularExpression) == nil
     }
     /// ローマ字を含むかどうか
     ///  - note: 空文字列の場合`false`を返す。
     /// 以前は正規表現ベースで実装していたが、パフォーマンス上良くなかったので以下のような実装にしたところ40倍程度高速化した。
     @inlinable
-    var containsRomanAlphabet: Bool {
+    package var containsRomanAlphabet: Bool {
         for value in self.utf8 {
             if (UInt8(ascii: "a") <= value && value <= UInt8(ascii: "z")) || (UInt8(ascii: "A") <= value && value <= UInt8(ascii: "Z")) {
                 return true
@@ -35,21 +35,21 @@ package extension StringProtocol {
     }
     /// 英語として許容可能な文字のみで構成されているか。
     ///  - note: 空文字列の場合`false`を返す。
-    @usableFromInline
-    var isEnglishSentence: Bool {
+    @inlinable
+    public var isEnglishSentence: Bool {
         !isEmpty && range(of: "[^0-9a-zA-Z\n !'_<>\\[\\]{}*@`\\^|~=\"#$%&\\+\\(\\),\\-\\./:;?’\\\\]", options: .regularExpression) == nil
     }
 
     /// 仮名か
     @usableFromInline
-    var isKana: Bool {
+    package var isKana: Bool {
         !isEmpty && range(of: "[^ぁ-ゖァ-ヶ]", options: .regularExpression) == nil
     }
 
     /// Returns a String value in which Hiraganas are all converted to Katakana.
     /// - Returns: A String value in which Hiraganas are all converted to Katakana.
-    @usableFromInline
-    func toKatakana() -> String {
+    @inlinable
+    public func toKatakana() -> String {
         // カタカナはutf16で常に2バイトなので、utf16単位で処理して良い
         let result = self.utf16.map { scalar -> UInt16 in
             if 0x3041 <= scalar && scalar <= 0x3096 {
@@ -63,8 +63,8 @@ package extension StringProtocol {
 
     /// Returns a String value in which Katakana are all converted to Hiragana.
     /// - Returns: A String value in which Katakana are all converted to Hiragana.
-    @usableFromInline
-    func toHiragana() -> String {
+    @inlinable
+    public func toHiragana() -> String {
         // ひらがなはutf16で常に2バイトなので、utf16単位で処理して良い
         let result = self.utf16.map { scalar -> UInt16 in
             if 0x30A1 <= scalar && scalar <= 0x30F6 {
@@ -87,7 +87,7 @@ package extension StringProtocol {
      " -> \d
      */
     // please use these letters in order to avoid user-inputting text crash
-    func templateDataSpecificEscaped() -> String {
+    package func templateDataSpecificEscaped() -> String {
         var result = self.replacingOccurrences(of: "\\", with: "\\b")
         result = result.replacingOccurrences(of: "\0", with: "\\0")
         result = result.replacingOccurrences(of: "\n", with: "\\n")
@@ -98,7 +98,7 @@ package extension StringProtocol {
         return result
     }
 
-    func templateDataSpecificUnescaped() -> String {
+    package func templateDataSpecificUnescaped() -> String {
         var result = self.replacingOccurrences(of: "\\d", with: "\"")
         result = result.replacingOccurrences(of: "\\s", with: " ")
         result = result.replacingOccurrences(of: "\\c", with: ",")
