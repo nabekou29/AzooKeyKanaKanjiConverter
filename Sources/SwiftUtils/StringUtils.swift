@@ -41,8 +41,8 @@ extension StringProtocol {
     }
 
     /// 仮名か
-    @usableFromInline
-    package var isKana: Bool {
+    @inlinable
+    public var isKana: Bool {
         !isEmpty && range(of: "[^ぁ-ゖァ-ヶ]", options: .regularExpression) == nil
     }
 
