@@ -239,8 +239,10 @@ final class ZenzContext {
         }
 
         // Heapからソートして結果を取り出す
-        let cchars: [CChar] = prompt_tokens.dropFirst(initial_count).flatMap(self.token_to_piece) + [0]
-        return String(cString: cchars)
+        let cchars: [CChar] = prompt_tokens.dropFirst(initial_count).flatMap(self.token_to_piece)
+        let data = Data(cchars.map { UInt8(bitPattern: $0) })
+        let result: String = String(data: data, encoding: .utf8) ?? ""
+        return result
     }
 
     func predict_next_character(leftSideContext: String, count: Int) -> [(character: Character, value: Float)] {
@@ -471,12 +473,11 @@ final class ZenzContext {
             // ここで最も良い候補であったかをチェックする
             if maxItem.token != token_id {
                 if maxItem.token == llama_vocab_eos(vocab) {
-                    var cchars = tokens[..<i].reduce(into: []) {
+                    let cchars: [CChar] = tokens[..<i].reduce(into: []) {
                         $0.append(contentsOf: token_to_piece(token: $1))
                     }
-                    // adding "\0"
-                    cchars.append(0)
-                    let string = String(cString: cchars)
+                    let data = Data(cchars.map { UInt8(bitPattern: $0) })
+                    let string: String = String(data: data, encoding: .utf8) ?? ""
                     // 要求するべき制約を記述する
                     let wholeResult = String(string.dropFirst(prompt.count))
                     return .wholeResult(wholeResult)

@@ -44,7 +44,7 @@ extension Kana2Kanji {
         var hasEOS: Bool
 
         var description: String {
-            "PrefixConstraint(constraint: \"\(String(cString: self.constraint + [0]))\", hasEOS: \(self.hasEOS))"
+            "PrefixConstraint(constraint: \"\(String(decoding: self.constraint, as: UTF8.self))\", hasEOS: \(self.hasEOS))"
         }
 
         var isEmpty: Bool {
