@@ -318,7 +318,7 @@ public final class DicdataStore {
             segments.append((segments.last ?? "") + String(inputData.input[rightIndex].character.toKatakana()))
         }
         // MARK: 誤り訂正の対象を列挙する。非常に重い処理。
-        var stringToInfo = inputData.getRangesWithTypos(fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
+        var stringToInfo = TypoCorrection.getRangesWithTypos(inputs: inputData.input, leftIndex: fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
         // MARK: 検索対象を列挙していく。
         let stringSet: [([Character], [UInt8])] = stringToInfo.keys.map {($0, $0.map(self.character2charId))}
         let (minCharIDsCount, maxCharIDsCount) = stringSet.lazy.map {$0.1.count}.minAndMax() ?? (0, -1)
@@ -425,7 +425,7 @@ public final class DicdataStore {
         }
 
         // MARK: 誤り訂正なし
-        let stringToEndIndex = inputData.getRangesWithoutTypos(fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
+        let stringToEndIndex = TypoCorrection.getRangesWithoutTypos(inputs: inputData.input, leftIndex: fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
         // MARK: 検索対象を列挙していく。
         guard let (minString, maxString) = stringToEndIndex.keys.minAndMax(by: {$0.count < $1.count}) else {
             debug(#function, "minString/maxString is nil", stringToEndIndex)
@@ -485,7 +485,7 @@ public final class DicdataStore {
         let segment = inputData.input[fromIndex...toIndex].reduce(into: "") {$0.append($1.character)}.toKatakana()
 
         // TODO: 最適化の余地あり
-        let string2penalty = inputData.getRangeWithTypos(fromIndex, toIndex).filter {
+        let string2penalty = TypoCorrection.getRangeWithTypos(inputs: inputData.input, leftIndex: fromIndex, rightIndex: toIndex).filter {
             needTypoCorrection || $0.value == 0.0
         }
 
