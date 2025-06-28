@@ -42,7 +42,7 @@ struct TypoCorrectionGenerator {
 
     var stack: [(convertTargetElements: [ComposingText.ConvertTargetElement], lastElement: ComposingText.InputElement, count: Int, penalty: PValue)]
 
-    mutating func generate(inputs: [ComposingText.InputElement], leftIndex left: Int, rightIndexRange: Range<Int>) -> ([Character], (endIndex: Int, penalty: PValue))? {
+    mutating func next() -> ([Character], (endIndex: Int, penalty: PValue))? {
         while let (convertTargetElements, lastElement, count, penalty) = self.stack.popLast() {
             var result: ([Character], (endIndex: Int, penalty: PValue))? = nil
             if rightIndexRange.contains(count + left - 1) {
@@ -52,14 +52,18 @@ struct TypoCorrectionGenerator {
             }
             // エスケープ
             if self.nodes.endIndex <= count {
-                continue
+                if let result {
+                    return result
+                }
             }
             // 訂正数上限(3個)
             if penalty >= maxPenalty {
                 var convertTargetElements = convertTargetElements
                 let correct = [inputs[left + count]].map {ComposingText.InputElement(character: $0.character.toKatakana(), inputStyle: $0.inputStyle)}
                 if count + correct.count > self.nodes.endIndex {
-                    continue
+                    if let result {
+                        return result
+                    }
                 }
                 for element in correct {
                     ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
