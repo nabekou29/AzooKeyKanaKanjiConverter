@@ -298,7 +298,7 @@ public final class DicdataStore {
                 }
             }
             // 短期記憶についてはこの位置で処理する
-            for data in self.learningManager.temporaryThroughMatch(charIDs: consume charIDs, depth: 0 ..< .max) {
+            for data in self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume charIDs, depth: 0 ..< .max) {
                 if info.penalty.isZero {
                     temporaryMemoryDicdata.append(data)
                 }
@@ -478,7 +478,7 @@ public final class DicdataStore {
         }
         if learningManager.enabled {
             // temporalな学習結果にpenaltyを加えて追加する
-            dicdata.append(contentsOf: self.learningManager.temporaryThroughMatch(charIDs: consume maxIDs, depth: depth))
+            dicdata.append(contentsOf: self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume maxIDs, depth: depth))
         }
         for (key, value) in stringToEndIndex {
             let convertTarget = String(key)

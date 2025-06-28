@@ -27,7 +27,7 @@ final class TemporalLearningMemoryTrieTests: XCTestCase {
         XCTAssertEqual(result1.first?.word, element1.word)
         XCTAssertTrue(result1.first?.metadata.contains(.isLearned) ?? false)
 
-        let result2 = trie.throughMatch(chars: chars(for: element2.ruby), depth: (element2.ruby.count - 1)..<element2.ruby.count)
+        let result2 = trie.movingTowardPrefixSearch(chars: chars(for: element2.ruby), depth: (element2.ruby.count - 1)..<element2.ruby.count)
         XCTAssertEqual(result2.map { $0.word }, [element2.word])
 
         let prefixResult = trie.prefixMatch(chars: chars(for: "テス"))

@@ -584,7 +584,7 @@ struct TemporalLearningMemoryTrie {
         return nodes[index].dataIndices.map {self.dicdata[$0]}
     }
 
-    func throughMatch(chars: [UInt8], depth: Range<Int>) -> [DicdataElement] {
+    func movingTowardPrefixSearch(chars: [UInt8], depth: Range<Int>) -> [DicdataElement] {
         var index = 0
         var indices: [Int] = []
         for (offset, char) in chars.enumerated() {
@@ -718,11 +718,11 @@ final class LearningManager {
         return self.temporaryMemory.perfectMatch(chars: charIDs)
     }
 
-    func temporaryThroughMatch(charIDs: [UInt8], depth: Range<Int>) -> [DicdataElement] {
+    func movingTowardPrefixSearchOnTemporaryMemory(charIDs: [UInt8], depth: Range<Int>) -> [DicdataElement] {
         guard let options, options.learningType.needUsingMemory else {
             return []
         }
-        return self.temporaryMemory.throughMatch(chars: charIDs, depth: depth)
+        return self.temporaryMemory.movingTowardPrefixSearch(chars: charIDs, depth: depth)
     }
 
     func temporaryPrefixMatch(charIDs: [UInt8]) -> [DicdataElement] {
