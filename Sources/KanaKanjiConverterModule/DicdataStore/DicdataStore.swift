@@ -664,11 +664,16 @@ public final class DicdataStore {
         if convertTarget.count == 1 {
             let katakana = convertTarget.toKatakana()
             let hiragana = convertTarget.toHiragana()
-            if convertTarget == katakana {
-                result.append(DicdataElement(ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -14))
+            if convertTarget == katakana && katakana == hiragana {
+                // カタカナとひらがなが同じ場合（記号など）
+                let element = DicdataElement(ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -14)
+                result.append(element)
             } else {
-                result.append(DicdataElement(word: hiragana, ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -13))
-                result.append(DicdataElement(ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -14))
+                // カタカナとひらがなが異なる場合は両方追加
+                let hiraganaElement = DicdataElement(word: hiragana, ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -13)
+                let katakanaElement = DicdataElement(ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -14)
+                result.append(hiraganaElement)
+                result.append(katakanaElement)
             }
         }
 
