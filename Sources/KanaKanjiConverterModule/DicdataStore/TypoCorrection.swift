@@ -54,6 +54,8 @@ struct TypoCorrectionGenerator {
             if self.nodes.endIndex <= count {
                 if let result {
                     return result
+                } else {
+                    continue
                 }
             }
             // 訂正数上限(3個)
@@ -63,6 +65,8 @@ struct TypoCorrectionGenerator {
                 if count + correct.count > self.nodes.endIndex {
                     if let result {
                         return result
+                    } else {
+                        continue
                     }
                 }
                 for element in correct {
