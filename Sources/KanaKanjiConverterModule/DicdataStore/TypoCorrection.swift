@@ -116,9 +116,6 @@ struct TypoCorrectionGenerator: Sendable {
                     for element in $0.inputElements {
                         ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
                     }
-                    if Self.shouldBeRemovedForDicdataStore(components: convertTargetElements) {
-                        return nil
-                    }
                     return (
                         convertTargetElements: convertTargetElements,
                         lastElement: $0.inputElements.last!,
@@ -133,14 +130,6 @@ struct TypoCorrectionGenerator: Sendable {
             }
         }
         return nil
-    }
-
-    fileprivate static func shouldBeRemovedForDicdataStore(components: [ComposingText.ConvertTargetElement]) -> Bool {
-        // 判定に使うのは最初の1エレメントの最初の文字で十分
-        guard let first = components.first?.string.first?.toKatakana() else {
-            return false
-        }
-        return !CharacterUtils.isRomanLetter(first)
     }
 
     fileprivate static func getTypo(_ elements: some Collection<ComposingText.InputElement>, frozen: Bool = false) -> [TypoCandidate] {
