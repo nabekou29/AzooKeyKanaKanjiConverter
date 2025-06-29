@@ -42,6 +42,27 @@ struct TypoCorrectionGenerator {
 
     var stack: [(convertTargetElements: [ComposingText.ConvertTargetElement], lastElement: ComposingText.InputElement, count: Int, penalty: PValue)]
 
+    /// `target`で始まる場合は到達不可能であることを知らせる
+    mutating func setUnreachablePath(target: some Collection<Character>) {
+        self.stack = self.stack.filter { (convertTargetElements, lastElement, count, penalty) in
+            var stablePrefix: [Character] = []
+            loop: for item in convertTargetElements {
+                switch item.inputStyle {
+                case .direct:
+                    stablePrefix.append(contentsOf: item.string)
+                case .roman2kana:
+                    // TODO: impl
+                    break loop
+                }
+                // 安定なprefixが
+                if stablePrefix.hasPrefix(target) {
+                    return false
+                }
+            }
+            return true
+        }
+    }
+
     mutating func next() -> ([Character], (endIndex: Int, penalty: PValue))? {
         while let (convertTargetElements, lastElement, count, penalty) = self.stack.popLast() {
             var result: ([Character], (endIndex: Int, penalty: PValue))? = nil

@@ -288,17 +288,25 @@ public final class DicdataStore {
                 [String(firstCharacter), "user"]
             }
             var updated = false
+            var availableMaxIndex = 0
             for key in keys {
                 withMutableValue(&targetLOUDS[key]) { helper in
                     if helper == nil, let louds = self.loadLOUDS(query: key) {
                         helper = LOUDS.MovingTowardPrefixSearchHelper(louds: louds, depth: 0 ..< .max)
                     }
-                    let hasUpdate = helper?.update(target: charIDs) ?? false
-                    updated = updated || hasUpdate
+                    guard helper != nil else {
+                        return
+                    }
+                    let result = helper!.update(target: charIDs)
+                    updated = updated || result.updated
+                    availableMaxIndex = max(availableMaxIndex, result.availableMaxIndex)
                 }
             }
             // 短期記憶についてはこの位置で処理する
-            for data in self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume charIDs, depth: 0 ..< .max) {
+            let result = self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume charIDs, depth: 0 ..< .max)
+            updated = updated || !(result.dicdata.isEmpty)
+            availableMaxIndex = max(availableMaxIndex, result.availableMaxIndex)
+            for data in result.dicdata {
                 if info.penalty.isZero {
                     temporaryMemoryDicdata.append(data)
                 }
@@ -309,6 +317,10 @@ public final class DicdataStore {
                     continue
                 }
                 temporaryMemoryDicdata.append(data.adjustedData(adjust))
+            }
+            if availableMaxIndex < characters.endIndex - 1 {
+                // 到達不可能だったパスを通知
+                generator.setUnreachablePath(target: characters[...(availableMaxIndex + 1)])
             }
             if updated {
                 stringToInfo.append((characters, info))
@@ -478,7 +490,7 @@ public final class DicdataStore {
         }
         if learningManager.enabled {
             // temporalな学習結果にpenaltyを加えて追加する
-            dicdata.append(contentsOf: self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume maxIDs, depth: depth))
+            dicdata.append(contentsOf: self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume maxIDs, depth: depth).dicdata)
         }
         for (key, value) in stringToEndIndex {
             let convertTarget = String(key)

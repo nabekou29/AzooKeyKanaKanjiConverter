@@ -242,7 +242,7 @@ package struct LOUDS: Sendable {
         targets.sort(by: Self.lexLessThan)
         var helper = MovingTowardPrefixSearchHelper(louds: self, depth: depth)
         for target in targets {
-            helper.update(target: target)
+            _ = helper.update(target: target)
         }
         return helper.indices
     }
@@ -258,13 +258,18 @@ package struct LOUDS: Sendable {
         var indices: [Int] = []
         // 現在の探索結果を保存しておく
         var stack: [(nodeIndex: Int, char: UInt8)] = []
-
-        @inlinable mutating func update(target: [UInt8]) -> Bool {
+        
+        /// `target`を用いて更新する
+        /// - Parameter target: 検索対象の`CharID`の列
+        /// - Returns: `updated`はこれによって`indices`の更新があったかどうか。`availableMaxIndex`はアクセスに成功した最大インデックス
+        @inlinable mutating func update(target: [UInt8]) -> (updated: Bool, availableMaxIndex: Int) {
             var updated = false
+            var availableMaxIndex = 0
             // iがupperBoundを超えない範囲で検索を行う
             for (i, char) in target.enumerated() where i < self.depth.upperBound {
                 if i < self.stack.count, self.stack[i].char == char {
                     // すでに探索済み
+                    availableMaxIndex = i
                     continue
                 } else if i < self.stack.count, self.stack[i].char != char {
                     // 異なる文字が見つかったら、その時点でそこから先のstackを破棄
@@ -278,6 +283,7 @@ package struct LOUDS: Sendable {
                     if self.depth.contains(i) {
                         self.indices.append(nodeIndex)
                         updated = true
+                        availableMaxIndex = i
                     }
                     self.stack.append((nodeIndex, char))
                 } else {
@@ -285,7 +291,7 @@ package struct LOUDS: Sendable {
                     break
                 }
             }
-            return updated
+            return (updated, availableMaxIndex)
         }
     }
 }
