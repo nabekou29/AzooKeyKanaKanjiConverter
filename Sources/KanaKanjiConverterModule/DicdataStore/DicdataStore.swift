@@ -242,36 +242,18 @@ public final class DicdataStore {
         return [louds.searchNodeIndex(chars: charIDs)].compactMap {$0}
     }
 
-    /// 入力の各prefix（ア、アイ、アイウ...）をすべて順にたどってLOUDS辞書から候補を検索する関数。
-    /// - Parameters:
-    ///   - group: 検索対象の辞書をキーにした、検索語（Character配列とcharID配列のペア）のリスト。
-    ///   - depth: 各検索語のprefix深さの範囲。例: `2..<4` なら2文字・3文字のprefixを対象にする。
-    /// - Returns: 各辞書ごとに、見つかったノードインデックスの集合。
-    ///
-    /// 「アイウ」に対して「ア」「アイ」「アイウ」のすべてをLOUDSで検索するバルク処理を行う。
-    private func movingTowardPrefixSearch(group: [String: [([Character], [UInt8])]], depth: Range<Int>) -> [(key: String, indices: Set<Int>)] {
-        let indices: [(String, Set<Int>)] = group.map {dic in
-            guard let louds = self.loadLOUDS(query: dic.key) else {
-                return (dic.key, [])
-            }
-            // バルク処理用の実装を呼び出す
-            let result = louds.byfixNodeIndices(targets: dic.value.map { $0.1 }, depth: depth)
-            return (dic.key, Set(result))
-        }
-        return indices
-    }
-
     func movingTowardPrefixSearch(
         inputs: [ComposingText.InputElement],
         leftIndex: Int,
         rightIndexRange: Range<Int>,
-        useMemory: Bool
+        useMemory: Bool,
+        needTypoCorrection: Bool
     ) -> (
         stringToInfo: [[Character]: (endIndex: Int, penalty: PValue)],
         indices: [(key: String, indices: [Int])],
         temporaryMemoryDicdata: [DicdataElement]
     ) {
-        var generator = TypoCorrectionGenerator(inputs: inputs, leftIndex: leftIndex, rightIndexRange: rightIndexRange)
+        var generator = TypoCorrectionGenerator(inputs: inputs, leftIndex: leftIndex, rightIndexRange: rightIndexRange, needTypoCorrection: needTypoCorrection)
         var targetLOUDS: [String: LOUDS.MovingTowardPrefixSearchHelper] = [:]
         var stringToInfo: [([Character], (endIndex: Int, penalty: PValue))] = []
 
@@ -329,7 +311,6 @@ public final class DicdataStore {
             }
         }
         let minCount = stringToInfo.map {$0.0.count}.min() ?? 0
-        print(#function, minCount, stringToInfo.map{$0.0})
         return (
             Dictionary(stringToInfo, uniquingKeysWith: {$0.penalty < $1.penalty ? $1 : $0}),
             targetLOUDS.map { ($0.key, $0.value.indicesInDepth(depth: minCount - 1 ..< .max) )},
@@ -381,9 +362,6 @@ public final class DicdataStore {
     ///   - from: 起点
     ///   - toIndexRange: `from ..< (toIndexRange)`の範囲で辞書ルックアップを行う。
     public func getLOUDSDataInRange(inputData: ComposingText, from fromIndex: Int, toIndexRange: Range<Int>? = nil, needTypoCorrection: Bool = true) -> [LatticeNode] {
-        if !needTypoCorrection {
-            return self.getFrozenLOUDSDataInRange(inputData: inputData, from: fromIndex, toIndexRange: toIndexRange)
-        }
         let toIndexLeft = toIndexRange?.startIndex ?? fromIndex
         let toIndexRight = min(toIndexRange?.endIndex ?? inputData.input.count, fromIndex + self.maxlength)
         if fromIndex > toIndexLeft || toIndexLeft >= toIndexRight {
@@ -395,7 +373,7 @@ public final class DicdataStore {
             segments.append((segments.last ?? "") + String(inputData.input[rightIndex].character.toKatakana()))
         }
         // MARK: 誤り訂正の対象を列挙する。非常に重い処理。
-        var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(inputs: inputData.input, leftIndex: fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight, useMemory: self.learningManager.enabled)
+        var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(inputs: inputData.input, leftIndex: fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight, useMemory: self.learningManager.enabled, needTypoCorrection: needTypoCorrection)
         // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
         for (identifier, value) in indices {
             let result: [DicdataElement] = self.getDicdataFromLoudstxt3(identifier: identifier, indices: value).compactMap { (data) -> DicdataElement? in
@@ -449,77 +427,6 @@ public final class DicdataStore {
                 return LatticeNode(data: $0, inputRange: fromIndex ..< endIndex + 1)
             }
             return result
-        }
-    }
-
-    /// kana2latticeから参照する。
-    /// - Parameters:
-    ///   - inputData: 入力データ
-    ///   - from: 起点
-    ///   - toIndexRange: `from ..< (toIndexRange)`の範囲で辞書ルックアップを行う。
-    private func getFrozenLOUDSDataInRange(inputData: ComposingText, from fromIndex: Int, toIndexRange: Range<Int>? = nil) -> [LatticeNode] {
-        let toIndexLeft = toIndexRange?.startIndex ?? fromIndex
-        let toIndexRight = min(toIndexRange?.endIndex ?? inputData.input.count, fromIndex + self.maxlength)
-        debug(#function, fromIndex, toIndexRange?.description ?? "nil", toIndexLeft, toIndexRight)
-        if fromIndex > toIndexLeft || toIndexLeft >= toIndexRight {
-            debug(#function, "index is wrong")
-            return []
-        }
-
-        let character = String(inputData.input[fromIndex].character.toKatakana())
-        let characterNode = LatticeNode(data: DicdataElement(word: character, ruby: character, cid: CIDData.一般名詞.cid, mid: MIDData.一般.mid, value: -10), inputRange: fromIndex ..< fromIndex + 1)
-        if fromIndex == .zero {
-            characterNode.prevs.append(.BOSNode())
-        }
-
-        // MARK: 誤り訂正なし
-        let stringToEndIndex = TypoCorrection.getRangesWithoutTypos(inputs: inputData.input, leftIndex: fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
-        // MARK: 検索対象を列挙していく。
-        guard let (minString, maxString) = stringToEndIndex.keys.minAndMax(by: {$0.count < $1.count}) else {
-            debug(#function, "minString/maxString is nil", stringToEndIndex)
-            return [characterNode]
-        }
-        let maxIDs = maxString.map(self.character2charId)
-        var group: [String: [([Character], [UInt8])]] = [
-            String(stringToEndIndex.keys.first!.first!): [(maxString, maxIDs)],
-            "user": [(maxString, maxIDs)],
-        ]
-        if learningManager.enabled {
-            group["memory"] = group["user"]
-        }
-        // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
-        var dicdata: [DicdataElement] = []
-        let depth = minString.count - 1 ..< maxString.count
-        for (identifier, indices) in self.movingTowardPrefixSearch(group: group, depth: depth) {
-            dicdata.append(contentsOf: self.getDicdataFromLoudstxt3(identifier: identifier, indices: indices))
-        }
-        if learningManager.enabled {
-            // temporalな学習結果にpenaltyを加えて追加する
-            dicdata.append(
-                contentsOf: self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume maxIDs, depth: depth).dicdata.flatMap { $0.value }
-            )
-        }
-        for (key, value) in stringToEndIndex {
-            let convertTarget = String(key)
-            dicdata.append(contentsOf: self.getWiseDicdata(convertTarget: convertTarget, inputData: inputData, inputRange: fromIndex ..< value + 1))
-            dicdata.append(contentsOf: self.getMatchDynamicUserDict(convertTarget))
-        }
-        if fromIndex == .zero {
-            return dicdata.compactMap {
-                guard let endIndex = stringToEndIndex[Array($0.ruby)] else {
-                    return nil
-                }
-                let node = LatticeNode(data: $0, inputRange: fromIndex ..< endIndex + 1)
-                node.prevs.append(RegisteredNode.BOSNode())
-                return node
-            } + [characterNode]
-        } else {
-            return dicdata.compactMap {
-                guard let endIndex = stringToEndIndex[Array($0.ruby)] else {
-                    return nil
-                }
-                return LatticeNode(data: $0, inputRange: fromIndex ..< endIndex + 1)
-            } + [characterNode]
         }
     }
 

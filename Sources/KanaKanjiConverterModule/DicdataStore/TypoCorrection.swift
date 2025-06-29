@@ -1,7 +1,8 @@
 import SwiftUtils
 
 struct TypoCorrectionGenerator {
-    init(inputs: [ComposingText.InputElement], leftIndex left: Int, rightIndexRange: Range<Int>) {
+    init(inputs: [ComposingText.InputElement], leftIndex left: Int, rightIndexRange: Range<Int>, needTypoCorrection: Bool) {
+        self.maxPenalty = needTypoCorrection ? 3.5 * 3 : 0
         self.inputs = inputs
         self.left = left
         self.rightIndexRange = rightIndexRange
@@ -14,7 +15,7 @@ struct TypoCorrectionGenerator {
                 if count <= j {
                     return []
                 }
-                return TypoCorrection.getTypo(inputs[left + i ... left + j])
+                return TypoCorrection.getTypo(inputs[left + i ... left + j], frozen: !needTypoCorrection)
             }
         }
         // 深さ優先で列挙する
@@ -33,7 +34,7 @@ struct TypoCorrectionGenerator {
         }
     }
 
-    let maxPenalty: PValue = 3.5 * 3
+    let maxPenalty: PValue
     let inputs: [ComposingText.InputElement]
     let left: Int
     let rightIndexRange: Range<Int>
@@ -144,71 +145,6 @@ enum TypoCorrection {
         }
         return !CharacterUtils.isRomanLetter(first) && !DicdataStore.existLOUDS(for: first)
     }
-
-    /// closedRangeでもらう
-    /// 例えば`left=4, rightIndexRange=6..<10`の場合、`4...6, 4...7, 4...8, 4...9`の範囲で計算する
-    /// `left <= rightIndexRange.startIndex`が常に成り立つ
-    static func getRangesWithoutTypos(inputs: [ComposingText.InputElement], leftIndex left: Int, rightIndexRange: Range<Int>) -> [[Character]: Int] {
-        let count = rightIndexRange.endIndex - left
-        debug(#function, left, rightIndexRange, count)
-        let nodes = (0..<count).map {(i: Int) in
-            Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
-                let j = i + k
-                if count <= j {
-                    return []
-                }
-                // frozen: trueとしているため、typo候補は含まれない
-                return Self.getTypo(inputs[left + i ... left + j], frozen: true)
-            }
-        }
-
-        // Performance Tuning Note：直接Dictionaryを作るのではなく、一度Arrayを作ってから最後にDictionaryに変換する方が、高速である
-        var stringToInfo: [([Character], Int)] = []
-
-        // 深さ優先で列挙する
-        var stack: [(convertTargetElements: [ComposingText.ConvertTargetElement], lastElement: ComposingText.InputElement, count: Int)] = nodes[0].compactMap { typoCandidate in
-            guard let firstElement = typoCandidate.inputElements.first else {
-                return nil
-            }
-            if ComposingText.isLeftSideValid(first: firstElement, of: inputs, from: left) {
-                var convertTargetElements = [ComposingText.ConvertTargetElement]()
-                for element in typoCandidate.inputElements {
-                    ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
-                }
-                return (convertTargetElements, typoCandidate.inputElements.last!, typoCandidate.inputElements.count)
-            }
-            return nil
-        }
-        while case .some((var convertTargetElements, let lastElement, let count)) = stack.popLast() {
-            if rightIndexRange.contains(count + left - 1) {
-                if let convertTarget = ComposingText.getConvertTargetIfRightSideIsValid(lastElement: lastElement, of: inputs, to: count + left, convertTargetElements: convertTargetElements)?.map({$0.toKatakana()}) {
-                    stringToInfo.append((convertTarget, (count + left - 1)))
-                }
-            }
-            // エスケープ
-            if nodes.endIndex <= count {
-                continue
-            }
-            stack.append(contentsOf: nodes[count].compactMap {
-                if count + $0.inputElements.count > nodes.endIndex {
-                    return nil
-                }
-                for element in $0.inputElements {
-                    ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
-                }
-                if Self.shouldBeRemovedForDicdataStore(components: convertTargetElements) {
-                    return nil
-                }
-                return (
-                    convertTargetElements: convertTargetElements,
-                    lastElement: $0.inputElements.last!,
-                    count: count + $0.inputElements.count
-                )
-            })
-        }
-        return Dictionary(stringToInfo, uniquingKeysWith: {$0 < $1 ? $1 : $0})
-    }
-
 
     static func getRangeWithTypos(inputs: [ComposingText.InputElement], leftIndex left: Int, rightIndex right: Int) -> [[Character]: PValue] {
         // 各iから始まる候補を列挙する
