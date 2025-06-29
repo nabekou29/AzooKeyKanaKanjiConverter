@@ -52,9 +52,21 @@ struct TypoCorrectionGenerator {
                     stablePrefix.append(contentsOf: item.string)
                 case .roman2kana:
                     // TODO: impl
-                    break loop
+                    var stableIndex = item.string.endIndex
+                    for suffix in Roman2Kana.unstableSuffixes {
+                        if item.string.hasSuffix(suffix) {
+                            stableIndex = min(stableIndex, item.string.endIndex - suffix.count)
+                        }
+                    }
+                    if stableIndex == item.string.endIndex {
+                        stablePrefix.append(contentsOf: item.string)
+                    } else {
+                        // 全体が安定でない場合は、そこでbreakする
+                        stablePrefix.append(contentsOf: item.string[0 ..< stableIndex])
+                        break loop
+                    }
                 }
-                // 安定なprefixが
+                // 安定なprefixがtargetをprefixに持つ場合、このstack内のアイテムについてもunreachableであることが分かるので、除去する
                 if stablePrefix.hasPrefix(target) {
                     return false
                 }

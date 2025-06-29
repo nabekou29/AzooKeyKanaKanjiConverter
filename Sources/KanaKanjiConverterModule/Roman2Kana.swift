@@ -10,6 +10,11 @@ import Foundation
 import SwiftUtils
 
 enum Roman2Kana {
+    static let unstableSuffixes: Set<[Character]> = hiraganaChanges.keys.flatMapSet { characters in
+        characters.indices.map { i in
+            Array(characters[...i])
+        }
+    }
     static let katakanaChanges: [String: String] = Dictionary(uniqueKeysWithValues: hiraganaChanges.map { (String($0.key), String($0.value).toKatakana()) })
     static let hiraganaChanges: [[Character]: [Character]] = Dictionary(uniqueKeysWithValues: [
         "a": "あ",
