@@ -199,54 +199,6 @@ package struct LOUDS: Sendable {
         return self.prefixNodeIndices(nodeIndex: nodeIndex, maxDepth: maxDepth, maxCount: maxCount)
     }
 
-    /// 部分前方一致検索を実行する
-    ///
-    /// 「しかい」を入力した場合、「しかい」だけでなく「し」「しか」の検索も行う。
-    /// - Parameter chars: CharIDに変換した文字列
-    /// - Returns: 対応するloudstxt3ファイル内のインデックスのリスト
-    /// - Note: より適切な名前に変更したい
-    @inlinable func byfixNodeIndices(chars: [UInt8]) -> [Int] {
-        var indices = [1]
-        for char in chars {
-            if let nodeIndex = self.searchCharNodeIndex(from: indices.last!, char: char) {
-                indices.append(nodeIndex)
-            } else {
-                break
-            }
-        }
-        return indices
-    }
-
-    /// 辞書順ソート
-    private static func lexLessThan(_ lhs: [UInt8], _ rhs: [UInt8]) -> Bool {
-        let minCount = Swift.min(lhs.count, rhs.count)
-        for i in 0..<minCount {
-            let l = lhs[i]
-            let r = rhs[i]
-            if l != r {
-                return l < r
-            }
-        }
-        return lhs.count < rhs.count
-    }
-
-    /// 部分前方一致検索を実行する
-    ///
-    /// 「しかい」を入力した場合、「しかい」だけでなく「し」「しか」の検索も行う。
-    /// - Parameter chars: CharIDに変換した文字列
-    /// - Returns: 対応するloudstxt3ファイル内のインデックスのリスト
-    /// - Note: より適切な名前に変更したい
-    @inlinable func byfixNodeIndices(targets: [[UInt8]], depth: Range<Int>) -> [Int] {
-        // 辞書順でソートする
-        var targets = targets
-        targets.sort(by: Self.lexLessThan)
-        var helper = MovingTowardPrefixSearchHelper(louds: self)
-        for target in targets {
-            _ = helper.update(target: target)
-        }
-        return helper.indicesInDepth(depth: depth)
-    }
-
     struct MovingTowardPrefixSearchHelper {
         init(louds: LOUDS) {
             self.louds = louds
