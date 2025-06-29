@@ -261,6 +261,83 @@ public final class DicdataStore {
         return indices
     }
 
+    func movingTowardPrefixSearch(
+        inputs: [ComposingText.InputElement],
+        leftIndex: Int,
+        rightIndexRange: Range<Int>,
+        useMemory: Bool
+    ) -> (
+        stringToInfo: [[Character]: (endIndex: Int, penalty: PValue)],
+        indices: [(key: String, indices: [Int])],
+        temporaryMemoryDicdata: [DicdataElement]
+    ) {
+        var generator = TypoCorrectionGenerator(inputs: inputs, leftIndex: leftIndex, rightIndexRange: rightIndexRange)
+        var targetLOUDS: [String: LOUDS.MovingTowardPrefixSearchHelper] = [:]
+        var stringToInfo: [([Character], (endIndex: Int, penalty: PValue))] = []
+
+        var temporaryMemoryDicdata: [Int: [DicdataElement]] = [:]
+        // ジェネレータを舐める
+        while let (characters, info) = generator.next() {
+            guard let firstCharacter = characters.first else {
+                continue
+            }
+            let charIDs = characters.map(self.character2charId(_:))
+            let keys: [String] = if useMemory {
+                [String(firstCharacter), "user", "memory"]
+            } else {
+                [String(firstCharacter), "user"]
+            }
+            var updated = false
+            var availableMaxIndex = 0
+            for key in keys {
+                withMutableValue(&targetLOUDS[key]) { helper in
+                    if helper == nil, let louds = self.loadLOUDS(query: key) {
+                        helper = LOUDS.MovingTowardPrefixSearchHelper(louds: louds)
+                    }
+                    guard helper != nil else {
+                        return
+                    }
+                    let result = helper!.update(target: charIDs)
+                    updated = updated || result.updated
+                    availableMaxIndex = max(availableMaxIndex, result.availableMaxIndex)
+                }
+            }
+            // 短期記憶についてはこの位置で処理する
+            let result = self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume charIDs)
+            updated = updated || !(result.dicdata.isEmpty)
+            availableMaxIndex = max(availableMaxIndex, result.availableMaxIndex)
+            for (depth, dicdata) in result.dicdata {
+                for data in dicdata {
+                    if info.penalty.isZero {
+                        temporaryMemoryDicdata[depth, default: []].append(data)
+                    }
+                    let ratio = Self.penaltyRatio[data.lcid]
+                    let pUnit: PValue = Self.getPenalty(data: data) / 2   // 負の値
+                    let adjust = pUnit * info.penalty * ratio
+                    if self.shouldBeRemoved(value: data.value() + adjust, wordCount: data.ruby.count) {
+                        continue
+                    }
+                    temporaryMemoryDicdata[depth, default: []].append(data.adjustedData(adjust))
+                }
+            }
+            if availableMaxIndex < characters.endIndex - 1 {
+                // 到達不可能だったパスを通知
+                generator.setUnreachablePath(target: characters[...(availableMaxIndex + 1)])
+            }
+            if updated {
+                stringToInfo.append((characters, info))
+            }
+        }
+        let minCount = stringToInfo.map {$0.0.count}.min() ?? 0
+        print(#function, minCount, stringToInfo.map{$0.0})
+        return (
+            Dictionary(stringToInfo, uniquingKeysWith: {$0.penalty < $1.penalty ? $1 : $0}),
+            targetLOUDS.map { ($0.key, $0.value.indicesInDepth(depth: minCount - 1 ..< .max) )},
+            temporaryMemoryDicdata.flatMap {
+                minCount < $0.key + 1 ? $0.value : []
+            }
+        )
+    }
     /// prefixを起点として、それに続く語（prefix match）をLOUDS上で探索する関数。
     /// - Parameters:
     ///   - query: 辞書ファイルの識別子（通常は先頭1文字や"user"など）。
@@ -318,20 +395,8 @@ public final class DicdataStore {
             segments.append((segments.last ?? "") + String(inputData.input[rightIndex].character.toKatakana()))
         }
         // MARK: 誤り訂正の対象を列挙する。非常に重い処理。
-        var stringToInfo = inputData.getRangesWithTypos(fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
-        // MARK: 検索対象を列挙していく。
-        let stringSet: [([Character], [UInt8])] = stringToInfo.keys.map {($0, $0.map(self.character2charId))}
-        let (minCharIDsCount, maxCharIDsCount) = stringSet.lazy.map {$0.1.count}.minAndMax() ?? (0, -1)
-        let depth = minCharIDsCount - 1 ..< maxCharIDsCount
-        let group = [String: [([Character], [UInt8])]].init(grouping: stringSet, by: {String($0.0.first!)})
-        var indices = self.movingTowardPrefixSearch(group: group, depth: depth)
-        if learningManager.enabled {
-            indices.append(contentsOf: self.movingTowardPrefixSearch(group: ["user": stringSet, "memory": stringSet], depth: depth))
-        } else {
-            indices.append(contentsOf: self.movingTowardPrefixSearch(group: ["user": stringSet], depth: depth))
-        }
+        var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(inputs: inputData.input, leftIndex: fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight, useMemory: self.learningManager.enabled)
         // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
-        var dicdata: [DicdataElement] = []
         for (identifier, value) in indices {
             let result: [DicdataElement] = self.getDicdataFromLoudstxt3(identifier: identifier, indices: value).compactMap { (data) -> DicdataElement? in
                 let rubyArray = Array(data.ruby)
@@ -348,23 +413,6 @@ public final class DicdataStore {
                 return data.adjustedData(adjust)
             }
             dicdata.append(contentsOf: result)
-        }
-        // temporalな学習結果にpenaltyを加えて追加する
-        for (_, charIds) in consume stringSet {
-            for data in self.learningManager.temporaryThroughMatch(charIDs: consume charIds, depth: depth) {
-                let rubyArray = Array(data.ruby)
-                let penalty = stringToInfo[rubyArray, default: (0, .zero)].penalty
-                if penalty.isZero {
-                    dicdata.append(data)
-                }
-                let ratio = Self.penaltyRatio[data.lcid]
-                let pUnit: PValue = Self.getPenalty(data: data) / 2   // 負の値
-                let adjust = pUnit * penalty * ratio
-                if self.shouldBeRemoved(value: data.value() + adjust, wordCount: rubyArray.count) {
-                    continue
-                }
-                dicdata.append(data.adjustedData(adjust))
-            }
         }
 
         for i in toIndexLeft ..< toIndexRight {
@@ -425,7 +473,7 @@ public final class DicdataStore {
         }
 
         // MARK: 誤り訂正なし
-        let stringToEndIndex = inputData.getRangesWithoutTypos(fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
+        let stringToEndIndex = TypoCorrection.getRangesWithoutTypos(inputs: inputData.input, leftIndex: fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight)
         // MARK: 検索対象を列挙していく。
         guard let (minString, maxString) = stringToEndIndex.keys.minAndMax(by: {$0.count < $1.count}) else {
             debug(#function, "minString/maxString is nil", stringToEndIndex)
@@ -447,7 +495,9 @@ public final class DicdataStore {
         }
         if learningManager.enabled {
             // temporalな学習結果にpenaltyを加えて追加する
-            dicdata.append(contentsOf: self.learningManager.temporaryThroughMatch(charIDs: consume maxIDs, depth: depth))
+            dicdata.append(
+                contentsOf: self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume maxIDs, depth: depth).dicdata.flatMap { $0.value }
+            )
         }
         for (key, value) in stringToEndIndex {
             let convertTarget = String(key)
@@ -485,7 +535,7 @@ public final class DicdataStore {
         let segment = inputData.input[fromIndex...toIndex].reduce(into: "") {$0.append($1.character)}.toKatakana()
 
         // TODO: 最適化の余地あり
-        let string2penalty = inputData.getRangeWithTypos(fromIndex, toIndex).filter {
+        let string2penalty = TypoCorrection.getRangeWithTypos(inputs: inputData.input, leftIndex: fromIndex, rightIndex: toIndex).filter {
             needTypoCorrection || $0.value == 0.0
         }
 

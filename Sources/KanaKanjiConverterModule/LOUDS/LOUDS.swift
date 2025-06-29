@@ -238,38 +238,63 @@ package struct LOUDS: Sendable {
     /// - Note: より適切な名前に変更したい
     @inlinable func byfixNodeIndices(targets: [[UInt8]], depth: Range<Int>) -> [Int] {
         // 辞書順でソートする
-//        let targets = targets.sorted(by: Self.lexLessThan)
         var targets = targets
         targets.sort(by: Self.lexLessThan)
+        var helper = MovingTowardPrefixSearchHelper(louds: self)
+        for target in targets {
+            _ = helper.update(target: target)
+        }
+        return helper.indicesInDepth(depth: depth)
+    }
+
+    struct MovingTowardPrefixSearchHelper {
+        init(louds: LOUDS) {
+            self.louds = louds
+        }
+        let louds: LOUDS
         // 最終出力となる
-        var indices: [Int] = []
+        var indices: [(depth: Int, index: Int)] = []
         // 現在の探索結果を保存しておく
         var stack: [(nodeIndex: Int, char: UInt8)] = []
-        for chars in targets {
+
+        func indicesInDepth(depth: Range<Int>) -> [Int] {
+            return self.indices
+                .lazy
+                .filter { depth.contains($0.depth) }
+                .map { $0.index }
+        }
+
+        /// `target`を用いて更新する
+        /// - Parameter target: 検索対象の`CharID`の列
+        /// - Returns: `updated`はこれによって`indices`の更新があったかどうか。`availableMaxIndex`はアクセスに成功した最大インデックス
+        @inlinable mutating func update(target: [UInt8]) -> (updated: Bool, availableMaxIndex: Int) {
+            var updated = false
+            var availableMaxIndex = 0
             // iがupperBoundを超えない範囲で検索を行う
-            for (i, char) in chars.enumerated() where i < depth.upperBound {
-                if i < stack.count, stack[i].char == char {
+            for (i, char) in target.enumerated() {
+                if i < self.stack.count, self.stack[i].char == char {
                     // すでに探索済み
+                    availableMaxIndex = i
                     continue
-                } else if i < stack.count, stack[i].char != char {
+                } else if i < self.stack.count, self.stack[i].char != char {
                     // 異なる文字が見つかったら、その時点でそこから先のstackを破棄
-                    stack = Array(stack[..<i])
+                    self.stack = Array(self.stack[..<i])
                 }
                 // ここに到達する場合、stack[i]は存在しない。
-                assert(i >= stack.count, "stack[\(i)] must not exist for logical reason.")
+                assert(i >= self.stack.count, "stack[\(i)] must not exist for logical reason.")
                 // このケースでは、探索を行う
                 // 直前のstackを取り出し、そのnodeIndexから次のcharを探索する
-                if let nodeIndex = self.searchCharNodeIndex(from: stack.last?.nodeIndex ?? 1, char: char) {
-                    if depth.contains(i) {
-                        indices.append(nodeIndex)
-                    }
-                    stack.append((nodeIndex, char))
+                if let nodeIndex = self.louds.searchCharNodeIndex(from: self.stack.last?.nodeIndex ?? 1, char: char) {
+                    self.indices.append((i, nodeIndex))
+                    updated = true
+                    availableMaxIndex = i
+                    self.stack.append((nodeIndex, char))
                 } else {
                     // 見つからなかった場合、打ち切る
                     break
                 }
             }
+            return (updated, availableMaxIndex)
         }
-        return indices
     }
 }

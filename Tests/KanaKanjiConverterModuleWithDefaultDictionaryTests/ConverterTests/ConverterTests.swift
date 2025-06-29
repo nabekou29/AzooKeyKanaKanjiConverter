@@ -52,6 +52,24 @@ final class ConverterTests: XCTestCase {
             let results = await converter.requestCandidates(c, options: requestOptions())
             XCTAssertEqual(results.mainResults.first?.text, "幼少期からテニス水泳野球少林寺拳法など様々なスポーツを経験しながら育ち小学校時代はロサンゼルス近郊に滞在しておりゴルフやテニスを習っていた")
         }
+
+    }
+
+    func testRoman2KanaFullConversion() async throws {
+        do {
+            let converter = await KanaKanjiConverter()
+            var c = ComposingText()
+            c.insertAtCursorPosition("azuーkiーhasinjidainokiーboーdoapuridesu", inputStyle: .roman2kana)
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "azooKeyは新時代のキーボードアプリです")
+        }
+        do {
+            let converter = await KanaKanjiConverter()
+            var c = ComposingText()
+            c.insertAtCursorPosition("youshoukikaratenisusuieiyakyuushourinjikenpounadosamazamanasupoーtuwokeikennsinagarasodatishougakkouzidaiharosanzerusukinkounitaizaisiteorigoruhuyatenisuwonaratteita", inputStyle: .roman2kana)
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "幼少期からテニス水泳野球少林寺拳法など様々なスポーツを経験しながら育ち小学校時代はロサンゼルス近郊に滞在しておりゴルフやテニスを習っていた")
+        }
     }
 
     // 1文字ずつ変換する
