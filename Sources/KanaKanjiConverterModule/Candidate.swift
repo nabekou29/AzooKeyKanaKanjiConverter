@@ -107,6 +107,11 @@ public struct Candidate: Sendable {
 
     /// テンプレートをパースして、変換候補のテキストを生成する。
     public static func parseTemplate(_ text: String) -> String {
+        // MARK: Coarse Filtering: タグが入っていなければそもそも調べる必要なし
+        guard text.contains("<") else {
+            return text
+        }
+        // MARK: Fine Filtering: 正確にチェックする
         var newText = text
         while let range = newText.range(of: Self.dateExpression, options: .regularExpression) {
             let templateString = String(newText[range])
