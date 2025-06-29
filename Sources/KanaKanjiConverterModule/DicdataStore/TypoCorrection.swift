@@ -52,7 +52,6 @@ struct TypoCorrectionGenerator: Sendable {
                 case .direct:
                     stablePrefix.append(contentsOf: item.string)
                 case .roman2kana:
-                    // TODO: impl
                     var stableIndex = item.string.endIndex
                     for suffix in Roman2Kana.unstableSuffixes {
                         if item.string.hasSuffix(suffix) {
@@ -136,42 +135,22 @@ struct TypoCorrectionGenerator: Sendable {
         let key = elements.reduce(into: "") {$0.append($1.character.toKatakana())}
 
         if (elements.allSatisfy {$0.inputStyle == .direct}) {
-            let dictionary: [String: [TypoUnit]] = frozen ? [:] : Self.directPossibleTypo
+            let dictionary: [String: [TypoCandidate]] = frozen ? [:] : Self.directPossibleTypo
             if key.count > 1 {
-                return dictionary[key, default: []].map {
-                    TypoCandidate(
-                        inputElements: $0.value.map {ComposingText.InputElement(character: $0, inputStyle: .direct)},
-                        weight: $0.weight
-                    )
-                }
+                return dictionary[key, default: []]
             } else if key.count == 1 {
-                var result = dictionary[key, default: []].map {
-                    TypoCandidate(
-                        inputElements: $0.value.map {ComposingText.InputElement(character: $0, inputStyle: .direct)},
-                        weight: $0.weight
-                    )
-                }
+                var result = dictionary[key, default: []]
                 // そのまま
                 result.append(TypoCandidate(inputElements: key.map {ComposingText.InputElement(character: $0, inputStyle: .direct)}, weight: 0))
                 return result
             }
         }
         if (elements.allSatisfy {$0.inputStyle == .roman2kana}) {
-            let dictionary: [String: [String]] = frozen ? [:] : Self.roman2KanaPossibleTypo
+            let dictionary: [String: [TypoCandidate]] = frozen ? [:] : Self.roman2KanaPossibleTypo
             if key.count > 1 {
-                return dictionary[key, default: []].map {
-                    TypoCandidate(
-                        inputElements: $0.map {ComposingText.InputElement(character: $0, inputStyle: .roman2kana)},
-                        weight: 3.5
-                    )
-                }
+                return dictionary[key, default: []]
             } else if key.count == 1 {
-                var result = dictionary[key, default: []].map {
-                    TypoCandidate(
-                        inputElements: $0.map {ComposingText.InputElement(character: $0, inputStyle: .roman2kana)},
-                        weight: 3.5
-                    )
-                }
+                var result = dictionary[key, default: []]
                 // そのまま
                 result.append(
                     TypoCandidate(inputElements: key.map {ComposingText.InputElement(character: $0, inputStyle: .roman2kana)}, weight: 0)
@@ -200,7 +179,7 @@ struct TypoCorrectionGenerator: Sendable {
     }
 
     /// ダイレクト入力用
-    private static let directPossibleTypo: [String: [TypoUnit]] = [
+    private static let directPossibleTypo: [String: [TypoCandidate]] = [
         "カ": [TypoUnit("ガ", weight: 7.0)],
         "キ": [TypoUnit("ギ")],
         "ク": [TypoUnit("グ")],
@@ -229,9 +208,16 @@ struct TypoCorrectionGenerator: Sendable {
         "ヤ": [TypoUnit("ャ")],
         "ユ": [TypoUnit("ュ")],
         "ヨ": [TypoUnit("ョ")]
-    ]
+    ].mapValues {
+        $0.map {
+            TypoCandidate(
+                inputElements: $0.value.map {ComposingText.InputElement(character: $0, inputStyle: .direct)},
+                weight: $0.weight
+            )
+        }
+    }
 
-    private static let roman2KanaPossibleTypo: [String: [String]] = [
+    private static let roman2KanaPossibleTypo: [String: [TypoCandidate]] = [
         "bs": ["ba"],
         "no": ["bo"],
         "li": ["ki"],
@@ -242,5 +228,12 @@ struct TypoCorrectionGenerator: Sendable {
         "ts": ["ta"],
         "wi": ["wo"],
         "pu": ["ou"]
-    ]
+    ].mapValues {
+        $0.map {
+            TypoCandidate(
+                inputElements: $0.map {ComposingText.InputElement(character: $0, inputStyle: .roman2kana)},
+                weight: 3.5
+            )
+        }
+    }
 }
