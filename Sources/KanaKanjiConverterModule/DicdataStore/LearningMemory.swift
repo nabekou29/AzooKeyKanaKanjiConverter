@@ -584,22 +584,22 @@ struct TemporalLearningMemoryTrie {
         return nodes[index].dataIndices.map {self.dicdata[$0]}
     }
 
-    func movingTowardPrefixSearch(chars: [UInt8], depth: Range<Int>) -> (dicdata: [DicdataElement], availableMaxIndex: Int) {
+    func movingTowardPrefixSearch(chars: [UInt8], depth: Range<Int>) -> (dicdata: [Int: [DicdataElement]], availableMaxIndex: Int) {
         var index = 0
         var availableMaxIndex = 0
-        var indices: [Int] = []
+        var indices: [Int: [Int]] = [:]
         for (offset, char) in chars.enumerated() {
             if let nextIndex = nodes[index].children[char] {
                 availableMaxIndex = index
                 index = nextIndex
                 if depth.contains(offset) {
-                    indices.append(contentsOf: nodes[index].dataIndices)
+                    indices[offset] = nodes[index].dataIndices
                 }
             } else {
-                return (indices.map {self.dicdata[$0]}, availableMaxIndex)
+                return (indices.mapValues { items in items.map { self.dicdata[$0] }}, availableMaxIndex)
             }
         }
-        return (indices.map {self.dicdata[$0]}, availableMaxIndex)
+        return (indices.mapValues { items in items.map { self.dicdata[$0] }}, availableMaxIndex)
     }
 
     func prefixMatch(chars: [UInt8]) -> [DicdataElement] {
@@ -720,9 +720,9 @@ final class LearningManager {
         return self.temporaryMemory.perfectMatch(chars: charIDs)
     }
 
-    func movingTowardPrefixSearchOnTemporaryMemory(charIDs: [UInt8], depth: Range<Int>) -> (dicdata: [DicdataElement], availableMaxIndex: Int) {
+    func movingTowardPrefixSearchOnTemporaryMemory(charIDs: [UInt8], depth: Range<Int> = 0 ..< .max) -> (dicdata: [Int: [DicdataElement]], availableMaxIndex: Int) {
         guard let options, options.learningType.needUsingMemory else {
-            return ([], 0)
+            return ([:], 0)
         }
         return self.temporaryMemory.movingTowardPrefixSearch(chars: charIDs, depth: depth)
     }

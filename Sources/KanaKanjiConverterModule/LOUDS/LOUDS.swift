@@ -240,25 +240,30 @@ package struct LOUDS: Sendable {
         // 辞書順でソートする
         var targets = targets
         targets.sort(by: Self.lexLessThan)
-        var helper = MovingTowardPrefixSearchHelper(louds: self, depth: depth)
+        var helper = MovingTowardPrefixSearchHelper(louds: self)
         for target in targets {
             _ = helper.update(target: target)
         }
-        return helper.indices
+        return helper.indicesInDepth(depth: depth)
     }
 
     struct MovingTowardPrefixSearchHelper {
-        init(louds: LOUDS, depth: Range<Int>) {
+        init(louds: LOUDS) {
             self.louds = louds
-            self.depth = depth
         }
         let louds: LOUDS
-        let depth: Range<Int>
         // 最終出力となる
-        var indices: [Int] = []
+        var indices: [(depth: Int, index: Int)] = []
         // 現在の探索結果を保存しておく
         var stack: [(nodeIndex: Int, char: UInt8)] = []
-        
+
+        func indicesInDepth(depth: Range<Int>) -> [Int] {
+            return self.indices
+                .lazy
+                .filter { depth.contains($0.depth) }
+                .map { $0.index }
+        }
+
         /// `target`を用いて更新する
         /// - Parameter target: 検索対象の`CharID`の列
         /// - Returns: `updated`はこれによって`indices`の更新があったかどうか。`availableMaxIndex`はアクセスに成功した最大インデックス
@@ -266,7 +271,7 @@ package struct LOUDS: Sendable {
             var updated = false
             var availableMaxIndex = 0
             // iがupperBoundを超えない範囲で検索を行う
-            for (i, char) in target.enumerated() where i < self.depth.upperBound {
+            for (i, char) in target.enumerated() {
                 if i < self.stack.count, self.stack[i].char == char {
                     // すでに探索済み
                     availableMaxIndex = i
@@ -280,11 +285,9 @@ package struct LOUDS: Sendable {
                 // このケースでは、探索を行う
                 // 直前のstackを取り出し、そのnodeIndexから次のcharを探索する
                 if let nodeIndex = self.louds.searchCharNodeIndex(from: self.stack.last?.nodeIndex ?? 1, char: char) {
-                    if self.depth.contains(i) {
-                        self.indices.append(nodeIndex)
-                        updated = true
-                        availableMaxIndex = i
-                    }
+                    self.indices.append((i, nodeIndex))
+                    updated = true
+                    availableMaxIndex = i
                     self.stack.append((nodeIndex, char))
                 } else {
                     // 見つからなかった場合、打ち切る

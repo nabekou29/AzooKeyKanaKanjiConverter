@@ -275,7 +275,7 @@ public final class DicdataStore {
         var targetLOUDS: [String: LOUDS.MovingTowardPrefixSearchHelper] = [:]
         var stringToInfo: [([Character], (endIndex: Int, penalty: PValue))] = []
 
-        var temporaryMemoryDicdata: [DicdataElement] = []
+        var temporaryMemoryDicdata: [Int: [DicdataElement]] = [:]
         // ジェネレータを舐める
         while let (characters, info) = generator.next() {
             guard let firstCharacter = characters.first else {
@@ -292,7 +292,7 @@ public final class DicdataStore {
             for key in keys {
                 withMutableValue(&targetLOUDS[key]) { helper in
                     if helper == nil, let louds = self.loadLOUDS(query: key) {
-                        helper = LOUDS.MovingTowardPrefixSearchHelper(louds: louds, depth: 0 ..< .max)
+                        helper = LOUDS.MovingTowardPrefixSearchHelper(louds: louds)
                     }
                     guard helper != nil else {
                         return
@@ -303,20 +303,22 @@ public final class DicdataStore {
                 }
             }
             // 短期記憶についてはこの位置で処理する
-            let result = self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume charIDs, depth: 0 ..< .max)
+            let result = self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume charIDs)
             updated = updated || !(result.dicdata.isEmpty)
             availableMaxIndex = max(availableMaxIndex, result.availableMaxIndex)
-            for data in result.dicdata {
-                if info.penalty.isZero {
-                    temporaryMemoryDicdata.append(data)
+            for (depth, dicdata) in result.dicdata {
+                for data in dicdata {
+                    if info.penalty.isZero {
+                        temporaryMemoryDicdata[depth, default: []].append(data)
+                    }
+                    let ratio = Self.penaltyRatio[data.lcid]
+                    let pUnit: PValue = Self.getPenalty(data: data) / 2   // 負の値
+                    let adjust = pUnit * info.penalty * ratio
+                    if self.shouldBeRemoved(value: data.value() + adjust, wordCount: data.ruby.count) {
+                        continue
+                    }
+                    temporaryMemoryDicdata[depth, default: []].append(data.adjustedData(adjust))
                 }
-                let ratio = Self.penaltyRatio[data.lcid]
-                let pUnit: PValue = Self.getPenalty(data: data) / 2   // 負の値
-                let adjust = pUnit * info.penalty * ratio
-                if self.shouldBeRemoved(value: data.value() + adjust, wordCount: data.ruby.count) {
-                    continue
-                }
-                temporaryMemoryDicdata.append(data.adjustedData(adjust))
             }
             if availableMaxIndex < characters.endIndex - 1 {
                 // 到達不可能だったパスを通知
@@ -326,11 +328,14 @@ public final class DicdataStore {
                 stringToInfo.append((characters, info))
             }
         }
-
+        let minCount = stringToInfo.map {$0.0.count}.min() ?? 0
+        print(#function, minCount, stringToInfo.map{$0.0})
         return (
             Dictionary(stringToInfo, uniquingKeysWith: {$0.penalty < $1.penalty ? $1 : $0}),
-            targetLOUDS.map { ($0.key, $0.value.indices)},
-            temporaryMemoryDicdata
+            targetLOUDS.map { ($0.key, $0.value.indicesInDepth(depth: minCount - 1 ..< .max) )},
+            temporaryMemoryDicdata.flatMap {
+                minCount < $0.key + 1 ? $0.value : []
+            }
         )
     }
     /// prefixを起点として、それに続く語（prefix match）をLOUDS上で探索する関数。
@@ -490,7 +495,9 @@ public final class DicdataStore {
         }
         if learningManager.enabled {
             // temporalな学習結果にpenaltyを加えて追加する
-            dicdata.append(contentsOf: self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume maxIDs, depth: depth).dicdata)
+            dicdata.append(
+                contentsOf: self.learningManager.movingTowardPrefixSearchOnTemporaryMemory(charIDs: consume maxIDs, depth: depth).dicdata.flatMap { $0.value }
+            )
         }
         for (key, value) in stringToEndIndex {
             let convertTarget = String(key)
