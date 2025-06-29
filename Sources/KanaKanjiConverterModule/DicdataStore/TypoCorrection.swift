@@ -140,11 +140,11 @@ struct TypoCorrectionGenerator: Sendable {
         guard let first = components.first?.string.first?.toKatakana() else {
             return false
         }
-        return !CharacterUtils.isRomanLetter(first) && !DicdataStore.existLOUDS(for: first)
+        return !CharacterUtils.isRomanLetter(first)
     }
 
     fileprivate static func getTypo(_ elements: some Collection<ComposingText.InputElement>, frozen: Bool = false) -> [TypoCandidate] {
-        let key = elements.reduce(into: "") {$0.append($1.character)}.toKatakana()
+        let key = elements.reduce(into: "") {$0.append($1.character.toKatakana())}
 
         if (elements.allSatisfy {$0.inputStyle == .direct}) {
             let dictionary: [String: [TypoUnit]] = frozen ? [:] : Self.directPossibleTypo
