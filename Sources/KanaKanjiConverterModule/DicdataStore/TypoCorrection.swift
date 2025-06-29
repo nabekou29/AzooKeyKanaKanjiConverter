@@ -1,6 +1,6 @@
 import SwiftUtils
 
-struct TypoCorrectionGenerator {
+struct TypoCorrectionGenerator: Sendable {
     init(inputs: [ComposingText.InputElement], leftIndex left: Int, rightIndexRange: Range<Int>, needTypoCorrection: Bool) {
         self.maxPenalty = needTypoCorrection ? 3.5 * 3 : 0
         self.inputs = inputs
@@ -10,12 +10,12 @@ struct TypoCorrectionGenerator {
         let count = rightIndexRange.endIndex - left
         self.count = count
         self.nodes = (0..<count).map {(i: Int) in
-            TypoCorrection.lengths.flatMap {(k: Int) -> [TypoCorrection.TypoCandidate] in
+            Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
                 let j = i + k
                 if count <= j {
                     return []
                 }
-                return TypoCorrection.getTypo(inputs[left + i ... left + j], frozen: !needTypoCorrection)
+                return Self.getTypo(inputs[left + i ... left + j], frozen: !needTypoCorrection)
             }
         }
         // 深さ優先で列挙する
@@ -38,7 +38,7 @@ struct TypoCorrectionGenerator {
     let inputs: [ComposingText.InputElement]
     let left: Int
     let rightIndexRange: Range<Int>
-    let nodes: [[TypoCorrection.TypoCandidate]]
+    let nodes: [[TypoCandidate]]
     let count: Int
 
     var stack: [(convertTargetElements: [ComposingText.ConvertTargetElement], lastElement: ComposingText.InputElement, count: Int, penalty: PValue)]
@@ -116,7 +116,7 @@ struct TypoCorrectionGenerator {
                     for element in $0.inputElements {
                         ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
                     }
-                    if TypoCorrection.shouldBeRemovedForDicdataStore(components: convertTargetElements) {
+                    if Self.shouldBeRemovedForDicdataStore(components: convertTargetElements) {
                         return nil
                     }
                     return (
@@ -134,97 +134,13 @@ struct TypoCorrectionGenerator {
         }
         return nil
     }
-}
 
-// MARK: 誤り訂正用のAPI
-enum TypoCorrection {
     fileprivate static func shouldBeRemovedForDicdataStore(components: [ComposingText.ConvertTargetElement]) -> Bool {
         // 判定に使うのは最初の1エレメントの最初の文字で十分
         guard let first = components.first?.string.first?.toKatakana() else {
             return false
         }
         return !CharacterUtils.isRomanLetter(first) && !DicdataStore.existLOUDS(for: first)
-    }
-
-    static func getRangeWithTypos(inputs: [ComposingText.InputElement], leftIndex left: Int, rightIndex right: Int) -> [[Character]: PValue] {
-        // 各iから始まる候補を列挙する
-        // 例えばinput = [d(あ), r(s), r(i), r(t), r(s), d(は), d(は), d(れ)]の場合
-        // nodes =      [[d(あ)], [r(s)], [r(i)], [r(t), [r(t), r(a)]], [r(s)], [d(は), d(ば), d(ぱ)], [d(れ)]]
-        // となる
-        let count = right - left + 1
-        let nodes = (0..<count).map {(i: Int) in
-            Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
-                let j = i + k
-                if count <= j {
-                    return []
-                }
-                return Self.getTypo(inputs[left + i ... left + j])
-            }
-        }
-
-        let maxPenalty: PValue = 3.5 * 3
-
-        // 深さ優先で列挙する
-        var stack: [(convertTargetElements: [ComposingText.ConvertTargetElement], lastElement: ComposingText.InputElement, count: Int, penalty: PValue)] = nodes[0].compactMap { typoCandidate in
-            guard let firstElement = typoCandidate.inputElements.first else {
-                return nil
-            }
-            if ComposingText.isLeftSideValid(first: firstElement, of: inputs, from: left) {
-                var convertTargetElements = [ComposingText.ConvertTargetElement]()
-                for element in typoCandidate.inputElements {
-                    ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
-                }
-                return (convertTargetElements, typoCandidate.inputElements.last!, typoCandidate.inputElements.count, typoCandidate.weight)
-            }
-            return nil
-        }
-
-        var stringToPenalty: [([Character], PValue)] = []
-
-        while let (convertTargetElements, lastElement, count, penalty) = stack.popLast() {
-            if count + left - 1 == right {
-                if let convertTarget = ComposingText.getConvertTargetIfRightSideIsValid(lastElement: lastElement, of: inputs, to: count + left, convertTargetElements: convertTargetElements)?.map({$0.toKatakana()}) {
-                    stringToPenalty.append((convertTarget, penalty))
-                }
-                continue
-            }
-            // エスケープ
-            if nodes.endIndex <= count {
-                continue
-            }
-            // 訂正数上限(3個)
-            if penalty >= maxPenalty {
-                var convertTargetElements = convertTargetElements
-                let correct = [inputs[left + count]].map {ComposingText.InputElement(character: $0.character.toKatakana(), inputStyle: $0.inputStyle)}
-                if count + correct.count > nodes.endIndex {
-                    continue
-                }
-                for element in correct {
-                    ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
-                }
-                stack.append((convertTargetElements, correct.last!, count + correct.count, penalty))
-            } else {
-                stack.append(contentsOf: nodes[count].compactMap {
-                    if count + $0.inputElements.count > nodes.endIndex {
-                        return nil
-                    }
-                    var convertTargetElements = convertTargetElements
-                    for element in $0.inputElements {
-                        ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
-                    }
-                    if Self.shouldBeRemovedForDicdataStore(components: convertTargetElements) {
-                        return nil
-                    }
-                    return (
-                        convertTargetElements: convertTargetElements,
-                        lastElement: $0.inputElements.last!,
-                        count: count + $0.inputElements.count,
-                        penalty: penalty + $0.weight
-                    )
-                })
-            }
-        }
-        return Dictionary(stringToPenalty, uniquingKeysWith: max)
     }
 
     fileprivate static func getTypo(_ elements: some Collection<ComposingText.InputElement>, frozen: Bool = false) -> [TypoCandidate] {
@@ -289,7 +205,7 @@ enum TypoCorrection {
         }
     }
 
-    struct TypoCandidate: Equatable {
+    struct TypoCandidate: Sendable, Equatable {
         var inputElements: [ComposingText.InputElement]
         var weight: PValue
     }
