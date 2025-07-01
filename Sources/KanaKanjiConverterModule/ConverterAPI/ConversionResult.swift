@@ -1,10 +1,3 @@
-//
-//  ConversionResult.swift
-//
-//
-//  Created by miwa on 2023/08/31.
-//
-
 public struct ConversionResult: Sendable {
     /// 変換候補欄にこのままの順で並べることのできる候補
     public var mainResults: [Candidate]
