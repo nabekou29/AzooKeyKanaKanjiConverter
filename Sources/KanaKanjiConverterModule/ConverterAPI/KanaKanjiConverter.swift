@@ -626,17 +626,17 @@ import EfficientNGram
         #if os(iOS)
         let needTypoCorrection = true
         #else
-        let needTypoCorrection = false
+        let needTypoCorrection = true
         #endif
 
         guard let previousInputData else {
-            debug("convertToLattice: 新規計算用の関数を呼びますA")
+            debug("\(#function): 新規計算用の関数を呼びますA")
             let result = converter.kana2lattice_all(inputData, N_best: N_best, needTypoCorrection: needTypoCorrection)
             self.previousInputData = inputData
             return result
         }
 
-        debug("convertToLattice: before \(previousInputData) after \(inputData)")
+        debug("\(#function): before \(previousInputData) after \(inputData)")
 
         // 完全一致の場合
         if previousInputData == inputData {
@@ -647,7 +647,7 @@ import EfficientNGram
 
         // 文節確定の後の場合
         if let completedData, previousInputData.inputHasSuffix(inputOf: inputData) {
-            debug("convertToLattice: 文節確定用の関数を呼びます、確定された文節は\(completedData)")
+            debug("\(#function): 文節確定用の関数を呼びます、確定された文節は\(completedData)")
             let result = converter.kana2lattice_afterComplete(inputData, completedData: completedData, N_best: N_best, previousResult: (inputData: previousInputData, nodes: nodes), needTypoCorrection: needTypoCorrection)
             self.previousInputData = inputData
             self.completedData = nil
@@ -659,37 +659,22 @@ import EfficientNGram
 
         let diff = inputData.differenceSuffix(to: previousInputData)
 
-        // 一文字消した場合
+        // 削除のみの場合
         if diff.deleted > 0 && diff.addedCount == 0 {
-            debug("convertToLattice: 最後尾削除用の関数を呼びます, 消した文字数は\(diff.deleted)")
+            debug("\(#function): 最後尾削除用の関数を呼びます, 消した文字数は\(diff.deleted)")
             let result = converter.kana2lattice_deletedLast(deletedCount: diff.deleted, N_best: N_best, previousResult: (inputData: previousInputData, nodes: nodes))
             self.previousInputData = inputData
             return result
         }
 
-        // 一文字変わった場合
-        if diff.deleted > 0 {
-            debug("convertToLattice: 最後尾文字置換用の関数を呼びます、差分は\(diff)")
+        // 削除の有無はともかく、文字が増えている場合
+        if diff.addedCount > 0 {
+            debug("\(#function): 最後尾文字置換用の関数を呼びます、差分は\(diff)")
             let result = converter.kana2lattice_changed(inputData, N_best: N_best, counts: (diff.deleted, diff.addedCount), previousResult: (inputData: previousInputData, nodes: nodes), needTypoCorrection: needTypoCorrection)
             self.previousInputData = inputData
             return result
         }
-
-        // 1文字増やした場合
-        if diff.deleted == 0 && diff.addedCount != 0 {
-            debug("convertToLattice: 最後尾追加用の関数を呼びます、追加文字数は\(diff.addedCount)")
-            let result = converter.kana2lattice_added(inputData, N_best: N_best, addedCount: diff.addedCount, previousResult: (inputData: previousInputData, nodes: nodes), needTypoCorrection: needTypoCorrection)
-            self.previousInputData = inputData
-            return result
-        }
-
-        // 一文字増やしていない場合
-        if true {
-            debug("convertToLattice: 新規計算用の関数を呼びますB")
-            let result = converter.kana2lattice_all(inputData, N_best: N_best, needTypoCorrection: needTypoCorrection)
-            self.previousInputData = inputData
-            return result
-        }
+        fatalError("\(#function): ここに到達することは想定されていません。")
     }
 
     public func getAppropriateActions(_ candidate: Candidate) -> [CompleteAction] {
