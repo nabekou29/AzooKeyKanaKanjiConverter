@@ -153,6 +153,22 @@ final class ConverterTests: XCTestCase {
             }
     }
 
+    func testDeleteConversionPerformance() async throws {
+        let converter = await KanaKanjiConverter()
+        var c = ComposingText()
+        do {
+            c.insertAtCursorPosition("ようしょうきからてにすすいえいやきゅうしょうりんじけんぽうなどさまざまなすぽーつをけいけんしながらそだちしょうがっこうじだいはろさんぜるすきんこうにたいざいしておりごるふやてにすをならっていた", inputStyle: .direct)
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "幼少期からテニス水泳野球少林寺拳法など様々なスポーツを経験しながら育ち小学校時代はロサンゼルス近郊に滞在しておりゴルフやテニスを習っていた")
+        }
+        while !c.isEmpty {
+            c.deleteBackwardFromCursorPosition(count: 1)
+            _ = await converter.requestCandidates(c, options: requestOptions())
+        }
+        XCTAssertTrue(c.isEmpty)
+    }
+
+
     // 必ず正解すべきテストケース
     func testMustCases() async throws {
             // ダイレクト入力

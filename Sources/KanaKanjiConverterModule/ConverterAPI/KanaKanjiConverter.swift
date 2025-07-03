@@ -626,7 +626,7 @@ import EfficientNGram
         #if os(iOS)
         let needTypoCorrection = true
         #else
-        let needTypoCorrection = true
+        let needTypoCorrection = false
         #endif
 
         guard let previousInputData else {
