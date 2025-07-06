@@ -290,6 +290,7 @@ final class DicdataStoreTests: XCTestCase {
             sequentialInput(&c, sequence: "tesutowaーdo", inputStyle: .roman2kana)
             let result = dicdataStore.getLOUDSDataInRange(inputData: c, from: 0, toIndexRange: c.input.endIndex - 1 ..< c.input.endIndex, needTypoCorrection: false)
             XCTAssertTrue(result.contains(where: {$0.data.word == "テストワード"}))
+            XCTAssertEqual(result.first(where: {$0.data.word == "テストワード"})?.inputRange, 0 ..< 11)
         }
         
         // 動的ユーザ辞書の単語が通常の辞書よりも優先されることのテスト

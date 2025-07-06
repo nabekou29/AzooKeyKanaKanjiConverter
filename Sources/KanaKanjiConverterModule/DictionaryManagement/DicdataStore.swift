@@ -320,8 +320,6 @@ public final class DicdataStore {
                         }
                         dynamicDicdata[depth, default: []].append(data.adjustedData(adjust))
                     }
-                    // stringToInfoにも追加（getLOUDSDataInRangeでの処理のため）
-                    stringToInfo.append((Array(data.ruby), (depth - 1, info.penalty)))
                 }
             }
             if availableMaxIndex < characters.endIndex - 1 {
