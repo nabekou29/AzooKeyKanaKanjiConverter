@@ -256,8 +256,8 @@ public final class DicdataStore {
         var generator = TypoCorrectionGenerator(inputs: inputs, leftIndex: leftIndex, rightIndexRange: rightIndexRange, needTypoCorrection: needTypoCorrection)
         var targetLOUDS: [String: LOUDS.MovingTowardPrefixSearchHelper] = [:]
         var stringToInfo: [([Character], (endIndex: Int, penalty: PValue))] = []
-
-        var temporaryMemoryDicdata: [Int: [DicdataElement]] = [:]
+        // 動的辞書（一時学習データ、動的ユーザ辞書）から取り出されたデータ
+        var dynamicDicdata: [Int: [DicdataElement]] = [:]
         // ジェネレータを舐める
         while let (characters, info) = generator.next() {
             guard let firstCharacter = characters.first else {
@@ -291,7 +291,7 @@ public final class DicdataStore {
             for (depth, dicdata) in result.dicdata {
                 for data in dicdata {
                     if info.penalty.isZero {
-                        temporaryMemoryDicdata[depth, default: []].append(data)
+                        dynamicDicdata[depth, default: []].append(data)
                     }
                     let ratio = Self.penaltyRatio[data.lcid]
                     let pUnit: PValue = Self.getPenalty(data: data) / 2   // 負の値
@@ -299,7 +299,29 @@ public final class DicdataStore {
                     if self.shouldBeRemoved(value: data.value() + adjust, wordCount: data.ruby.count) {
                         continue
                     }
-                    temporaryMemoryDicdata[depth, default: []].append(data.adjustedData(adjust))
+                    dynamicDicdata[depth, default: []].append(data.adjustedData(adjust))
+                }
+            }
+            if !self.dynamicUserDict.isEmpty {
+                // 動的ユーザ辞書にデータがある場合、この位置で処理する
+                let katakanaString = String(characters).toKatakana()
+                let dynamicUserDictResult = self.getMatchDynamicUserDict(katakanaString)
+                updated = updated || !dynamicUserDictResult.isEmpty
+                for data in dynamicUserDictResult {
+                    let depth = characters.endIndex
+                    if info.penalty.isZero {
+                        dynamicDicdata[depth, default: []].append(data)
+                    } else {
+                        let ratio = Self.penaltyRatio[data.lcid]
+                        let pUnit: PValue = Self.getPenalty(data: data) / 2   // 負の値
+                        let adjust = pUnit * info.penalty * ratio
+                        if self.shouldBeRemoved(value: data.value() + adjust, wordCount: Array(data.ruby).count) {
+                            continue
+                        }
+                        dynamicDicdata[depth, default: []].append(data.adjustedData(adjust))
+                    }
+                    // stringToInfoにも追加（getLOUDSDataInRangeでの処理のため）
+                    stringToInfo.append((Array(data.ruby), (depth - 1, info.penalty)))
                 }
             }
             if availableMaxIndex < characters.endIndex - 1 {
@@ -314,7 +336,7 @@ public final class DicdataStore {
         return (
             Dictionary(stringToInfo, uniquingKeysWith: {$0.penalty < $1.penalty ? $1 : $0}),
             targetLOUDS.map { ($0.key, $0.value.indicesInDepth(depth: minCount - 1 ..< .max) )},
-            temporaryMemoryDicdata.flatMap {
+            dynamicDicdata.flatMap {
                 minCount < $0.key + 1 ? $0.value : []
             }
         )
@@ -396,13 +418,6 @@ public final class DicdataStore {
         for i in toIndexLeft ..< toIndexRight {
             do {
                 let result = self.getWiseDicdata(convertTarget: segments[i - fromIndex], inputData: inputData, inputRange: fromIndex ..< i + 1)
-                for item in result {
-                    stringToInfo[Array(item.ruby)] = (i, 0)
-                }
-                dicdata.append(contentsOf: result)
-            }
-            do {
-                let result = self.getMatchDynamicUserDict(segments[i - fromIndex])
                 for item in result {
                     stringToInfo[Array(item.ruby)] = (i, 0)
                 }
