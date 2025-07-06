@@ -13,12 +13,14 @@ import EfficientNGram
 
 /// かな漢字変換の管理を受け持つクラス
 @MainActor public final class KanaKanjiConverter {
-    public init() {}
+    private let converter: Kana2Kanji
+    public init() {
+        self.converter = .init()
+    }
     public init(dicdataStore: DicdataStore) {
         self.converter = .init(dicdataStore: dicdataStore)
     }
 
-    private var converter = Kana2Kanji()
     nonisolated public static let defaultSpecialCandidateProviders: [any SpecialCandidateProvider] = [
         CalendarSpecialCandidateProvider(),
         EmailAddressSpecialCandidateProvider(),
