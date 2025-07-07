@@ -661,22 +661,10 @@ import EfficientNGram
 
         let diff = inputData.differenceSuffix(to: previousInputData)
 
-        // 削除のみの場合
-        if diff.deleted > 0 && diff.addedCount == 0 {
-            debug("\(#function): 最後尾削除用の関数を呼びます, 消した文字数は\(diff.deleted)")
-            let result = converter.kana2lattice_deletedLast(deletedCount: diff.deleted, N_best: N_best, previousResult: (inputData: previousInputData, nodes: nodes))
-            self.previousInputData = inputData
-            return result
-        }
-
-        // 削除の有無はともかく、文字が増えている場合
-        if diff.addedCount > 0 {
-            debug("\(#function): 最後尾文字置換用の関数を呼びます、差分は\(diff)")
-            let result = converter.kana2lattice_changed(inputData, N_best: N_best, counts: (diff.deleted, diff.addedCount), previousResult: (inputData: previousInputData, nodes: nodes), needTypoCorrection: needTypoCorrection)
-            self.previousInputData = inputData
-            return result
-        }
-        fatalError("\(#function): ここに到達することは想定されていません。")
+        debug("\(#function): 最後尾文字置換用の関数を呼びます、差分は\(diff)")
+        let result = converter.kana2lattice_changed(inputData, N_best: N_best, counts: (diff.deleted, diff.addedCount), previousResult: (inputData: previousInputData, nodes: nodes), needTypoCorrection: needTypoCorrection)
+        self.previousInputData = inputData
+        return result
     }
 
     public func getAppropriateActions(_ candidate: Candidate) -> [CompleteAction] {

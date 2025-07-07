@@ -37,52 +37,71 @@ extension Kana2Kanji {
         while nodes.last?.isEmpty ?? false {
             nodes.removeLast()
         }
-        // (2)
-        let addedNodes: [[LatticeNode]] = (0..<count).map {(i: Int) in
-            self.dicdataStore.getLOUDSDataInRange(inputData: inputData, from: i, toIndexRange: max(commonCount, i) ..< count, needTypoCorrection: needTypoCorrection)
-        }
 
-        // (3)
-        for nodeArray in nodes {
-            for node in nodeArray {
-                if node.prevs.isEmpty {
-                    continue
-                }
-                if self.dicdataStore.shouldBeRemoved(data: node.data) {
-                    continue
-                }
-                // 変換した文字数
-                let nextIndex = node.inputRange.endIndex
-                for nextnode in addedNodes[nextIndex] {
-                    if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
-                        continue
-                    }
-                    // クラスの連続確率を計算する。
-                    let ccValue: PValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
-                    // nodeの持っている全てのprevnodeに対して
-                    for (index, value) in node.values.enumerated() {
-                        let newValue: PValue = ccValue + value
-                        // 追加すべきindexを取得する
-                        let lastindex: Int = (nextnode.prevs.lastIndex(where: {$0.totalValue >= newValue}) ?? -1) + 1
-                        if lastindex == N_best {
-                            continue
-                        }
-                        let newnode: RegisteredNode = node.getRegisteredNode(index, value: newValue)
-                        // カウントがオーバーしている場合は除去する
-                        if nextnode.prevs.count >= N_best {
-                            nextnode.prevs.removeLast()
-                        }
-                        // removeしてからinsertした方が速い (insertはO(N)なので)
-                        nextnode.prevs.insert(newnode, at: lastindex)
-                    }
+        let terminalNodes: Nodes
+        if counts.added == 0 {
+            terminalNodes = nodes.map {
+                $0.filter {
+                    $0.inputRange.endIndex == count
                 }
             }
+        } else {
+            // (2)
+            let addedNodes: [[LatticeNode]] = (0..<count).map {(i: Int) in
+                self.dicdataStore.getLOUDSDataInRange(inputData: inputData, from: i, toIndexRange: max(commonCount, i) ..< count, needTypoCorrection: needTypoCorrection)
+            }
 
+            // (3)
+            for nodeArray in nodes {
+                for node in nodeArray {
+                    if node.prevs.isEmpty {
+                        continue
+                    }
+                    if self.dicdataStore.shouldBeRemoved(data: node.data) {
+                        continue
+                    }
+                    // 変換した文字数
+                    let nextIndex = node.inputRange.endIndex
+                    for nextnode in addedNodes[nextIndex] {
+                        if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
+                            continue
+                        }
+                        // クラスの連続確率を計算する。
+                        let ccValue: PValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
+                        // nodeの持っている全てのprevnodeに対して
+                        for (index, value) in node.values.enumerated() {
+                            let newValue: PValue = ccValue + value
+                            // 追加すべきindexを取得する
+                            let lastindex: Int = (nextnode.prevs.lastIndex(where: {$0.totalValue >= newValue}) ?? -1) + 1
+                            if lastindex == N_best {
+                                continue
+                            }
+                            let newnode: RegisteredNode = node.getRegisteredNode(index, value: newValue)
+                            // カウントがオーバーしている場合は除去する
+                            if nextnode.prevs.count >= N_best {
+                                nextnode.prevs.removeLast()
+                            }
+                            // removeしてからinsertした方が速い (insertはO(N)なので)
+                            nextnode.prevs.insert(newnode, at: lastindex)
+                        }
+                    }
+                }
+
+            }
+            for (index, nodeArray) in addedNodes.enumerated() where index < nodes.endIndex {
+                nodes[index].append(contentsOf: nodeArray)
+            }
+            for nodeArray in addedNodes.suffix(counts.added) {
+                nodes.append(nodeArray)
+            }
+            terminalNodes = addedNodes
         }
 
         // (3)
+        // terminalNodesの各要素を結果ノードに接続する
         let result = LatticeNode.EOSNode
-        for (i, nodes) in addedNodes.enumerated() {
+
+        for (i, nodes) in terminalNodes.enumerated() {
             for node in nodes {
                 if node.prevs.isEmpty {
                     continue
@@ -108,7 +127,7 @@ extension Kana2Kanji {
                         result.prevs.append(newnode)
                     }
                 } else {
-                    for nextnode in addedNodes[nextIndex] {
+                    for nextnode in terminalNodes[nextIndex] {
                         // この関数はこの時点で呼び出して、後のnode.registered.isEmptyで最終的に弾くのが良い。
                         if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
                             continue
@@ -135,14 +154,6 @@ extension Kana2Kanji {
                 }
             }
         }
-
-        for (index, nodeArray) in addedNodes.enumerated() where index < nodes.endIndex {
-            nodes[index].append(contentsOf: nodeArray)
-        }
-        for nodeArray in addedNodes.suffix(counts.added) {
-            nodes.append(nodeArray)
-        }
-
         return (result: result, nodes: nodes)
     }
 
