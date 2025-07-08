@@ -25,4 +25,10 @@ struct Lattice {
             }
         }
     }
+
+    subscript(inputIndex i: Int) -> [LatticeNode] {
+        get {
+            self.nodes[i]
+        }
+    }
 }

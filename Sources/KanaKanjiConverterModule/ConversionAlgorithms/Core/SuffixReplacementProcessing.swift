@@ -57,7 +57,7 @@ extension Kana2Kanji {
                     }
                     // 変換した文字数
                     let nextIndex = node.inputRange.endIndex
-                    self.updateNextNodes(with: node, nextNodes: addedNodes.nodes[nextIndex], nBest: N_best)
+                    self.updateNextNodes(with: node, nextNodes: addedNodes[inputIndex: nextIndex], nBest: N_best)
                 }
             }
             lattice.merge(addedNodes)
@@ -90,7 +90,7 @@ extension Kana2Kanji {
                 if count == nextIndex {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
-                    self.updateNextNodes(with: node, nextNodes: terminalNodes.nodes[nextIndex], nBest: N_best)
+                    self.updateNextNodes(with: node, nextNodes: terminalNodes[inputIndex: nextIndex], nBest: N_best)
                 }
             }
         }

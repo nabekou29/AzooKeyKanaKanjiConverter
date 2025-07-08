@@ -61,7 +61,7 @@ extension Kana2Kanji {
                         Array(($0.data.reduce(into: "") { $0.append(contentsOf: $1.word)} + node.data.word).utf8)
                     }
                     // nodeの繋がる次にあり得る全てのnextnodeに対して
-                    for nextnode in lattice.nodes[nextIndex] {
+                    for nextnode in lattice[inputIndex: nextIndex] {
                         // クラスの連続確率を計算する。
                         let ccValue: PValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
                         // nodeの持っている全てのprevnodeに対して

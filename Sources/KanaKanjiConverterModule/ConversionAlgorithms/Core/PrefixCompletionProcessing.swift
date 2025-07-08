@@ -59,7 +59,7 @@ extension Kana2Kanji {
                 // 変換した文字数
                 let nextIndex = node.inputRange.endIndex
                 if nextIndex != count {
-                    self.updateNextNodes(with: node, nextNodes: lattice.nodes[nextIndex], nBest: N_best)
+                    self.updateNextNodes(with: node, nextNodes: lattice[inputIndex: nextIndex], nBest: N_best)
                 } else {
                     self.updateResultNode(with: node, resultNode: result)
                 }

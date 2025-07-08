@@ -30,9 +30,9 @@ extension Kana2Kanji {
         debug("新規に計算を行います。inputされた文字列は\(inputData.input.count)文字分の\(inputData.convertTarget)")
         let count: Int = inputData.input.count
         let result: LatticeNode = LatticeNode.EOSNode
-        let nodes: [[LatticeNode]] = (.zero ..< count).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: needTypoCorrection)}
+        let lattice: Lattice = Lattice(nodes: (.zero ..< count).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: needTypoCorrection)})
         // 「i文字目から始まるnodes」に対して
-        for (i, nodeArray) in nodes.enumerated() {
+        for (i, nodeArray) in lattice.nodes.enumerated() {
             // それぞれのnodeに対して
             for node in nodeArray {
                 if node.prevs.isEmpty {
@@ -56,11 +56,11 @@ extension Kana2Kanji {
                 if nextIndex == count {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
-                    self.updateNextNodes(with: node, nextNodes: nodes[nextIndex], nBest: N_best)
+                    self.updateNextNodes(with: node, nextNodes: lattice[inputIndex: nextIndex], nBest: N_best)
                 }
             }
         }
-        return (result: result, lattice: Lattice(nodes: nodes))
+        return (result: result, lattice: lattice)
     }
 
     func updateResultNode(with node: LatticeNode, resultNode: LatticeNode) {
