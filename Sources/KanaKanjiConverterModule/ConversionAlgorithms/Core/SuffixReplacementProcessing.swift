@@ -38,7 +38,7 @@ extension Kana2Kanji {
             lattice.nodes.removeLast()
         }
 
-        let terminalNodes: Nodes
+        let terminalNodes: Lattice
         if counts.added == 0 {
             terminalNodes = Lattice(nodes: lattice.nodes.map {
                 $0.filter {

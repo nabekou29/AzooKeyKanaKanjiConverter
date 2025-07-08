@@ -10,9 +10,6 @@ import Foundation
 import SwiftUtils
 
 extension Kana2Kanji {
-    /// Latticeを構成する基本単位
-    typealias Nodes = Lattice
-
     /// カナを漢字に変換する関数, 前提はなくかな列が与えられた場合。
     /// - Parameters:
     ///   - inputData: 入力データ。
