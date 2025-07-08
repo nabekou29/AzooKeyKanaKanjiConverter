@@ -24,13 +24,13 @@ extension Kana2Kanji {
     ///
     /// (2)次に、返却用ノードを計算する。
 
-    func kana2lattice_no_change(N_best: Int, previousResult: (inputData: ComposingText, nodes: Nodes)) -> (result: LatticeNode, nodes: Nodes) {
+    func kana2lattice_no_change(N_best: Int, previousResult: (inputData: ComposingText, lattice: Lattice)) -> (result: LatticeNode, lattice: Lattice) {
         debug("キャッシュから復元、元の文字は：", previousResult.inputData.convertTarget)
         let count = previousResult.inputData.input.count
         // (1)
         let result = LatticeNode.EOSNode
 
-        for nodeArray in previousResult.nodes {
+        for nodeArray in previousResult.lattice.nodes {
             for node in nodeArray {
                 if node.prevs.isEmpty {
                     continue
@@ -50,7 +50,7 @@ extension Kana2Kanji {
         }
 
         // (2)
-        return (result: result, nodes: previousResult.nodes)
+        return (result: result, lattice: previousResult.lattice)
     }
 
 }

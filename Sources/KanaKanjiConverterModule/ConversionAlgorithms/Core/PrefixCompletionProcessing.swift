@@ -15,13 +15,13 @@ extension Kana2Kanji {
     /// (1)まず、計算済みnodeの確定分以降を取り出し、registeredにcompletedDataの値を反映したBOSにする。
     ///
     /// (2)次に、再度計算して良い候補を得る。
-    func kana2lattice_afterComplete(_ inputData: ComposingText, completedData: Candidate, N_best: Int, previousResult: (inputData: ComposingText, nodes: Nodes), needTypoCorrection: Bool) -> (result: LatticeNode, nodes: Nodes) {
+    func kana2lattice_afterComplete(_ inputData: ComposingText, completedData: Candidate, N_best: Int, previousResult: (inputData: ComposingText, lattice: Lattice), needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice) {
         debug("確定直後の変換、前は：", previousResult.inputData, "後は：", inputData)
         let count = inputData.input.count
         // (1)
         let start = RegisteredNode.fromLastCandidate(completedData)
-        let nodes: Nodes = previousResult.nodes.suffix(count)
-        for (i, nodeArray) in nodes.enumerated() {
+        let lattice = Lattice(nodes: previousResult.lattice.nodes.suffix(count))
+        for (i, nodeArray) in lattice.nodes.enumerated() {
             if i == .zero {
                 for node in nodeArray {
                     node.prevs = [start]
@@ -39,7 +39,7 @@ extension Kana2Kanji {
         // (2)
         let result = LatticeNode.EOSNode
 
-        for (i, nodeArray) in nodes.enumerated() {
+        for (i, nodeArray) in lattice.nodes.enumerated() {
             for node in nodeArray {
                 if node.prevs.isEmpty {
                     continue
@@ -60,7 +60,7 @@ extension Kana2Kanji {
                 let nextIndex = node.inputRange.endIndex
                 // 文字数がcountと等しくない場合は先に進む
                 if nextIndex != count {
-                    for nextnode in nodes[nextIndex] {
+                    for nextnode in lattice.nodes[nextIndex] {
                         if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
                             continue
                         }
@@ -93,6 +93,6 @@ extension Kana2Kanji {
             }
 
         }
-        return (result: result, nodes: nodes)
+        return (result: result, lattice: lattice)
     }
 }
