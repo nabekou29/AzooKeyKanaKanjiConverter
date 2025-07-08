@@ -88,11 +88,7 @@ extension Kana2Kanji {
                 }
                 let nextIndex = node.inputRange.endIndex
                 if count == nextIndex {
-                    // 最後に至るので
-                    for index in node.prevs.indices {
-                        let newnode = node.getRegisteredNode(index, value: node.values[index])
-                        result.prevs.append(newnode)
-                    }
+                    self.updateResultNode(with: node, resultNode: result)
                 } else {
                     self.updateNextNodes(with: node, nextNodes: terminalNodes.nodes[nextIndex], nBest: N_best)
                 }

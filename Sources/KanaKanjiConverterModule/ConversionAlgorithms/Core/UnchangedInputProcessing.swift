@@ -31,21 +31,14 @@ extension Kana2Kanji {
         let result = LatticeNode.EOSNode
 
         for nodeArray in previousResult.lattice.nodes {
-            for node in nodeArray {
+            for node in nodeArray where node.inputRange.endIndex == count {
                 if node.prevs.isEmpty {
                     continue
                 }
                 if self.dicdataStore.shouldBeRemoved(data: node.data) {
                     continue
                 }
-                let nextIndex = node.inputRange.endIndex
-                if nextIndex == count {
-                    // 変換した文字数
-                    for (index, value) in node.values.enumerated() {
-                        let newnode = node.getRegisteredNode(index, value: value)
-                        result.prevs.append(newnode)
-                    }
-                }
+                self.updateResultNode(with: node, resultNode: result)
             }
         }
 

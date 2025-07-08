@@ -54,10 +54,7 @@ extension Kana2Kanji {
                 let nextIndex: Int = node.inputRange.endIndex
                 // 文字数がcountと等しい場合登録する
                 if nextIndex == count {
-                    for index in node.prevs.indices {
-                        let newnode: RegisteredNode = node.getRegisteredNode(index, value: node.values[index])
-                        result.prevs.append(newnode)
-                    }
+                    self.updateResultNode(with: node, resultNode: result)
                 } else {
                     self.updateNextNodes(with: node, nextNodes: nodes[nextIndex], nBest: N_best)
                 }
@@ -66,6 +63,12 @@ extension Kana2Kanji {
         return (result: result, lattice: Lattice(nodes: nodes))
     }
 
+    func updateResultNode(with node: LatticeNode, resultNode: LatticeNode) {
+        for index in node.prevs.indices {
+            let newnode: RegisteredNode = node.getRegisteredNode(index, value: node.values[index])
+            resultNode.prevs.append(newnode)
+        }
+    }
     /// N-Best計算を高速に実行しつつ、遷移先ノードを更新する
     func updateNextNodes(with node: LatticeNode, nextNodes: [LatticeNode], nBest: Int) {
         for nextnode in nextNodes {

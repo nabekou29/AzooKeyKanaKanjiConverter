@@ -58,15 +58,10 @@ extension Kana2Kanji {
                 }
                 // 変換した文字数
                 let nextIndex = node.inputRange.endIndex
-                // 文字数がcountと等しくない場合は先に進む
                 if nextIndex != count {
                     self.updateNextNodes(with: node, nextNodes: lattice.nodes[nextIndex], nBest: N_best)
                 } else {
-                    // countと等しければ変換が完成したので終了する
-                    for index in node.prevs.indices {
-                        let newnode = node.getRegisteredNode(index, value: node.values[index])
-                        result.prevs.append(newnode)
-                    }
+                    self.updateResultNode(with: node, resultNode: result)
                 }
             }
 
