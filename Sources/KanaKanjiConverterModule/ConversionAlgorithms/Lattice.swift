@@ -1,6 +1,6 @@
 struct Lattice {
     init(nodes: [[LatticeNode]] = []) {
-        self.nodes = []
+        self.nodes = nodes
     }
 
     private(set) var nodes: [[LatticeNode]]
