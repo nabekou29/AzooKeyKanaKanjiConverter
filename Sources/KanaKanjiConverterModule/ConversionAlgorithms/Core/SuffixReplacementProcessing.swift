@@ -31,12 +31,7 @@ extension Kana2Kanji {
         debug("kana2lattice_changed", inputData, counts, previousResult.inputData, count, commonCount)
 
         // (1)
-        var lattice = Lattice(nodes: previousResult.lattice.nodes.prefix(commonCount).map {(nodes: [LatticeNode]) in
-            nodes.filter {$0.inputRange.endIndex <= commonCount}
-        })
-        while lattice.nodes.last?.isEmpty ?? false {
-            lattice.nodes.removeLast()
-        }
+        var lattice = previousResult.lattice.prefix(commonCount)
 
         let terminalNodes: Lattice
         if counts.added == 0 {
@@ -86,14 +81,8 @@ extension Kana2Kanji {
                         }
                     }
                 }
-
             }
-            for (index, nodeArray) in addedNodes.nodes.enumerated() where index < lattice.nodes.endIndex {
-                lattice.nodes[index].append(contentsOf: nodeArray)
-            }
-            for nodeArray in addedNodes.nodes.suffix(counts.added) {
-                lattice.nodes.append(nodeArray)
-            }
+            lattice.merge(addedNodes)
             terminalNodes = addedNodes
         }
 
