@@ -18,13 +18,13 @@ extension Kana2Kanji {
     /// (3)(1)のregisterされた結果をresultノードに追加していく。この際EOSとの連接計算を行っておく。
     ///
     /// (4)ノードをアップデートした上で返却する。
-    func kana2lattice_all_with_prefix_constraint(_ inputData: ComposingText, N_best: Int, constraint: PrefixConstraint) -> (result: LatticeNode, nodes: Nodes) {
+    func kana2lattice_all_with_prefix_constraint(_ inputData: ComposingText, N_best: Int, constraint: PrefixConstraint) -> (result: LatticeNode, lattice: Lattice) {
         debug("新規に計算を行います。inputされた文字列は\(inputData.input.count)文字分の\(inputData.convertTarget)。制約は\(constraint)")
         let count: Int = inputData.input.count
         let result: LatticeNode = LatticeNode.EOSNode
-        let nodes: [[LatticeNode]] = (.zero ..< count).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: false)}
+        let lattice: Lattice = Lattice(nodes: (.zero ..< count).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: false)})
         // 「i文字目から始まるnodes」に対して
-        for (i, nodeArray) in nodes.enumerated() {
+        for (i, nodeArray) in lattice.nodes.enumerated() {
             // それぞれのnodeに対して
             for node in nodeArray {
                 if node.prevs.isEmpty {
@@ -61,7 +61,7 @@ extension Kana2Kanji {
                         Array(($0.data.reduce(into: "") { $0.append(contentsOf: $1.word)} + node.data.word).utf8)
                     }
                     // nodeの繋がる次にあり得る全てのnextnodeに対して
-                    for nextnode in nodes[nextIndex] {
+                    for nextnode in lattice[inputIndex: nextIndex] {
                         // クラスの連続確率を計算する。
                         let ccValue: PValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
                         // nodeの持っている全てのprevnodeに対して
@@ -97,7 +97,7 @@ extension Kana2Kanji {
                 }
             }
         }
-        return (result: result, nodes: nodes)
+        return (result: result, lattice: lattice)
     }
 
 }

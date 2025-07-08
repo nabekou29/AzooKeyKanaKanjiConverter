@@ -10,9 +10,6 @@ import Foundation
 import SwiftUtils
 
 extension Kana2Kanji {
-    /// Latticeを構成する基本単位
-    typealias Nodes = [[LatticeNode]]
-
     /// カナを漢字に変換する関数, 前提はなくかな列が与えられた場合。
     /// - Parameters:
     ///   - inputData: 入力データ。
@@ -29,13 +26,13 @@ extension Kana2Kanji {
     /// (3)(1)のregisterされた結果をresultノードに追加していく。この際EOSとの連接計算を行っておく。
     ///
     /// (4)ノードをアップデートした上で返却する。
-    func kana2lattice_all(_ inputData: ComposingText, N_best: Int, needTypoCorrection: Bool) -> (result: LatticeNode, nodes: Nodes) {
+    func kana2lattice_all(_ inputData: ComposingText, N_best: Int, needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice) {
         debug("新規に計算を行います。inputされた文字列は\(inputData.input.count)文字分の\(inputData.convertTarget)")
         let count: Int = inputData.input.count
         let result: LatticeNode = LatticeNode.EOSNode
-        let nodes: [[LatticeNode]] = (.zero ..< count).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: needTypoCorrection)}
+        let lattice: Lattice = Lattice(nodes: (.zero ..< count).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: needTypoCorrection)})
         // 「i文字目から始まるnodes」に対して
-        for (i, nodeArray) in nodes.enumerated() {
+        for (i, nodeArray) in lattice.nodes.enumerated() {
             // それぞれのnodeに対して
             for node in nodeArray {
                 if node.prevs.isEmpty {
@@ -57,40 +54,45 @@ extension Kana2Kanji {
                 let nextIndex: Int = node.inputRange.endIndex
                 // 文字数がcountと等しい場合登録する
                 if nextIndex == count {
-                    for index in node.prevs.indices {
-                        let newnode: RegisteredNode = node.getRegisteredNode(index, value: node.values[index])
-                        result.prevs.append(newnode)
-                    }
+                    self.updateResultNode(with: node, resultNode: result)
                 } else {
-                    // nodeの繋がる次にあり得る全てのnextnodeに対して
-                    for nextnode in nodes[nextIndex] {
-                        // この関数はこの時点で呼び出して、後のnode.registered.isEmptyで最終的に弾くのが良い。
-                        if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
-                            continue
-                        }
-                        // クラスの連続確率を計算する。
-                        let ccValue: PValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
-                        // nodeの持っている全てのprevnodeに対して
-                        for (index, value) in node.values.enumerated() {
-                            let newValue: PValue = ccValue + value
-                            // 追加すべきindexを取得する
-                            let lastindex: Int = (nextnode.prevs.lastIndex(where: {$0.totalValue >= newValue}) ?? -1) + 1
-                            if lastindex == N_best {
-                                continue
-                            }
-                            let newnode: RegisteredNode = node.getRegisteredNode(index, value: newValue)
-                            // カウントがオーバーしている場合は除去する
-                            if nextnode.prevs.count >= N_best {
-                                nextnode.prevs.removeLast()
-                            }
-                            // removeしてからinsertした方が速い (insertはO(N)なので)
-                            nextnode.prevs.insert(newnode, at: lastindex)
-                        }
-                    }
+                    self.updateNextNodes(with: node, nextNodes: lattice[inputIndex: nextIndex], nBest: N_best)
                 }
             }
         }
-        return (result: result, nodes: nodes)
+        return (result: result, lattice: lattice)
     }
 
+    func updateResultNode(with node: LatticeNode, resultNode: LatticeNode) {
+        for index in node.prevs.indices {
+            let newnode: RegisteredNode = node.getRegisteredNode(index, value: node.values[index])
+            resultNode.prevs.append(newnode)
+        }
+    }
+    /// N-Best計算を高速に実行しつつ、遷移先ノードを更新する
+    func updateNextNodes(with node: LatticeNode, nextNodes: [LatticeNode], nBest: Int) {
+        for nextnode in nextNodes {
+            if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
+                continue
+            }
+            // クラスの連続確率を計算する。
+            let ccValue: PValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
+            // nodeの持っている全てのprevnodeに対して
+            for (index, value) in node.values.enumerated() {
+                let newValue: PValue = ccValue + value
+                // 追加すべきindexを取得する
+                let lastindex: Int = (nextnode.prevs.lastIndex(where: {$0.totalValue >= newValue}) ?? -1) + 1
+                if lastindex == nBest {
+                    continue
+                }
+                let newnode: RegisteredNode = node.getRegisteredNode(index, value: newValue)
+                // カウントがオーバーしている場合は除去する
+                if nextnode.prevs.count >= nBest {
+                    nextnode.prevs.removeLast()
+                }
+                // removeしてからinsertした方が速い (insertはO(N)なので)
+                nextnode.prevs.insert(newnode, at: lastindex)
+            }
+        }
+    }
 }

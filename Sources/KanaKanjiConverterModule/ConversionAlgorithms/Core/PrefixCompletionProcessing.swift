@@ -15,13 +15,13 @@ extension Kana2Kanji {
     /// (1)まず、計算済みnodeの確定分以降を取り出し、registeredにcompletedDataの値を反映したBOSにする。
     ///
     /// (2)次に、再度計算して良い候補を得る。
-    func kana2lattice_afterComplete(_ inputData: ComposingText, completedData: Candidate, N_best: Int, previousResult: (inputData: ComposingText, nodes: Nodes), needTypoCorrection: Bool) -> (result: LatticeNode, nodes: Nodes) {
+    func kana2lattice_afterComplete(_ inputData: ComposingText, completedData: Candidate, N_best: Int, previousResult: (inputData: ComposingText, lattice: Lattice), needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice) {
         debug("確定直後の変換、前は：", previousResult.inputData, "後は：", inputData)
         let count = inputData.input.count
         // (1)
         let start = RegisteredNode.fromLastCandidate(completedData)
-        let nodes: Nodes = previousResult.nodes.suffix(count)
-        for (i, nodeArray) in nodes.enumerated() {
+        let lattice = Lattice(nodes: previousResult.lattice.nodes.suffix(count))
+        for (i, nodeArray) in lattice.nodes.enumerated() {
             if i == .zero {
                 for node in nodeArray {
                     node.prevs = [start]
@@ -39,7 +39,7 @@ extension Kana2Kanji {
         // (2)
         let result = LatticeNode.EOSNode
 
-        for (i, nodeArray) in nodes.enumerated() {
+        for (i, nodeArray) in lattice.nodes.enumerated() {
             for node in nodeArray {
                 if node.prevs.isEmpty {
                     continue
@@ -58,41 +58,14 @@ extension Kana2Kanji {
                 }
                 // 変換した文字数
                 let nextIndex = node.inputRange.endIndex
-                // 文字数がcountと等しくない場合は先に進む
                 if nextIndex != count {
-                    for nextnode in nodes[nextIndex] {
-                        if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
-                            continue
-                        }
-                        // クラスの連続確率を計算する。
-                        let ccValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
-                        // nodeの持っている全てのprevnodeに対して
-                        for (index, value) in node.values.enumerated() {
-                            let newValue = ccValue + value
-                            // 追加すべきindexを取得する
-                            let lastindex = (nextnode.prevs.lastIndex(where: {$0.totalValue >= newValue}) ?? -1) + 1
-                            if lastindex == N_best {
-                                continue
-                            }
-                            let newnode = node.getRegisteredNode(index, value: newValue)
-                            // カウントがオーバーしている場合は除去する
-                            if nextnode.prevs.count >= N_best {
-                                nextnode.prevs.removeLast()
-                            }
-                            // removeしてからinsertした方が速い (insertはO(N)なので)
-                            nextnode.prevs.insert(newnode, at: lastindex)
-                        }
-                    }
-                    // countと等しければ変換が完成したので終了する
+                    self.updateNextNodes(with: node, nextNodes: lattice[inputIndex: nextIndex], nBest: N_best)
                 } else {
-                    for index in node.prevs.indices {
-                        let newnode = node.getRegisteredNode(index, value: node.values[index])
-                        result.prevs.append(newnode)
-                    }
+                    self.updateResultNode(with: node, resultNode: result)
                 }
             }
 
         }
-        return (result: result, nodes: nodes)
+        return (result: result, lattice: lattice)
     }
 }

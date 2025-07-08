@@ -61,11 +61,11 @@ extension Kana2Kanji {
         requestRichCandidates: Bool,
         personalizationMode: (mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode, base: EfficientNGram, personal: EfficientNGram)?,
         versionDependentConfig: ConvertRequestOptions.ZenzaiVersionDependentMode
-    ) -> (result: LatticeNode, nodes: Nodes, cache: ZenzaiCache) {
+    ) -> (result: LatticeNode, lattice: Lattice, cache: ZenzaiCache) {
         var constraint = zenzaiCache?.getNewConstraint(for: inputData) ?? PrefixConstraint([])
         debug("initial constraint", constraint)
         let eosNode = LatticeNode.EOSNode
-        var nodes: Kana2Kanji.Nodes = []
+        var lattice: Lattice = Lattice(nodes: [])
         var constructedCandidates: [(RegisteredNode, Candidate)] = []
         var insertedCandidates: [(RegisteredNode, Candidate)] = []
         defer {
@@ -82,9 +82,9 @@ extension Kana2Kanji {
                 // 制約がついている場合は高速になるので、N=3としている
                 self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: constraint)
             }
-            if nodes.isEmpty {
+            if lattice.nodes.isEmpty {
                 // 初回のみ
-                nodes = draftResult.nodes
+                lattice = draftResult.lattice
             }
             let candidates = draftResult.result.getCandidateData().map(self.processClauseCandidate)
             constructedCandidates.append(contentsOf: zip(draftResult.result.prevs, candidates))
@@ -100,7 +100,7 @@ extension Kana2Kanji {
                 debug("best was not found!")
                 // Emptyの場合
                 // 制約が満たせない場合は無視する
-                return (eosNode, nodes, ZenzaiCache(inputData, constraint: PrefixConstraint([]), satisfyingCandidate: nil))
+                return (eosNode, lattice, ZenzaiCache(inputData, constraint: PrefixConstraint([]), satisfyingCandidate: nil))
             }
 
             debug("Constrained draft modeling", -start.timeIntervalSinceNow)
@@ -111,7 +111,7 @@ extension Kana2Kanji {
                 if inferenceLimit == 0 {
                     debug("inference limit! \(candidate.text) is used for excuse")
                     // When inference occurs more than maximum times, then just return result at this point
-                    return (eosNode, nodes, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: candidate))
+                    return (eosNode, lattice, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: candidate))
                 }
                 let reviewResult = zenz.candidateEvaluate(
                     convertTarget: inputData.convertTarget,
@@ -159,9 +159,9 @@ extension Kana2Kanji {
                         }
                     }
                     if satisfied {
-                        return (eosNode, nodes, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: candidate))
+                        return (eosNode, lattice, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: candidate))
                     } else {
-                        return (eosNode, nodes, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: nil))
+                        return (eosNode, lattice, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: nil))
                     }
                 case .continue:
                     break reviewLoop

@@ -24,33 +24,26 @@ extension Kana2Kanji {
     ///
     /// (2)次に、返却用ノードを計算する。
 
-    func kana2lattice_no_change(N_best: Int, previousResult: (inputData: ComposingText, nodes: Nodes)) -> (result: LatticeNode, nodes: Nodes) {
+    func kana2lattice_no_change(N_best: Int, previousResult: (inputData: ComposingText, lattice: Lattice)) -> (result: LatticeNode, lattice: Lattice) {
         debug("キャッシュから復元、元の文字は：", previousResult.inputData.convertTarget)
         let count = previousResult.inputData.input.count
         // (1)
         let result = LatticeNode.EOSNode
 
-        for nodeArray in previousResult.nodes {
-            for node in nodeArray {
+        for nodeArray in previousResult.lattice.nodes {
+            for node in nodeArray where node.inputRange.endIndex == count {
                 if node.prevs.isEmpty {
                     continue
                 }
                 if self.dicdataStore.shouldBeRemoved(data: node.data) {
                     continue
                 }
-                let nextIndex = node.inputRange.endIndex
-                if nextIndex == count {
-                    // 変換した文字数
-                    for (index, value) in node.values.enumerated() {
-                        let newnode = node.getRegisteredNode(index, value: value)
-                        result.prevs.append(newnode)
-                    }
-                }
+                self.updateResultNode(with: node, resultNode: result)
             }
         }
 
         // (2)
-        return (result: result, nodes: previousResult.nodes)
+        return (result: result, lattice: previousResult.lattice)
     }
 
 }

@@ -34,7 +34,7 @@ import EfficientNGram
 
     // 前回の変換や確定の情報を取っておく部分。
     private var previousInputData: ComposingText?
-    private var nodes: [[LatticeNode]] = []
+    private var lattice: Lattice = Lattice()
     private var completedData: Candidate?
     private var lastData: DicdataElement?
     /// Zenzaiのためのzenzモデル
@@ -49,7 +49,7 @@ import EfficientNGram
         self.zenzaiPersonalization = nil
         self.zenzaiCache = nil
         self.previousInputData = nil
-        self.nodes = []
+        self.lattice = .init()
         self.completedData = nil
         self.lastData = nil
     }
@@ -448,9 +448,9 @@ import EfficientNGram
     ///   重複のない変換候補。
     /// - Note:
     ///   現在の実装は非常に複雑な方法で候補の順序を決定している。
-    private func processResult(inputData: ComposingText, result: (result: LatticeNode, nodes: [[LatticeNode]]), options: ConvertRequestOptions) -> ConversionResult {
+    private func processResult(inputData: ComposingText, result: (result: LatticeNode, lattice: Lattice), options: ConvertRequestOptions) -> ConversionResult {
         self.previousInputData = inputData
-        self.nodes = result.nodes
+        self.lattice = result.lattice
         let clauseResult = result.result.getCandidateData()
         if clauseResult.isEmpty {
             let candidates = self.getUniqueCandidate(self.getAdditionalCandidate(inputData, options: options))
@@ -538,7 +538,7 @@ import EfficientNGram
         seenCandidate.formUnion(clause_candidates.map {$0.text})
 
         // 最初の辞書データ
-        let dicCandidates: [Candidate] = result.nodes[0]
+        let dicCandidates: [Candidate] = result.lattice.nodes[0]
             .map {
                 Candidate(
                     text: $0.data.word,
@@ -605,7 +605,7 @@ import EfficientNGram
     ///   - N_best: 計算途中で保存する候補数。実際に得られる候補数とは異なる。
     /// - Returns:
     ///   結果のラティスノードと、計算済みノードの全体
-    private func convertToLattice(_ inputData: ComposingText, N_best: Int, zenzaiMode: ConvertRequestOptions.ZenzaiMode) -> (result: LatticeNode, nodes: [[LatticeNode]])? {
+    private func convertToLattice(_ inputData: ComposingText, N_best: Int, zenzaiMode: ConvertRequestOptions.ZenzaiMode) -> (result: LatticeNode, lattice: Lattice)? {
         if inputData.convertTarget.isEmpty {
             return nil
         }
@@ -642,7 +642,7 @@ import EfficientNGram
 
         // 完全一致の場合
         if previousInputData == inputData {
-            let result = converter.kana2lattice_no_change(N_best: N_best, previousResult: (inputData: previousInputData, nodes: nodes))
+            let result = converter.kana2lattice_no_change(N_best: N_best, previousResult: (inputData: previousInputData, lattice: self.lattice))
             self.previousInputData = inputData
             return result
         }
@@ -650,7 +650,7 @@ import EfficientNGram
         // 文節確定の後の場合
         if let completedData, previousInputData.inputHasSuffix(inputOf: inputData) {
             debug("\(#function): 文節確定用の関数を呼びます、確定された文節は\(completedData)")
-            let result = converter.kana2lattice_afterComplete(inputData, completedData: completedData, N_best: N_best, previousResult: (inputData: previousInputData, nodes: nodes), needTypoCorrection: needTypoCorrection)
+            let result = converter.kana2lattice_afterComplete(inputData, completedData: completedData, N_best: N_best, previousResult: (inputData: previousInputData, lattice: self.lattice), needTypoCorrection: needTypoCorrection)
             self.previousInputData = inputData
             self.completedData = nil
             return result
@@ -662,7 +662,7 @@ import EfficientNGram
         let diff = inputData.differenceSuffix(to: previousInputData)
 
         debug("\(#function): 最後尾文字置換用の関数を呼びます、差分は\(diff)")
-        let result = converter.kana2lattice_changed(inputData, N_best: N_best, counts: (diff.deleted, diff.addedCount), previousResult: (inputData: previousInputData, nodes: nodes), needTypoCorrection: needTypoCorrection)
+        let result = converter.kana2lattice_changed(inputData, N_best: N_best, counts: (diff.deleted, diff.addedCount), previousResult: (inputData: previousInputData, lattice: self.lattice), needTypoCorrection: needTypoCorrection)
         self.previousInputData = inputData
         return result
     }
