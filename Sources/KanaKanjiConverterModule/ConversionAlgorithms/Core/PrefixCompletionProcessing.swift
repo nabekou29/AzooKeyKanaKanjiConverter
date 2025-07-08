@@ -60,31 +60,9 @@ extension Kana2Kanji {
                 let nextIndex = node.inputRange.endIndex
                 // 文字数がcountと等しくない場合は先に進む
                 if nextIndex != count {
-                    for nextnode in lattice.nodes[nextIndex] {
-                        if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
-                            continue
-                        }
-                        // クラスの連続確率を計算する。
-                        let ccValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
-                        // nodeの持っている全てのprevnodeに対して
-                        for (index, value) in node.values.enumerated() {
-                            let newValue = ccValue + value
-                            // 追加すべきindexを取得する
-                            let lastindex = (nextnode.prevs.lastIndex(where: {$0.totalValue >= newValue}) ?? -1) + 1
-                            if lastindex == N_best {
-                                continue
-                            }
-                            let newnode = node.getRegisteredNode(index, value: newValue)
-                            // カウントがオーバーしている場合は除去する
-                            if nextnode.prevs.count >= N_best {
-                                nextnode.prevs.removeLast()
-                            }
-                            // removeしてからinsertした方が速い (insertはO(N)なので)
-                            nextnode.prevs.insert(newnode, at: lastindex)
-                        }
-                    }
-                    // countと等しければ変換が完成したので終了する
+                    self.updateNextNodes(with: node, nextNodes: lattice.nodes[nextIndex], nBest: N_best)
                 } else {
+                    // countと等しければ変換が完成したので終了する
                     for index in node.prevs.indices {
                         let newnode = node.getRegisteredNode(index, value: node.values[index])
                         result.prevs.append(newnode)

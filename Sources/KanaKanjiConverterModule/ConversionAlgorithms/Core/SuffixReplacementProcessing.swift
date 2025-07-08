@@ -57,29 +57,7 @@ extension Kana2Kanji {
                     }
                     // 変換した文字数
                     let nextIndex = node.inputRange.endIndex
-                    for nextnode in addedNodes.nodes[nextIndex] {
-                        if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
-                            continue
-                        }
-                        // クラスの連続確率を計算する。
-                        let ccValue: PValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
-                        // nodeの持っている全てのprevnodeに対して
-                        for (index, value) in node.values.enumerated() {
-                            let newValue: PValue = ccValue + value
-                            // 追加すべきindexを取得する
-                            let lastindex: Int = (nextnode.prevs.lastIndex(where: {$0.totalValue >= newValue}) ?? -1) + 1
-                            if lastindex == N_best {
-                                continue
-                            }
-                            let newnode: RegisteredNode = node.getRegisteredNode(index, value: newValue)
-                            // カウントがオーバーしている場合は除去する
-                            if nextnode.prevs.count >= N_best {
-                                nextnode.prevs.removeLast()
-                            }
-                            // removeしてからinsertした方が速い (insertはO(N)なので)
-                            nextnode.prevs.insert(newnode, at: lastindex)
-                        }
-                    }
+                    self.updateNextNodes(with: node, nextNodes: addedNodes.nodes[nextIndex], nBest: N_best)
                 }
             }
             lattice.merge(addedNodes)
@@ -116,30 +94,7 @@ extension Kana2Kanji {
                         result.prevs.append(newnode)
                     }
                 } else {
-                    for nextnode in terminalNodes.nodes[nextIndex] {
-                        // この関数はこの時点で呼び出して、後のnode.registered.isEmptyで最終的に弾くのが良い。
-                        if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
-                            continue
-                        }
-                        // クラスの連続確率を計算する。
-                        let ccValue = self.dicdataStore.getCCValue(node.data.rcid, nextnode.data.lcid)
-                        // nodeの持っている全てのprevnodeに対して
-                        for (index, value) in node.values.enumerated() {
-                            let newValue = ccValue + value
-                            // 追加すべきindexを取得する
-                            let lastindex: Int = (nextnode.prevs.lastIndex(where: {$0.totalValue >= newValue}) ?? -1) + 1
-                            if lastindex == N_best {
-                                continue
-                            }
-                            let newnode: RegisteredNode = node.getRegisteredNode(index, value: newValue)
-                            // カウントがオーバーしている場合は除去する
-                            if nextnode.prevs.count >= N_best {
-                                nextnode.prevs.removeLast()
-                            }
-                            // removeしてからinsertした方が速い (insertはO(N)なので)
-                            nextnode.prevs.insert(newnode, at: lastindex)
-                        }
-                    }
+                    self.updateNextNodes(with: node, nextNodes: terminalNodes.nodes[nextIndex], nBest: N_best)
                 }
             }
         }
