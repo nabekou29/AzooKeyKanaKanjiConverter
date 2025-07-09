@@ -32,7 +32,7 @@ extension Kana2Kanji {
         let result: LatticeNode = LatticeNode.EOSNode
         let lattice: Lattice = Lattice(nodes: (.zero ..< count).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: needTypoCorrection)})
         // 「i文字目から始まるnodes」に対して
-        for (i, nodeArray) in lattice.nodes.enumerated() {
+        for (i, nodeArray) in lattice.enumerated() {
             // それぞれのnodeに対して
             for node in nodeArray {
                 if node.prevs.isEmpty {

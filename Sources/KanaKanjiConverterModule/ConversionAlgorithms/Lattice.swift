@@ -1,9 +1,12 @@
-struct Lattice {
+struct Lattice: Sequence {
+    typealias Element = [LatticeNode]
+    typealias Iterator = IndexingIterator<[[LatticeNode]]>
+
     init(nodes: [[LatticeNode]] = []) {
         self.nodes = nodes
     }
 
-    private(set) var nodes: [[LatticeNode]]
+    private var nodes: [[LatticeNode]]
 
     func prefix(_ k: Int) -> Lattice {
         var lattice = Lattice(nodes: self.nodes.prefix(k).map {(nodes: [LatticeNode]) in
@@ -13,6 +16,10 @@ struct Lattice {
             lattice.nodes.removeLast()
         }
         return lattice
+    }
+
+    func suffix(_ count: Int) -> Lattice {
+        Lattice(nodes: self.nodes.suffix(count))
     }
 
     mutating func merge(_ lattice: Lattice) {
@@ -30,5 +37,13 @@ struct Lattice {
         get {
             self.nodes[i]
         }
+    }
+
+    func makeIterator() -> IndexingIterator<[[LatticeNode]]> {
+        self.nodes.makeIterator()
+    }
+
+    var isEmpty: Bool {
+        self.nodes.isEmpty
     }
 }

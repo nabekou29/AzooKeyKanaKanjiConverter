@@ -35,7 +35,7 @@ extension Kana2Kanji {
 
         let terminalNodes: Lattice
         if counts.added == 0 {
-            terminalNodes = Lattice(nodes: lattice.nodes.map {
+            terminalNodes = Lattice(nodes: lattice.map {
                 $0.filter {
                     $0.inputRange.endIndex == count
                 }
@@ -47,7 +47,7 @@ extension Kana2Kanji {
             })
 
             // (3)
-            for nodeArray in lattice.nodes {
+            for nodeArray in lattice {
                 for node in nodeArray {
                     if node.prevs.isEmpty {
                         continue
@@ -68,7 +68,7 @@ extension Kana2Kanji {
         // terminalNodesの各要素を結果ノードに接続する
         let result = LatticeNode.EOSNode
 
-        for (i, nodes) in terminalNodes.nodes.enumerated() {
+        for (i, nodes) in terminalNodes.enumerated() {
             for node in nodes {
                 if node.prevs.isEmpty {
                     continue
