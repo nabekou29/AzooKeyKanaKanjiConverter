@@ -82,7 +82,7 @@ extension Kana2Kanji {
                 // 制約がついている場合は高速になるので、N=3としている
                 self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: constraint)
             }
-            if lattice.nodes.isEmpty {
+            if lattice.isEmpty {
                 // 初回のみ
                 lattice = draftResult.lattice
             }

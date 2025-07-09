@@ -30,7 +30,7 @@ extension Kana2Kanji {
         // (1)
         let result = LatticeNode.EOSNode
 
-        for nodeArray in previousResult.lattice.nodes {
+        for nodeArray in previousResult.lattice {
             for node in nodeArray where node.inputRange.endIndex == count {
                 if node.prevs.isEmpty {
                     continue

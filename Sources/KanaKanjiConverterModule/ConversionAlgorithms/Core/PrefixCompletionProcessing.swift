@@ -20,8 +20,8 @@ extension Kana2Kanji {
         let count = inputData.input.count
         // (1)
         let start = RegisteredNode.fromLastCandidate(completedData)
-        let lattice = Lattice(nodes: previousResult.lattice.nodes.suffix(count))
-        for (i, nodeArray) in lattice.nodes.enumerated() {
+        let lattice = previousResult.lattice.suffix(count)
+        for (i, nodeArray) in lattice.enumerated() {
             if i == .zero {
                 for node in nodeArray {
                     node.prevs = [start]
@@ -39,7 +39,7 @@ extension Kana2Kanji {
         // (2)
         let result = LatticeNode.EOSNode
 
-        for (i, nodeArray) in lattice.nodes.enumerated() {
+        for (i, nodeArray) in lattice.enumerated() {
             for node in nodeArray {
                 if node.prevs.isEmpty {
                     continue
