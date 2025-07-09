@@ -1,5 +1,6 @@
 struct Lattice: Sequence {
     typealias Element = [LatticeNode]
+    typealias Iterator = IndexingIterator<[[LatticeNode]]>
 
     init(nodes: [[LatticeNode]] = []) {
         self.nodes = nodes
@@ -38,7 +39,7 @@ struct Lattice: Sequence {
         }
     }
 
-    func makeIterator() -> some IteratorProtocol<Element> {
+    func makeIterator() -> IndexingIterator<[[LatticeNode]]> {
         self.nodes.makeIterator()
     }
 
