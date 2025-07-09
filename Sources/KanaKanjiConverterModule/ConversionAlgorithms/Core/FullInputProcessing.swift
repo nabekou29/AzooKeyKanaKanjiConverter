@@ -28,11 +28,16 @@ extension Kana2Kanji {
     /// (4)ノードをアップデートした上で返却する。
     func kana2lattice_all(_ inputData: ComposingText, N_best: Int, needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice) {
         debug("新規に計算を行います。inputされた文字列は\(inputData.input.count)文字分の\(inputData.convertTarget)")
-        let count: Int = inputData.input.count
+        let inputCount: Int = inputData.input.count
+        let surfaceCount = inputData.convertTarget.count
         let result: LatticeNode = LatticeNode.EOSNode
-        let lattice: Lattice = Lattice(nodes: (.zero ..< count).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: needTypoCorrection)})
+        let lattice: Lattice = Lattice(
+            inputCount: inputCount,
+            surfaceCount: surfaceCount,
+            rawNodes: (.zero ..< inputCount).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: needTypoCorrection)}
+        )
         // 「i文字目から始まるnodes」に対して
-        for (i, nodeArray) in lattice.enumerated() {
+        for (i, nodeArray) in lattice.indexedNodes() {
             // それぞれのnodeに対して
             for node in nodeArray {
                 if node.prevs.isEmpty {
@@ -43,7 +48,7 @@ extension Kana2Kanji {
                 }
                 // 生起確率を取得する。
                 let wValue: PValue = node.data.value()
-                if i == 0 {
+                if i.isZero {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue + self.dicdataStore.getCCValue($0.data.rcid, node.data.lcid)}
                 } else {
@@ -51,12 +56,12 @@ extension Kana2Kanji {
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
                 // 変換した文字数
-                let nextIndex: Int = node.inputRange.endIndex
+                let nextIndex = node.range.endIndex
                 // 文字数がcountと等しい場合登録する
-                if nextIndex == count {
+                if nextIndex == .input(inputCount) || nextIndex == .surface(surfaceCount) {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
-                    self.updateNextNodes(with: node, nextNodes: lattice[inputIndex: nextIndex], nBest: N_best)
+                    self.updateNextNodes(with: node, nextNodes: lattice[index: nextIndex], nBest: N_best)
                 }
             }
         }

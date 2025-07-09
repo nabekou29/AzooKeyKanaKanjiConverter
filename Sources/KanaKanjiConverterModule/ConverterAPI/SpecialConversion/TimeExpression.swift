@@ -17,7 +17,7 @@ extension KanaKanjiConverter {
                 let candidate = Candidate(
                     text: timeExpression,
                     value: -10,
-                    correspondingCount: numberString.count,
+                    composingCount: .surfaceCount(numberString.count),
                     lastMid: MIDData.一般.mid,
                     data: [DicdataElement(word: timeExpression, ruby: numberString, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -10)]
                 )
@@ -31,7 +31,7 @@ extension KanaKanjiConverter {
                 let candidate = Candidate(
                     text: timeExpression,
                     value: -10,
-                    correspondingCount: numberString.count,
+                    composingCount: .surfaceCount(numberString.count),
                     lastMid: MIDData.一般.mid,
                     data: [DicdataElement(word: timeExpression, ruby: numberString, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -10)]
                 )

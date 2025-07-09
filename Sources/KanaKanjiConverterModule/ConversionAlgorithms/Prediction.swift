@@ -22,9 +22,14 @@ extension Kana2Kanji {
     /// - note:
     ///     この関数の役割は意味連接の考慮にある。
     func getPredictionCandidates(composingText: ComposingText, prepart: CandidateData, lastClause: ClauseDataUnit, N_best: Int) -> [Candidate] {
-        debug("getPredictionCandidates", composingText, lastClause.inputRange, lastClause.text)
-        let lastRuby = ComposingText.getConvertTarget(for: composingText.input[lastClause.inputRange]).toKatakana()
-        let lastRubyCount = lastClause.inputRange.count
+        debug("getPredictionCandidates", composingText, lastClause.range, lastClause.text)
+        let lastRuby = switch lastClause.range {
+        case let .input(left, right):
+            ComposingText.getConvertTarget(for: composingText.input[left..<right]).toKatakana()
+        case let .surface(left, right):
+            String(composingText.convertTarget.dropFirst(left).prefix(right - left))
+        }
+        let lastRubyCount = lastRuby.count
         let datas: [DicdataElement]
         do {
             var _str = ""
@@ -42,11 +47,11 @@ extension Kana2Kanji {
 
         let osuserdict: [DicdataElement] = dicdataStore.getPrefixMatchDynamicUserDict(lastRuby)
 
-        let lastCandidate: Candidate = prepart.isEmpty ? Candidate(text: "", value: .zero, correspondingCount: 0, lastMid: MIDData.EOS.mid, data: []) : self.processClauseCandidate(prepart)
+        let lastCandidate: Candidate = prepart.isEmpty ? Candidate(text: "", value: .zero, composingCount: .inputCount(0), lastMid: MIDData.EOS.mid, data: []) : self.processClauseCandidate(prepart)
         let lastRcid: Int = lastCandidate.data.last?.rcid ?? CIDData.EOS.cid
         let nextLcid: Int = prepart.lastClause?.nextLcid ?? CIDData.EOS.cid
         let lastMid: Int = lastCandidate.lastMid
-        let correspoindingCount: Int = lastCandidate.correspondingCount + lastRubyCount
+        let composingCount: ComposingCount = .composite(lastCandidate.composingCount, .surfaceCount(lastRubyCount))
         let ignoreCCValue: PValue = self.dicdataStore.getCCValue(lastRcid, nextLcid)
 
         let inputStyle = composingText.input.last?.inputStyle ?? .direct
@@ -91,7 +96,7 @@ extension Kana2Kanji {
             let candidate: Candidate = Candidate(
                 text: lastCandidate.text + data.word,
                 value: newValue,
-                correspondingCount: correspoindingCount,
+                composingCount: composingCount,
                 lastMid: includeMMValueCalculation ? data.mid:lastMid,
                 data: nodedata
             )

@@ -16,7 +16,7 @@ final class CandidateTests: XCTestCase {
             let candidate = Candidate(
                 text: text,
                 value: -40,
-                correspondingCount: 4,
+                composingCount: .inputCount(4),
                 lastMid: 5,
                 data: [DicdataElement(word: text, ruby: "サイコロ", cid: 0, mid: 5, value: -40)]
             )
@@ -27,7 +27,7 @@ final class CandidateTests: XCTestCase {
                 print(candidate2.text)
                 XCTAssertTrue(Set((1...3).map(String.init)).contains(candidate2.text))
                 XCTAssertEqual(candidate.value, candidate2.value)
-                XCTAssertEqual(candidate.correspondingCount, candidate2.correspondingCount)
+                XCTAssertEqual(candidate.composingCount, candidate2.composingCount)
                 XCTAssertEqual(candidate.lastMid, candidate2.lastMid)
                 XCTAssertEqual(candidate.data, candidate2.data)
                 XCTAssertEqual(candidate.actions, candidate2.actions)
@@ -38,7 +38,7 @@ final class CandidateTests: XCTestCase {
             let candidate = Candidate(
                 text: text,
                 value: 0,
-                correspondingCount: 0,
+                composingCount: .inputCount(0),
                 lastMid: 0,
                 data: [DicdataElement(word: text, ruby: "", cid: 0, mid: 0, value: 0)]
             )

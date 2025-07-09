@@ -220,7 +220,7 @@ extension Subcommands {
                         print("Submit \(candidate.text)")
                         converter.setCompletedData(candidate)
                         converter.updateLearningData(candidate)
-                        composingText.prefixComplete(correspondingCount: candidate.correspondingCount)
+                        composingText.prefixComplete(composingCount: candidate.composingCount)
                         if composingText.isEmpty {
                             composingText.stopComposition()
                             converter.stopComposition()

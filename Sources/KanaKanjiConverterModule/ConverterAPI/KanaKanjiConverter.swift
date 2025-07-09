@@ -168,7 +168,7 @@ import EfficientNGram
         var textIndex = [String: Int]()
         for candidate in candidates where !candidate.text.isEmpty && !seenCandidates.contains(candidate.text) {
             if let index = textIndex[candidate.text] {
-                if result[index].value < candidate.value || result[index].correspondingCount < candidate.correspondingCount {
+                if result[index].value < candidate.value || result[index].rubyCount < candidate.rubyCount {
                     result[index] = candidate
                 }
             } else {
@@ -219,7 +219,7 @@ import EfficientNGram
                     let candidate: Candidate = Candidate(
                         text: ruby,
                         value: penalty,
-                        correspondingCount: inputData.input.count,
+                        composingCount: .inputCount(inputData.input.count),
                         lastMid: MIDData.一般.mid,
                         data: data
                     )
@@ -232,7 +232,7 @@ import EfficientNGram
                     let candidate: Candidate = Candidate(
                         text: word,
                         value: value,
-                        correspondingCount: inputData.input.count,
+                        composingCount: .inputCount(inputData.input.count),
                         lastMid: MIDData.一般.mid,
                         data: data
                     )
@@ -251,7 +251,7 @@ import EfficientNGram
                     let candidate: Candidate = Candidate(
                         text: ruby,
                         value: penalty,
-                        correspondingCount: inputData.input.count,
+                        composingCount: .inputCount(inputData.input.count),
                         lastMid: MIDData.一般.mid,
                         data: data
                     )
@@ -264,7 +264,7 @@ import EfficientNGram
                     let candidate: Candidate = Candidate(
                         text: word,
                         value: value,
-                        correspondingCount: inputData.input.count,
+                        composingCount: .inputCount(inputData.input.count),
                         lastMid: MIDData.一般.mid,
                         data: data
                     )
@@ -368,7 +368,7 @@ import EfficientNGram
     private func getAdditionalCandidate(_ inputData: ComposingText, options: ConvertRequestOptions) -> [Candidate] {
         var candidates: [Candidate] = []
         let string = inputData.convertTarget.toKatakana()
-        let correspondingCount = inputData.input.count
+        let composingCount: ComposingCount = .inputCount(inputData.input.count)
         do {
             // カタカナ
             let value = -14 * getKatakanaScore(string)
@@ -376,7 +376,7 @@ import EfficientNGram
             let katakana = Candidate(
                 text: string,
                 value: value,
-                correspondingCount: correspondingCount,
+                composingCount: composingCount,
                 lastMid: MIDData.一般.mid,
                 data: [data]
             )
@@ -390,7 +390,7 @@ import EfficientNGram
             let hiragana = Candidate(
                 text: hiraganaString,
                 value: -14.5,
-                correspondingCount: correspondingCount,
+                composingCount: composingCount,
                 lastMid: MIDData.一般.mid,
                 data: [data]
             )
@@ -403,7 +403,7 @@ import EfficientNGram
             let uppercasedLetter = Candidate(
                 text: word,
                 value: -14.6,
-                correspondingCount: correspondingCount,
+                composingCount: composingCount,
                 lastMid: MIDData.一般.mid,
                 data: [data]
             )
@@ -416,7 +416,7 @@ import EfficientNGram
             let fullWidthLetter = Candidate(
                 text: word,
                 value: -14.7,
-                correspondingCount: correspondingCount,
+                composingCount: composingCount,
                 lastMid: MIDData.一般.mid,
                 data: [data]
             )
@@ -429,7 +429,7 @@ import EfficientNGram
             let halfWidthKatakana = Candidate(
                 text: word,
                 value: -15,
-                correspondingCount: correspondingCount,
+                composingCount: composingCount,
                 lastMid: MIDData.一般.mid,
                 data: [data]
             )
@@ -472,7 +472,7 @@ import EfficientNGram
             return Candidate(
                 text: first.clause.text,
                 value: first.value,
-                correspondingCount: first.clause.inputRange.count,
+                composingCount: first.clause.range.count,
                 lastMid: first.clause.mid,
                 data: Array(candidateData.data[0...count])
             )
@@ -529,10 +529,10 @@ import EfficientNGram
         var seenCandidate: Set<String> = full_candidate.mapSet {$0.text}
         // 文節のみ変換するパターン（上位5件）
         let clause_candidates = self.getUniqueCandidate(clauseCandidates, seenCandidates: seenCandidate).min(count: 5) {
-            if $0.correspondingCount == $1.correspondingCount {
+            if $0.rubyCount == $1.rubyCount {
                 $0.value > $1.value
             } else {
-                $0.correspondingCount > $1.correspondingCount
+                $0.rubyCount > $1.rubyCount
             }
         }
         seenCandidate.formUnion(clause_candidates.map {$0.text})
@@ -543,7 +543,7 @@ import EfficientNGram
                 Candidate(
                     text: $0.data.word,
                     value: $0.data.value(),
-                    correspondingCount: $0.inputRange.count,
+                    composingCount: $0.range.count,
                     lastMid: $0.data.mid,
                     data: [$0.data]
                 )
@@ -554,8 +554,8 @@ import EfficientNGram
         // 文字列の長さごとに並べ、かつその中で評価の高いものから順に並べる。
         var word_candidates: [Candidate] = self.getUniqueCandidate(dicCandidates.chained(additionalCandidates), seenCandidates: seenCandidate)
             .sorted {
-                let count0 = $0.correspondingCount
-                let count1 = $1.correspondingCount
+                let count0 = $0.rubyCount
+                let count1 = $1.rubyCount
                 return count0 == count1 ? $0.value > $1.value : count0 > count1
             }
         seenCandidate.formUnion(word_candidates.map {$0.text})
@@ -590,10 +590,10 @@ import EfficientNGram
         }
         // 文節のみ変換するパターン（上位5件）
         let firstClauseResults = self.getUniqueCandidate(clauseCandidates).min(count: 5) {
-            if $0.correspondingCount == $1.correspondingCount {
+            if $0.rubyCount == $1.rubyCount {
                 $0.value > $1.value
             } else {
-                $0.correspondingCount > $1.correspondingCount
+                $0.rubyCount > $1.rubyCount
             }
         }
         return ConversionResult(mainResults: result, firstClauseResults: firstClauseResults)
@@ -662,7 +662,7 @@ import EfficientNGram
         let diff = inputData.differenceSuffix(to: previousInputData)
 
         debug("\(#function): 最後尾文字置換用の関数を呼びます、差分は\(diff)")
-        let result = converter.kana2lattice_changed(inputData, N_best: N_best, counts: (diff.deleted, diff.addedCount), previousResult: (inputData: previousInputData, lattice: self.lattice), needTypoCorrection: needTypoCorrection)
+        let result = converter.kana2lattice_changed(inputData, N_best: N_best, counts: diff, previousResult: (inputData: previousInputData, lattice: self.lattice), needTypoCorrection: needTypoCorrection)
         self.previousInputData = inputData
         return result
     }

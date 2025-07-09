@@ -20,7 +20,7 @@ extension KanaKanjiConverter {
             return [Candidate(
                 text: versionString,
                 value: -30,
-                correspondingCount: inputData.input.count,
+                composingCount: .inputCount(inputData.input.count),
                 lastMid: MIDData.一般.mid,
                 data: [DicdataElement(word: versionString, ruby: inputData.convertTarget.toKatakana(), cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -30)]
             )]

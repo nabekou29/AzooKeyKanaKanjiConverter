@@ -202,8 +202,8 @@ final class ComposingTextTests: XCTestCase {
             var c2 = ComposingText()
             c2.insertAtCursorPosition("hasiru", inputStyle: .roman2kana)
 
-            XCTAssertEqual(c2.differenceSuffix(to: c1).deleted, 0)
-            XCTAssertEqual(c2.differenceSuffix(to: c1).addedCount, 1)
+            XCTAssertEqual(c2.differenceSuffix(to: c1).deletedInput, 0)
+            XCTAssertEqual(c2.differenceSuffix(to: c1).addedInput, 1)
         }
         do {
             var c1 = ComposingText()
@@ -212,8 +212,8 @@ final class ComposingTextTests: XCTestCase {
             var c2 = ComposingText()
             c2.insertAtCursorPosition("tukatte", inputStyle: .roman2kana)
 
-            XCTAssertEqual(c2.differenceSuffix(to: c1).deleted, 0)
-            XCTAssertEqual(c2.differenceSuffix(to: c1).addedCount, 1)
+            XCTAssertEqual(c2.differenceSuffix(to: c1).deletedInput, 0)
+            XCTAssertEqual(c2.differenceSuffix(to: c1).addedInput, 1)
         }
     }
 }

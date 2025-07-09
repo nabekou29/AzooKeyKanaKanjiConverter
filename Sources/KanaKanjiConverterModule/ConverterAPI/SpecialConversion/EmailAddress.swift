@@ -46,7 +46,7 @@ extension KanaKanjiConverter {
                     Candidate(
                         text: address,
                         value: baseValue - PValue(i),
-                        correspondingCount: inputData.input.count,
+                        composingCount: .inputCount(inputData.input.count),
                         lastMid: MIDData.一般.mid,
                         data: [DicdataElement(word: address, ruby: string, cid: .zero, mid: MIDData.一般.mid, value: baseValue - PValue(i))]
                     )

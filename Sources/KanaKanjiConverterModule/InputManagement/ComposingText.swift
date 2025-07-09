@@ -341,18 +341,37 @@ public struct ComposingText: Sendable {
     /// 文頭の方を確定させる関数
     ///  - parameters:
     ///   - correspondingCount: `input`において対応する文字数
-    public mutating func prefixComplete(correspondingCount: Int) {
-        let correspondingCount = min(correspondingCount, self.input.count)
-        self.input.removeFirst(correspondingCount)
-        // convetTargetを更新する
-        let newConvertTarget = Self.getConvertTarget(for: self.input)
-        // カーソルの位置は、消す文字数の分削除する
-        let cursorDelta = self.convertTarget.count - newConvertTarget.count
-        self.convertTarget = newConvertTarget
-        self.convertTargetCursorPosition -= cursorDelta
-        // もしも左端にカーソルが位置していたら、文頭に移動させる
-        if self.convertTargetCursorPosition == 0 {
-            self.convertTargetCursorPosition = self.convertTarget.count
+    public mutating func prefixComplete(composingCount: ComposingCount) {
+        switch composingCount {
+        case .inputCount(let correspondingCount):
+            let correspondingCount = min(correspondingCount, self.input.count)
+            self.input.removeFirst(correspondingCount)
+            // convetTargetを更新する
+            let newConvertTarget = Self.getConvertTarget(for: self.input)
+            // カーソルの位置は、消す文字数の分削除する
+            let cursorDelta = self.convertTarget.count - newConvertTarget.count
+            self.convertTarget = newConvertTarget
+            self.convertTargetCursorPosition -= cursorDelta
+            // もしも左端にカーソルが位置していたら、文頭に移動させる
+            if self.convertTargetCursorPosition == 0 {
+                self.convertTargetCursorPosition = self.convertTarget.count
+            }
+        case .surfaceCount(let correspondingCount):
+            // 先頭correspondingCountを削除する操作に相当する
+            // カーソルを移動する
+            let prefix = self.convertTarget.prefix(correspondingCount)
+            let index = self.forceGetInputCursorPosition(target: prefix)
+            self.input = Array(self.input[index...])
+            self.convertTarget = String(self.convertTarget.dropFirst(correspondingCount))
+            self.convertTargetCursorPosition -= correspondingCount
+            // もしも左端にカーソルが位置していたら、文頭に移動させる
+            if self.convertTargetCursorPosition == 0 {
+                self.convertTargetCursorPosition = self.convertTarget.count
+            }
+
+        case .composite(let left, let right):
+            self.prefixComplete(composingCount: left)
+            self.prefixComplete(composingCount: right)
         }
     }
 
@@ -580,17 +599,20 @@ extension ComposingText.ConvertTargetElement: Equatable {}
 extension ComposingText {
     /// 2つの`ComposingText`のデータを比較し、差分を計算する。
     /// `convertTarget`との整合性をとるため、`convertTarget`に合わせた上で比較する
-    func differenceSuffix(to previousData: ComposingText) -> (deleted: Int, addedCount: Int) {
+    func differenceSuffix(to previousData: ComposingText) -> (deletedInput: Int, addedInput: Int, deletedSurface: Int, addedSurface: Int) {
         // k→か、sh→しゃ、のような場合、差分は全てx ... lastの範囲に現れるので、差分計算が問題なく動作する
         // かn → かんs、のような場合、「かんs、んs、s」のようなものは現れるが、「かん」が生成できない
         // 本質的にこれはポリシーの問題であり、「は|しゃ」の変換で「はし」が部分変換として現れないことと同根の問題である。
         // 解決のためには、inputの段階で「ん」をdirectで扱うべきである。
-
         // 差分を計算する
         let common = self.input.commonPrefix(with: previousData.input)
         let deleted = previousData.input.count - common.count
         let added = self.input.dropFirst(common.count).count
-        return (deleted, added)
+
+        let commonSurface = self.convertTarget.commonPrefix(with: previousData.convertTarget)
+        let deletedSurface = previousData.convertTarget.count - commonSurface.count
+        let addedSurface = self.convertTarget.suffix(from: commonSurface.startIndex).count
+        return (deleted, added, deletedSurface, addedSurface)
     }
 
     func inputHasSuffix(inputOf suffix: ComposingText) -> Bool {

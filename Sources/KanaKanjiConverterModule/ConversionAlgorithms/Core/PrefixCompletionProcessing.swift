@@ -17,29 +17,30 @@ extension Kana2Kanji {
     /// (2)次に、再度計算して良い候補を得る。
     func kana2lattice_afterComplete(_ inputData: ComposingText, completedData: Candidate, N_best: Int, previousResult: (inputData: ComposingText, lattice: Lattice), needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice) {
         debug("確定直後の変換、前は：", previousResult.inputData, "後は：", inputData)
-        let count = inputData.input.count
+        let inputCount = inputData.input.count
+        let surfaceCount = inputData.convertTarget.count
+        // TODO: 実際にはもっとチェックが必要。具体的には、input/convertTarget両方のsuffixが一致する必要がある
+        let convertedInputCount = previousResult.inputData.input.count - inputCount
+        let convertedSurfaceCount = previousResult.inputData.convertTarget.count - surfaceCount
         // (1)
         let start = RegisteredNode.fromLastCandidate(completedData)
-        let lattice = previousResult.lattice.suffix(count)
-        for (i, nodeArray) in lattice.enumerated() {
-            if i == .zero {
-                for node in nodeArray {
-                    node.prevs = [start]
-                    // inputRangeを確定した部分のカウント分ずらす
-                    node.inputRange = node.inputRange.startIndex - completedData.correspondingCount ..< node.inputRange.endIndex - completedData.correspondingCount
-                }
+        let lattice = previousResult.lattice.suffix(inputCount: inputCount, surfaceCount: surfaceCount)
+        for (i, nodeArray) in lattice.indexedNodes() {
+            let prevs: [RegisteredNode] = if i.isZero {
+                [start]
             } else {
-                for node in nodeArray {
-                    node.prevs = []
-                    // inputRangeを確定した部分のカウント分ずらす
-                    node.inputRange = node.inputRange.startIndex - completedData.correspondingCount ..< node.inputRange.endIndex - completedData.correspondingCount
-                }
+                []
+            }
+            for node in nodeArray {
+                node.prevs = prevs
+                // inputRangeを確定した部分のカウント分ずらす
+                node.range = node.range.offseted(inputOffset: -convertedInputCount, surfaceOffset: -convertedSurfaceCount)
             }
         }
         // (2)
         let result = LatticeNode.EOSNode
 
-        for (i, nodeArray) in lattice.enumerated() {
+        for (i, nodeArray) in lattice.indexedNodes() {
             for node in nodeArray {
                 if node.prevs.isEmpty {
                     continue
@@ -49,7 +50,7 @@ extension Kana2Kanji {
                 }
                 // 生起確率を取得する。
                 let wValue = node.data.value()
-                if i == 0 {
+                if i.isZero {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue + self.dicdataStore.getCCValue($0.data.rcid, node.data.lcid)}
                 } else {
@@ -57,11 +58,11 @@ extension Kana2Kanji {
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
                 // 変換した文字数
-                let nextIndex = node.inputRange.endIndex
-                if nextIndex != count {
-                    self.updateNextNodes(with: node, nextNodes: lattice[inputIndex: nextIndex], nBest: N_best)
-                } else {
+                let nextIndex = node.range.endIndex
+                if nextIndex == .input(inputCount) || nextIndex == .surface(surfaceCount) {
                     self.updateResultNode(with: node, resultNode: result)
+                } else {
+                    self.updateNextNodes(with: node, nextNodes: lattice[index: nextIndex], nBest: N_best)
                 }
             }
 

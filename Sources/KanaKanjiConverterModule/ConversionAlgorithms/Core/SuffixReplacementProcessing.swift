@@ -6,6 +6,7 @@
 //  Copyright © 2020 ensan. All rights reserved.
 //
 
+import Algorithms
 import Foundation
 import SwiftUtils
 
@@ -24,27 +25,43 @@ extension Kana2Kanji {
     ///
     /// (5)ノードをアップデートした上で返却する。
 
-    func kana2lattice_changed(_ inputData: ComposingText, N_best: Int, counts: (deleted: Int, added: Int), previousResult: (inputData: ComposingText, lattice: Lattice), needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice) {
+    func kana2lattice_changed(
+        _ inputData: ComposingText,
+        N_best: Int,
+        counts: (deletedInput: Int, addedInput: Int, deletedSurface: Int, addedSurface: Int),
+        previousResult: (inputData: ComposingText, lattice: Lattice),
+        needTypoCorrection: Bool
+    ) -> (result: LatticeNode, lattice: Lattice) {
         // (0)
-        let count = inputData.input.count
-        let commonCount = previousResult.inputData.input.count - counts.deleted
-        debug("kana2lattice_changed", inputData, counts, previousResult.inputData, count, commonCount)
+        let inputCount = inputData.input.count
+        let surfaceCount = inputData.convertTarget.count
+        let commonInputCount = previousResult.inputData.input.count - counts.deletedInput
+        let commonSurfaceCount = previousResult.inputData.convertTarget.count - counts.deletedSurface
+        debug("kana2lattice_changed", inputData, counts, previousResult.inputData, inputCount, commonInputCount)
 
         // (1)
-        var lattice = previousResult.lattice.prefix(commonCount)
+        var lattice = previousResult.lattice.prefix(inputCount: commonInputCount, surfaceCount: commonSurfaceCount)
 
         let terminalNodes: Lattice
-        if counts.added == 0 {
-            terminalNodes = Lattice(nodes: lattice.map {
-                $0.filter {
-                    $0.inputRange.endIndex == count
+        if counts.addedInput == 0 {
+            terminalNodes = Lattice(
+                inputCount: inputCount,
+                surfaceCount: surfaceCount,
+                rawNodes: lattice.map {
+                    $0.filter {
+                        $0.range.endIndex == .input(inputCount) || $0.range.endIndex == .surface(inputCount)
+                    }
                 }
-            })
+            )
         } else {
             // (2)
-            let addedNodes: Lattice = Lattice(nodes: (0..<count).map {(i: Int) in
-                self.dicdataStore.getLOUDSDataInRange(inputData: inputData, from: i, toIndexRange: max(commonCount, i) ..< count, needTypoCorrection: needTypoCorrection)
-            })
+            let addedNodes: Lattice = Lattice(
+                inputCount: inputCount,
+                surfaceCount: surfaceCount,
+                rawNodes: (0..<inputCount).map {(i: Int) in
+                    self.dicdataStore.getLOUDSDataInRange(inputData: inputData, from: i, toIndexRange: max(commonInputCount, i) ..< inputCount, needTypoCorrection: needTypoCorrection)
+                }
+            )
 
             // (3)
             for nodeArray in lattice {
@@ -56,8 +73,8 @@ extension Kana2Kanji {
                         continue
                     }
                     // 変換した文字数
-                    let nextIndex = node.inputRange.endIndex
-                    self.updateNextNodes(with: node, nextNodes: addedNodes[inputIndex: nextIndex], nBest: N_best)
+                    let nextIndex = node.range.endIndex
+                    self.updateNextNodes(with: node, nextNodes: addedNodes[index: nextIndex], nBest: N_best)
                 }
             }
             lattice.merge(addedNodes)
@@ -86,11 +103,11 @@ extension Kana2Kanji {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
-                let nextIndex = node.inputRange.endIndex
-                if count == nextIndex {
+                let nextIndex = node.range.endIndex
+                if nextIndex == .input(inputCount) || nextIndex == .surface(surfaceCount) {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
-                    self.updateNextNodes(with: node, nextNodes: terminalNodes[inputIndex: nextIndex], nBest: N_best)
+                    self.updateNextNodes(with: node, nextNodes: terminalNodes[index: nextIndex], nBest: N_best)
                 }
             }
         }

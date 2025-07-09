@@ -17,28 +17,32 @@ final class ClauseDataUnit {
     /// The text of the unit.
     var text: String = ""
     /// The range of the unit in input text.
-    var inputRange: Range<Int> = 0 ..< 0
+    var range: Lattice.LatticeRange = .zero
 
     /// Merge the given unit to this unit.
     /// - Parameter:
     ///   - unit: The unit to merge.
     func merge(with unit: ClauseDataUnit) {
         self.text.append(unit.text)
-        self.inputRange = self.inputRange.startIndex ..< unit.inputRange.endIndex
+        if let newRange =  self.range.merged(with: unit.range) {
+            self.range = newRange
+        } else {
+            fatalError("このケースは想定していません。")
+        }
         self.nextLcid = unit.nextLcid
     }
 }
 
 extension ClauseDataUnit: Equatable {
     static func == (lhs: ClauseDataUnit, rhs: ClauseDataUnit) -> Bool {
-        lhs.mid == rhs.mid && lhs.nextLcid == rhs.nextLcid && lhs.text == rhs.text && lhs.inputRange == rhs.inputRange
+        lhs.mid == rhs.mid && lhs.nextLcid == rhs.nextLcid && lhs.text == rhs.text && lhs.range == rhs.range
     }
 }
 
 #if DEBUG
 extension ClauseDataUnit: CustomDebugStringConvertible {
     var debugDescription: String {
-        "ClauseDataUnit(mid: \(mid), nextLcid: \(nextLcid), text: \(text), inputRange: \(inputRange))"
+        "ClauseDataUnit(mid: \(mid), nextLcid: \(nextLcid), text: \(text), range: \(range))"
     }
 }
 #endif
@@ -67,14 +71,24 @@ public enum CompleteAction: Equatable, Sendable {
     case moveCursor(Int)
 }
 
+public enum ComposingCount: Equatable, Sendable {
+    /// composingText.inputにおいて対応する文字数。
+    case inputCount(Int)
+    /// composingText.convertTargeにおいて対応する文字数。
+    case surfaceCount(Int)
+
+    /// 複数のカウントの連結
+    indirect case composite(Self, Self)
+}
+
 /// 変換候補のデータ
 public struct Candidate: Sendable {
     /// 入力となるテキスト
     public var text: String
     /// 評価値
     public var value: PValue
-    /// composingText.inputにおいて対応する文字数。
-    public var correspondingCount: Int
+
+    public var composingCount: ComposingCount
     /// 最後のmid(予測変換に利用)
     public var lastMid: Int
     /// DicdataElement列
@@ -86,14 +100,18 @@ public struct Candidate: Sendable {
     /// - note: 文字数表示のために追加したフラグ
     public let inputable: Bool
 
-    public init(text: String, value: PValue, correspondingCount: Int, lastMid: Int, data: [DicdataElement], actions: [CompleteAction] = [], inputable: Bool = true) {
+    /// ルビ文字数
+    public let rubyCount: Int
+
+    public init(text: String, value: PValue, composingCount: ComposingCount, lastMid: Int, data: [DicdataElement], actions: [CompleteAction] = [], inputable: Bool = true) {
         self.text = text
         self.value = value
-        self.correspondingCount = correspondingCount
+        self.composingCount = composingCount
         self.lastMid = lastMid
         self.data = data
         self.actions = actions
         self.inputable = inputable
+        self.rubyCount = self.data.reduce(into: 0) { $0 += $1.ruby.count }
     }
     /// 後から`action`を追加した形を生成する関数
     /// - parameters:
@@ -138,7 +156,7 @@ public struct Candidate: Sendable {
     /// 入力を文としたとき、prefixになる文節に対応するCandidateを作る
     public static func makePrefixClauseCandidate(data: some Collection<DicdataElement>) -> Candidate {
         var text = ""
-        var correspondingCount = 0
+        var composingCount = 0
         var lastRcid = CIDData.BOS.cid
         var lastMid = 501
         var candidateData: [DicdataElement] = []
@@ -148,7 +166,7 @@ public struct Candidate: Sendable {
                 break
             }
             text.append(item.word)
-            correspondingCount += item.ruby.count
+            composingCount += item.ruby.count
             lastRcid = item.rcid
             // 最初だった場合を想定している
             if item.mid != 500 && DicdataStore.includeMMValueCalculation(item) {
@@ -159,7 +177,7 @@ public struct Candidate: Sendable {
         return Candidate(
             text: text,
             value: -5,
-            correspondingCount: correspondingCount,
+            composingCount: .surfaceCount(composingCount),
             lastMid: lastMid,
             data: candidateData
         )

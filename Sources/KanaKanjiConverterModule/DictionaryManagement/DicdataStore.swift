@@ -427,7 +427,7 @@ public final class DicdataStore {
                 guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
                     return nil
                 }
-                let node = LatticeNode(data: $0, inputRange: fromIndex ..< endIndex + 1)
+                let node = LatticeNode(data: $0, range: .input(from: fromIndex, to: endIndex + 1))
                 node.prevs.append(RegisteredNode.BOSNode())
                 return node
             }
@@ -437,7 +437,7 @@ public final class DicdataStore {
                 guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
                     return nil
                 }
-                return LatticeNode(data: $0, inputRange: fromIndex ..< endIndex + 1)
+                return LatticeNode(data: $0, range: .input(from: fromIndex, to: endIndex + 1))
             }
             return result
         }
