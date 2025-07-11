@@ -216,4 +216,30 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(c2.differenceSuffix(to: c1).addedInput, 1)
         }
     }
+
+    func testIndexMap() throws {
+        var c = ComposingText()
+        sequentialInput(&c, sequence: "kyouhaiitenkida", inputStyle: .roman2kana)
+        let map = c.inputIndexToSurfaceIndexMap()
+
+        // Note: 現在の実装では、アドホックな対処によってnが"ん"に切り替わる
+        XCTAssertEqual(c.input[10], .init(character: "ん", inputStyle: .direct))
+
+        XCTAssertEqual(map[0], 0)     // ""
+        XCTAssertEqual(map[1], nil)   // k
+        XCTAssertEqual(map[2], nil)   // y
+        XCTAssertEqual(map[3], 2)     // o
+        XCTAssertEqual(map[4], 3)     // u
+        XCTAssertEqual(map[5], nil)   // h
+        XCTAssertEqual(map[6], 4)     // a
+        XCTAssertEqual(map[7], 5)     // i
+        XCTAssertEqual(map[8], 6)     // i
+        XCTAssertEqual(map[9], nil)   // t
+        XCTAssertEqual(map[10], 7)    // e
+        XCTAssertEqual(map[11], 8)    // n   // アドホックな対処の影響。nの場合はnilであるべき。
+        XCTAssertEqual(map[12], nil)  // k
+        XCTAssertEqual(map[13], 9)    // i
+        XCTAssertEqual(map[14], nil)  // d
+        XCTAssertEqual(map[15], 10)   // a
+    }
 }

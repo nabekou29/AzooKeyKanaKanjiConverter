@@ -384,6 +384,40 @@ public struct ComposingText: Sendable {
         return text
     }
 
+    public func inputIndexToSurfaceIndexMap() -> [Int: Int] {
+        // i2c: input indexからconvert target indexへのmap
+        // c2i: convert target indexからinput indexへのmap
+
+        // 例1.
+        // [k, y, o, u, h, a, i, i, t, e, n, k, i, d, a]
+        // [き, ょ, う, は, い, い, て, ん, き, だ]
+        // i2c: [0: 0, 3: 2(きょ), 4: 3(う), 6: 4(は), 7: 5(い), 8: 6(い), 10: 7(て), 13: 9(んき), 15: 10(だ)]
+
+        var map: [Int: (surfaceIndex: Int, surface: String)] = [0: (0, "")]
+
+        // 逐次更新用のバッファ
+        var convertTargetElements: [ConvertTargetElement] = []
+
+        for (idx, element) in self.input.enumerated() {
+            // 要素を追加して表層文字列を更新
+            Self.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
+            // 表層側の長さを再計算
+            let currentSurface = convertTargetElements.reduce(into: "") { $0 += $1.string }
+            // idx 個の要素を処理し終えた直後（= 次の要素を処理する前）の
+            // カーソル位置は idx + 1
+            map[idx + 1] = (currentSurface.count, currentSurface)
+        }
+        // 最終的なサーフェスと一致したものだけ残す
+        let finalSurface = convertTargetElements.reduce(into: "") { $0 += $1.string }
+        return map
+            .filter {
+                finalSurface.hasPrefix($0.value.surface)
+            }
+            .mapValues {
+                $0.surfaceIndex
+            }
+    }
+
     public mutating func stopComposition() {
         self.input = []
         self.convertTarget = ""
