@@ -6,6 +6,7 @@
 //  Copyright © 2020 ensan. All rights reserved.
 //
 
+import Algorithms
 import Foundation
 import SwiftUtils
 
@@ -32,28 +33,18 @@ extension Kana2Kanji {
         let surfaceCount = inputData.convertTarget.count
         let result: LatticeNode = LatticeNode.EOSNode
         let i2sMap = inputData.inputIndexToSurfaceIndexMap()
-        var rawNodes = (.zero ..< inputCount).map {
-            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = i2sMap[$0] {
+        let latticeIndices = Lattice.indices(inputCount: inputCount, surfaceCount: surfaceCount, inputIndexToSurfaceIndexMap: i2sMap)
+        let rawNodes = latticeIndices.map { (iIndex, sIndex) in
+            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex {
                 (sIndex, nil)
             } else {
                 nil
             }
             return dicdataStore.getLOUDSDataInRange(
                 inputData: inputData,
-                from: $0,
+                from: iIndex,
                 surfaceRange: surfaceRange,
                 needTypoCorrection: needTypoCorrection
-            )
-        }
-        for sIndex in 0 ..< inputData.convertTarget.count where !i2sMap.values.contains(sIndex) {
-            // inputIndexの列挙でカバーできないsIndexについて、追加で辞書を引いてrawNodesに追加
-            rawNodes.append(
-                dicdataStore.getLOUDSDataInRange(
-                    inputData: inputData,
-                    from: nil,
-                    surfaceRange: (sIndex, nil),
-                    needTypoCorrection: needTypoCorrection
-                )
             )
         }
         let lattice: Lattice = Lattice(
@@ -62,7 +53,7 @@ extension Kana2Kanji {
             rawNodes: rawNodes
         )
         // 「i文字目から始まるnodes」に対して
-        for (i, nodeArray) in lattice.indexedNodes() {
+        for (isHead, nodeArray) in lattice.indexedNodes(indices: latticeIndices) {
             // それぞれのnodeに対して
             for node in nodeArray {
                 if node.prevs.isEmpty {
@@ -73,7 +64,7 @@ extension Kana2Kanji {
                 }
                 // 生起確率を取得する。
                 let wValue: PValue = node.data.value()
-                if i.isZero {
+                if isHead {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue + self.dicdataStore.getCCValue($0.data.rcid, node.data.lcid)}
                 } else {
@@ -81,13 +72,13 @@ extension Kana2Kanji {
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
                 // 後続ノードのindex（正規化する）
-                let nextIndex: Lattice.LatticeIndex = switch node.range.endIndex {
-                case .input(let index): if let sIndex = i2sMap[index] { .surface(sIndex) } else { node.range.endIndex }
-                case .surface: node.range.endIndex
+                let nextIndex: (inputIndex: Int?, surfaceIndex: Int?) = switch node.range.endIndex {
+                case .input(let index): (index, i2sMap[index])
+                case .surface(let index): (i2sMap.filter { $0.value == index}.first?.key, index)
                 }
-                print(nextIndex, node.data.word, node.data.ruby, lattice[index: nextIndex].count)
+                print(nextIndex, node.data.word, node.data.ruby)
                 // 文字数がcountと等しい場合登録する
-                if nextIndex == .input(inputCount) || nextIndex == .surface(surfaceCount) {
+                if nextIndex.inputIndex == inputCount && nextIndex.surfaceIndex == surfaceCount {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
                     self.updateNextNodes(with: node, nextNodes: lattice[index: nextIndex], nBest: N_best)
@@ -104,7 +95,7 @@ extension Kana2Kanji {
         }
     }
     /// N-Best計算を高速に実行しつつ、遷移先ノードを更新する
-    func updateNextNodes(with node: LatticeNode, nextNodes: [LatticeNode], nBest: Int) {
+    func updateNextNodes(with node: LatticeNode, nextNodes: some Sequence<LatticeNode>, nBest: Int) {
         for nextnode in nextNodes {
             if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
                 continue

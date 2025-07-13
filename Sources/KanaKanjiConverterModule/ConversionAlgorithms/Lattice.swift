@@ -44,6 +44,26 @@ struct Lattice: Sequence {
     private var inputIndexedNodes: [[LatticeNode]]
     private var surfaceIndexedNodes: [[LatticeNode]]
 
+    static func indices(inputCount: Int, surfaceCount: Int, inputIndexToSurfaceIndexMap: [Int: Int]) -> [(inputIndex: Int?, surfaceIndex: Int?)] {
+        var indices: [(inputIndex: Int?, surfaceIndex: Int?)] = []
+        var sIndexPointer = 0
+        for i in 0 ..< inputCount {
+            if let sIndex = inputIndexToSurfaceIndexMap[i] {
+                for j in sIndexPointer ..< sIndex {
+                    indices.append((nil, j))
+                }
+                indices.append((i, sIndex))
+                sIndexPointer = sIndex + 1
+            } else {
+                indices.append((i, nil))
+            }
+        }
+        for j in sIndexPointer ..< surfaceCount {
+            indices.append((nil, j))
+        }
+        return indices
+    }
+
     func prefix(inputCount: Int, surfaceCount: Int) -> Lattice {
         let filterClosure: (LatticeNode) -> Bool = { (node: LatticeNode) -> Bool in
             switch node.range.endIndex {
@@ -101,6 +121,20 @@ struct Lattice: Sequence {
             case .input(let i): self.inputIndexedNodes[i]
             case .surface(let i): self.surfaceIndexedNodes[i]
             }
+        }
+    }
+
+    subscript(index index: (inputIndex: Int?, surfaceIndex: Int?)) -> LatticeNodeArray {
+        get {
+            let iNodes: [LatticeNode] = if let iIndex = index.inputIndex { self.inputIndexedNodes[iIndex] } else { [] }
+            let sNodes: [LatticeNode] = if let sIndex = index.surfaceIndex { self.surfaceIndexedNodes[sIndex] } else { [] }
+            return LatticeNodeArray(inputIndexedNodes: iNodes, surfaceIndexedNodes: sNodes)
+        }
+    }
+
+    func indexedNodes(indices: [(inputIndex: Int?, surfaceIndex: Int?)]) -> some Sequence<(isHead: Bool, nodes: LatticeNodeArray)> {
+        indices.lazy.map { index in
+            return (index.inputIndex == 0 && index.surfaceIndex == 0, self[index: index])
         }
     }
 
