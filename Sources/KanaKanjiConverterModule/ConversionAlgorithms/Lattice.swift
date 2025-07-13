@@ -1,8 +1,19 @@
 import Algorithms
 import SwiftUtils
 
+struct LatticeNodeArray: Sequence {
+    typealias Element = LatticeNode
+
+    var inputIndexedNodes: [LatticeNode]
+    var surfaceIndexedNodes: [LatticeNode]
+
+    func makeIterator() -> Chain2Sequence<[LatticeNode], [LatticeNode]>.Iterator {
+        inputIndexedNodes.chained(surfaceIndexedNodes).makeIterator()
+    }
+}
+
 struct Lattice: Sequence {
-    typealias Element = [LatticeNode]
+    typealias Element = LatticeNodeArray
 
     init() {
         self.inputIndexedNodes = []
@@ -15,11 +26,12 @@ struct Lattice: Sequence {
 
         for nodes in rawNodes {
             guard let first = nodes.first else { continue }
+            print(nodes.mapSet { $0.range.startIndex }, nodes.count)
             switch first.range.startIndex {
             case .surface(let i):
-                self.surfaceIndexedNodes[i] = nodes
+                self.surfaceIndexedNodes[i].append(contentsOf: nodes)
             case .input(let i):
-                self.inputIndexedNodes[i] = nodes
+                self.inputIndexedNodes[i].append(contentsOf: nodes)
             }
         }
     }
@@ -97,15 +109,42 @@ struct Lattice: Sequence {
             .chained(self.surfaceIndexedNodes.enumerated().lazy.map { (.surface($0.offset), $0.element) })
     }
 
-    func makeIterator() -> Chain2Sequence<[[LatticeNode]], [[LatticeNode]]>.Iterator {
-        self.inputIndexedNodes.chained(self.surfaceIndexedNodes).makeIterator()
+    struct Iterator: IteratorProtocol {
+        init(lattice: Lattice) {
+            self.lattice = lattice
+            self.indices = (0, lattice.surfaceIndexedNodes.endIndex, 0, lattice.inputIndexedNodes.endIndex)
+        }
+        
+        typealias Element = LatticeNodeArray
+        let lattice: Lattice
+        var indices: (currentSurfaceIndex: Int, surfaceEndIndex: Int, currentInputIndex: Int, inputEndIndex: Int)
+
+        mutating func next() -> LatticeNodeArray? {
+            if self.indices.currentSurfaceIndex < self.indices.surfaceEndIndex {
+                defer {
+                    self.indices.currentSurfaceIndex += 1
+                }
+                return .init(inputIndexedNodes: [], surfaceIndexedNodes: self.lattice.surfaceIndexedNodes[self.indices.currentSurfaceIndex])
+            } else if self.indices.currentInputIndex < self.indices.inputEndIndex {
+                defer {
+                    self.indices.currentInputIndex += 1
+                }
+                return .init(inputIndexedNodes: self.lattice.inputIndexedNodes[self.indices.currentInputIndex], surfaceIndexedNodes: [])
+            } else {
+                return nil
+            }
+        }
+    }
+
+    func makeIterator() -> Iterator {
+        Iterator(lattice: self)
     }
 
     var isEmpty: Bool {
         self.inputIndexedNodes.isEmpty && self.surfaceIndexedNodes.isEmpty
     }
 
-    enum LatticeIndex: Sendable, Equatable {
+    enum LatticeIndex: Sendable, Equatable, Hashable {
         case surface(Int)
         case input(Int)
 
@@ -114,7 +153,7 @@ struct Lattice: Sequence {
         }
     }
 
-    enum LatticeRange: Sendable, Equatable {
+    enum LatticeRange: Sendable, Equatable, Hashable {
         static var zero: Self {
             .input(from: 0, to: 0)
         }
@@ -149,7 +188,7 @@ struct Lattice: Sequence {
         }
 
         func merged(with other: Self) -> Self? {
-            switch (self, other) {
+            return switch (self, other) {
             case (let .surface(l, ml), let .surface(mr, r)):
                 if ml == mr {
                     .surface(from: l, to: r)

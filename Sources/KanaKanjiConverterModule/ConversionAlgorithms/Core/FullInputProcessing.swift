@@ -31,10 +31,35 @@ extension Kana2Kanji {
         let inputCount: Int = inputData.input.count
         let surfaceCount = inputData.convertTarget.count
         let result: LatticeNode = LatticeNode.EOSNode
+        let i2sMap = inputData.inputIndexToSurfaceIndexMap()
+        var rawNodes = (.zero ..< inputCount).map {
+            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = i2sMap[$0] {
+                (sIndex, nil)
+            } else {
+                nil
+            }
+            return dicdataStore.getLOUDSDataInRange(
+                inputData: inputData,
+                from: $0,
+                surfaceRange: surfaceRange,
+                needTypoCorrection: needTypoCorrection
+            )
+        }
+        for sIndex in 0 ..< inputData.convertTarget.count where !i2sMap.values.contains(sIndex) {
+            // inputIndexの列挙でカバーできないsIndexについて、追加で辞書を引いてrawNodesに追加
+            rawNodes.append(
+                dicdataStore.getLOUDSDataInRange(
+                    inputData: inputData,
+                    from: nil,
+                    surfaceRange: (sIndex, nil),
+                    needTypoCorrection: needTypoCorrection
+                )
+            )
+        }
         let lattice: Lattice = Lattice(
             inputCount: inputCount,
             surfaceCount: surfaceCount,
-            rawNodes: (.zero ..< inputCount).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: needTypoCorrection)}
+            rawNodes: rawNodes
         )
         // 「i文字目から始まるnodes」に対して
         for (i, nodeArray) in lattice.indexedNodes() {
@@ -55,8 +80,12 @@ extension Kana2Kanji {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
-                // 変換した文字数
-                let nextIndex = node.range.endIndex
+                // 後続ノードのindex（正規化する）
+                let nextIndex: Lattice.LatticeIndex = switch node.range.endIndex {
+                case .input(let index): if let sIndex = i2sMap[index] { .surface(sIndex) } else { node.range.endIndex }
+                case .surface: node.range.endIndex
+                }
+                print(nextIndex, node.data.word, node.data.ruby, lattice[index: nextIndex].count)
                 // 文字数がcountと等しい場合登録する
                 if nextIndex == .input(inputCount) || nextIndex == .surface(surfaceCount) {
                     self.updateResultNode(with: node, resultNode: result)

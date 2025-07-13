@@ -242,20 +242,93 @@ public final class DicdataStore {
         return [louds.searchNodeIndex(chars: charIDs)].compactMap {$0}
     }
 
+    private struct UnifiedGenerator {
+        struct SurfaceGenerator {
+            var surface: [Character] = []
+            var range: TypoCorrectionGenerator.ProcessRange
+            var currentIndex: Int
+
+            init(surface: [Character], range: TypoCorrectionGenerator.ProcessRange) {
+                self.surface = surface
+                self.range = range
+                self.currentIndex = range.rightIndexRange.lowerBound
+            }
+
+            mutating func setUnreachablePath<C: Collection<Character>>(target: C) where C.Indices == Range<Int> {
+                if self.surface[self.range.leftIndex...].hasPrefix(target) {
+                    // new upper boundを計算
+                    let currentLowerBound = self.range.rightIndexRange.lowerBound
+                    let currentUpperBound = self.range.rightIndexRange.upperBound
+                    let targetUpperBound = self.range.leftIndex + target.indices.upperBound
+                    self.range.rightIndexRange = min(currentLowerBound, targetUpperBound) ..< min(currentUpperBound, targetUpperBound)
+                }
+            }
+
+            mutating func next() -> ([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))? {
+                if self.surface.indices.contains(self.currentIndex), self.currentIndex < self.range.rightIndexRange.upperBound {
+                    defer {
+                        self.currentIndex += 1
+                    }
+                    let characters = Array(self.surface[self.range.leftIndex ... self.currentIndex])
+                    return (characters, (.surface(self.currentIndex), 0))
+                }
+                return nil
+            }
+        }
+
+        var typoCorrectionGenerator: TypoCorrectionGenerator? = nil
+        var surfaceGenerator: SurfaceGenerator? = nil
+
+        mutating func register(_ generator: TypoCorrectionGenerator) {
+            self.typoCorrectionGenerator = generator
+        }
+        mutating func register(_ generator: SurfaceGenerator) {
+            self.surfaceGenerator = generator
+        }
+        mutating func setUnreachablePath<C: Collection<Character>>(target: C) where C.Indices == Range<Int> {
+            self.typoCorrectionGenerator?.setUnreachablePath(target: target)
+            self.surfaceGenerator?.setUnreachablePath(target: target)
+        }
+        mutating func next() -> ([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))? {
+            if let next = self.surfaceGenerator?.next() {
+                return next
+            }
+            if let next = self.typoCorrectionGenerator?.next() {
+                return next
+            }
+            return nil
+        }
+    }
+
     func movingTowardPrefixSearch(
-        inputs: [ComposingText.InputElement],
-        leftIndex: Int,
-        rightIndexRange: Range<Int>,
+        composingText: ComposingText,
+        inputProcessRange: TypoCorrectionGenerator.ProcessRange?,
+        surfaceProcessRange: TypoCorrectionGenerator.ProcessRange?,
         useMemory: Bool,
         needTypoCorrection: Bool
     ) -> (
-        stringToInfo: [[Character]: (endIndex: Int, penalty: PValue)],
+        stringToInfo: [[Character]: (endIndex: Lattice.LatticeIndex, penalty: PValue)],
         indices: [(key: String, indices: [Int])],
         temporaryMemoryDicdata: [DicdataElement]
     ) {
-        var generator = TypoCorrectionGenerator(inputs: inputs, leftIndex: leftIndex, rightIndexRange: rightIndexRange, needTypoCorrection: needTypoCorrection)
+        var generator = UnifiedGenerator()
+        if let surfaceProcessRange {
+            let surfaceGenerator = UnifiedGenerator.SurfaceGenerator(
+                surface: Array(composingText.convertTarget.toKatakana()),
+                range: surfaceProcessRange
+            )
+            generator.register(surfaceGenerator)
+        }
+        if let inputProcessRange {
+            let typoCorrectionGenerator = TypoCorrectionGenerator(
+                inputs: composingText.input,
+                range: inputProcessRange,
+                needTypoCorrection: needTypoCorrection
+            )
+            generator.register(typoCorrectionGenerator)
+        }
         var targetLOUDS: [String: LOUDS.MovingTowardPrefixSearchHelper] = [:]
-        var stringToInfo: [([Character], (endIndex: Int, penalty: PValue))] = []
+        var stringToInfo: [([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))] = []
         // 動的辞書（一時学習データ、動的ユーザ辞書）から取り出されたデータ
         var dynamicDicdata: [Int: [DicdataElement]] = [:]
         // ジェネレータを舐める
@@ -332,8 +405,25 @@ public final class DicdataStore {
         }
         let minCount = stringToInfo.map {$0.0.count}.min() ?? 0
         return (
-            Dictionary(stringToInfo, uniquingKeysWith: {$0.penalty < $1.penalty ? $1 : $0}),
-            targetLOUDS.map { ($0.key, $0.value.indicesInDepth(depth: minCount - 1 ..< .max) )},
+            Dictionary(
+                stringToInfo,
+                uniquingKeysWith: { (lhs, rhs) in
+                    if lhs.penalty < rhs.penalty {
+                        return lhs
+                    } else if lhs.penalty == rhs.penalty {
+                        return switch (lhs.endIndex, rhs.endIndex) {
+                        case (.input, .input), (.surface, .surface): lhs // どっちでもいい
+                        case (.surface, .input): lhs  // surfaceIndexを優先
+                        case (.input, .surface): rhs  // surfaceIndexを優先
+                        }
+                    } else {
+                        return rhs
+                    }
+                }
+            ),
+            targetLOUDS.map {
+                ($0.key, $0.value.indicesInDepth(depth: minCount - 1 ..< .max))
+            },
             dynamicDicdata.flatMap {
                 minCount < $0.key + 1 ? $0.value : []
             }
@@ -381,24 +471,64 @@ public final class DicdataStore {
     ///   - inputData: 入力データ
     ///   - from: 起点
     ///   - toIndexRange: `from ..< (toIndexRange)`の範囲で辞書ルックアップを行う。
-    public func getLOUDSDataInRange(inputData: ComposingText, from fromIndex: Int, toIndexRange: Range<Int>? = nil, needTypoCorrection: Bool = true) -> [LatticeNode] {
-        let toIndexLeft = toIndexRange?.startIndex ?? fromIndex
-        let toIndexRight = min(toIndexRange?.endIndex ?? inputData.input.count, fromIndex + self.maxlength)
-        if fromIndex > toIndexLeft || toIndexLeft >= toIndexRight {
-            debug(#function, "index is wrong")
-            return []
+    public func getLOUDSDataInRange(
+        inputData: ComposingText,
+        from fromInputIndex: Int?,
+        toIndexRange: Range<Int>? = nil,
+        surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = nil,
+        needTypoCorrection: Bool = true
+    ) -> [LatticeNode] {
+        let inputProcessRange: TypoCorrectionGenerator.ProcessRange?
+
+        // TODO: make `fromInputIndex` optional later.
+        if let fromInputIndex {
+            let toInputIndexLeft = toIndexRange?.startIndex ?? fromInputIndex
+            let toInputIndexRight = min(
+                toIndexRange?.endIndex ?? inputData.input.count,
+                fromInputIndex + self.maxlength
+            )
+            if fromInputIndex > toInputIndexLeft || toInputIndexLeft >= toInputIndexRight {
+                debug(#function, "index is wrong")
+                return []
+            }
+            inputProcessRange = .init(leftIndex: fromInputIndex, rightIndexRange: toInputIndexLeft ..< toInputIndexRight)
+        } else {
+            inputProcessRange = nil
         }
 
-        let segments = (fromIndex ..< toIndexRight).reduce(into: []) { (segments: inout [String], rightIndex: Int) in
-            segments.append((segments.last ?? "") + String(inputData.input[rightIndex].character.toKatakana()))
+        let surfaceProcessRange: TypoCorrectionGenerator.ProcessRange?
+        if let surfaceRange {
+            let toSurfaceIndexLeft = surfaceRange.endIndexRange?.startIndex ?? surfaceRange.startIndex
+            let toSurfaceIndexRight = min(
+                surfaceRange.endIndexRange?.endIndex ?? inputData.convertTarget.count,
+                surfaceRange.startIndex + self.maxlength
+            )
+            if surfaceRange.startIndex > toSurfaceIndexLeft || toSurfaceIndexLeft >= toSurfaceIndexRight {
+                debug(#function, "index is wrong")
+                return []
+            }
+            surfaceProcessRange = .init(leftIndex: surfaceRange.startIndex, rightIndexRange: toSurfaceIndexLeft ..< toSurfaceIndexRight)
+        } else {
+            surfaceProcessRange = nil
+        }
+        if inputProcessRange == nil && surfaceProcessRange == nil {
+            debug(#function, "either of inputProcessRange and surfaceProcessRange must not be nil")
+            return []
         }
         // MARK: 誤り訂正の対象を列挙する。非常に重い処理。
-        var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(inputs: inputData.input, leftIndex: fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight, useMemory: self.learningManager.enabled, needTypoCorrection: needTypoCorrection)
+        var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(
+            composingText: inputData,
+            inputProcessRange: inputProcessRange,
+            surfaceProcessRange: surfaceProcessRange,
+            useMemory: self.learningManager.enabled,
+            needTypoCorrection: needTypoCorrection
+        )
+        print(stringToInfo)
         // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
         for (identifier, value) in indices {
             let result: [DicdataElement] = self.getDicdataFromLoudstxt3(identifier: identifier, indices: value).compactMap { (data) -> DicdataElement? in
                 let rubyArray = Array(data.ruby)
-                let penalty = stringToInfo[rubyArray, default: (0, .zero)].penalty
+                let penalty = stringToInfo[rubyArray]?.penalty ?? 0
                 if penalty.isZero {
                     return data
                 }
@@ -413,34 +543,40 @@ public final class DicdataStore {
             dicdata.append(contentsOf: result)
         }
 
-        for i in toIndexLeft ..< toIndexRight {
-            do {
-                let result = self.getWiseDicdata(convertTarget: segments[i - fromIndex], inputData: inputData, inputRange: fromIndex ..< i + 1)
-                for item in result {
-                    stringToInfo[Array(item.ruby)] = (i, 0)
+        if let inputProcessRange {
+            let segments = (inputProcessRange.leftIndex ..< inputProcessRange.rightIndexRange.endIndex).reduce(into: []) { (segments: inout [String], rightIndex: Int) in
+                segments.append((segments.last ?? "") + String(inputData.input[rightIndex].character.toKatakana()))
+            }
+            for i in inputProcessRange.rightIndexRange {
+                do {
+                    let result = self.getWiseDicdata(
+                        convertTarget: segments[i - inputProcessRange.leftIndex],
+                        inputData: inputData,
+                        inputRange: inputProcessRange.leftIndex ..< i + 1
+                    )
+                    for item in result {
+                        stringToInfo[Array(item.ruby)] = (.input(i), 0)
+                    }
+                    dicdata.append(contentsOf: result)
                 }
-                dicdata.append(contentsOf: result)
             }
         }
-        if fromIndex == .zero {
-            let result: [LatticeNode] = dicdata.compactMap {
-                guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
-                    return nil
-                }
-                let node = LatticeNode(data: $0, range: .input(from: fromIndex, to: endIndex + 1))
+        let needBOS = fromInputIndex == .zero
+        let result: [LatticeNode] = dicdata.compactMap {
+            guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
+                return nil
+            }
+            let range: Lattice.LatticeRange = switch endIndex {
+            case .input(let endIndex): .input(from: fromInputIndex!, to: endIndex + 1)
+            case .surface(let endIndex): .surface(from: (surfaceRange?.startIndex)!, to: endIndex + 1)
+            }
+            let node = LatticeNode(data: $0, range: range)
+            if needBOS {
                 node.prevs.append(RegisteredNode.BOSNode())
-                return node
             }
-            return result
-        } else {
-            let result: [LatticeNode] = dicdata.compactMap {
-                guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
-                    return nil
-                }
-                return LatticeNode(data: $0, range: .input(from: fromIndex, to: endIndex + 1))
-            }
-            return result
+            return node
         }
+        return result
     }
 
     func getZeroHintPredictionDicdata(lastRcid: Int) -> [DicdataElement] {

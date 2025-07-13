@@ -1,13 +1,12 @@
 import SwiftUtils
 
 struct TypoCorrectionGenerator: Sendable {
-    init(inputs: [ComposingText.InputElement], leftIndex left: Int, rightIndexRange: Range<Int>, needTypoCorrection: Bool) {
+    init(inputs: [ComposingText.InputElement], range: ProcessRange, needTypoCorrection: Bool) {
         self.maxPenalty = needTypoCorrection ? 3.5 * 3 : 0
         self.inputs = inputs
-        self.left = left
-        self.rightIndexRange = rightIndexRange
+        self.range = range
 
-        let count = rightIndexRange.endIndex - left
+        let count = self.range.rightIndexRange.endIndex - range.leftIndex
         self.count = count
         self.nodes = (0..<count).map {(i: Int) in
             Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
@@ -15,7 +14,7 @@ struct TypoCorrectionGenerator: Sendable {
                 if count <= j {
                     return []
                 }
-                return Self.getTypo(inputs[left + i ... left + j], frozen: !needTypoCorrection)
+                return Self.getTypo(inputs[range.leftIndex + i ... range.leftIndex + j], frozen: !needTypoCorrection)
             }
         }
         // 深さ優先で列挙する
@@ -23,7 +22,7 @@ struct TypoCorrectionGenerator: Sendable {
             guard let firstElement = typoCandidate.inputElements.first else {
                 return nil
             }
-            if ComposingText.isLeftSideValid(first: firstElement, of: inputs, from: left) {
+            if ComposingText.isLeftSideValid(first: firstElement, of: inputs, from: range.leftIndex) {
                 var convertTargetElements = [ComposingText.ConvertTargetElement]()
                 for element in typoCandidate.inputElements {
                     ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
@@ -36,10 +35,14 @@ struct TypoCorrectionGenerator: Sendable {
 
     let maxPenalty: PValue
     let inputs: [ComposingText.InputElement]
-    let left: Int
-    let rightIndexRange: Range<Int>
+    let range: ProcessRange
     let nodes: [[TypoCandidate]]
     let count: Int
+
+    struct ProcessRange: Sendable, Equatable {
+        var leftIndex: Int
+        var rightIndexRange: Range<Int>
+    }
 
     var stack: [(convertTargetElements: [ComposingText.ConvertTargetElement], lastElement: ComposingText.InputElement, count: Int, penalty: PValue)]
 
@@ -75,12 +78,12 @@ struct TypoCorrectionGenerator: Sendable {
         }
     }
 
-    mutating func next() -> ([Character], (endIndex: Int, penalty: PValue))? {
+    mutating func next() -> ([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))? {
         while let (convertTargetElements, lastElement, count, penalty) = self.stack.popLast() {
-            var result: ([Character], (endIndex: Int, penalty: PValue))? = nil
-            if rightIndexRange.contains(count + left - 1) {
-                if let convertTarget = ComposingText.getConvertTargetIfRightSideIsValid(lastElement: lastElement, of: inputs, to: count + left, convertTargetElements: convertTargetElements)?.map({$0.toKatakana()}) {
-                    result = (convertTarget, (count + left - 1, penalty))
+            var result: ([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))? = nil
+            if self.range.rightIndexRange.contains(count + self.range.leftIndex - 1) {
+                if let convertTarget = ComposingText.getConvertTargetIfRightSideIsValid(lastElement: lastElement, of: inputs, to: count + self.range.leftIndex, convertTargetElements: convertTargetElements)?.map({$0.toKatakana()}) {
+                    result = (convertTarget, (.input(count + self.range.leftIndex - 1), penalty))
                 }
             }
             // エスケープ
@@ -94,7 +97,7 @@ struct TypoCorrectionGenerator: Sendable {
             // 訂正数上限(3個)
             if penalty >= maxPenalty {
                 var convertTargetElements = convertTargetElements
-                let correct = [inputs[left + count]].map {ComposingText.InputElement(character: $0.character.toKatakana(), inputStyle: $0.inputStyle)}
+                let correct = [inputs[self.range.leftIndex + count]].map {ComposingText.InputElement(character: $0.character.toKatakana(), inputStyle: $0.inputStyle)}
                 if count + correct.count > self.nodes.endIndex {
                     if let result {
                         return result

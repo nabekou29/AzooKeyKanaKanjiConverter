@@ -40,6 +40,6 @@ public final class LatticeNode {
     /// - Returns: 文節単位の区切り情報を持った変換候補データのリスト。
     /// - Note: 最終的に`EOS`ノードにおいて実行する想定のAPIになっている。
     func getCandidateData() -> [CandidateData] {
-        self.prevs.map {$0.getCandidateData()}
+        return self.prevs.map {$0.getCandidateData()}
     }
 }
