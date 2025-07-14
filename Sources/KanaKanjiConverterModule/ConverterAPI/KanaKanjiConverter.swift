@@ -605,7 +605,7 @@ import EfficientNGram
     ///   - N_best: 計算途中で保存する候補数。実際に得られる候補数とは異なる。
     /// - Returns:
     ///   結果のラティスノードと、計算済みノードの全体
-    private func convertToLattice(_ inputData: ComposingText, N_best: Int, zenzaiMode: ConvertRequestOptions.ZenzaiMode) -> (result: LatticeNode, lattice: Lattice)? {
+    private func convertToLattice(_ inputData: ComposingText, N_best: Int, zenzaiMode: ConvertRequestOptions.ZenzaiMode, needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice)? {
         if inputData.convertTarget.isEmpty {
             return nil
         }
@@ -625,11 +625,6 @@ import EfficientNGram
             self.previousInputData = inputData
             return (result, nodes)
         }
-        #if os(iOS)
-        let needTypoCorrection = true
-        #else
-        let needTypoCorrection = false
-        #endif
 
         guard let previousInputData else {
             debug("\(#function): 新規計算用の関数を呼びますA")
@@ -698,7 +693,14 @@ import EfficientNGram
         // DicdataStoreにRequestOptionを通知する
         self.sendToDicdataStore(.setRequestOptions(options))
 
-        guard let result = self.convertToLattice(inputData, N_best: options.N_best, zenzaiMode: options.zenzaiMode) else {
+        #if os(iOS)
+        let needTypoCorrection = options.needTypoCorrection ?? true
+        #else
+        let needTypoCorrection = options.needTypoCorrection ?? false
+        #endif
+
+
+        guard let result = self.convertToLattice(inputData, N_best: options.N_best, zenzaiMode: options.zenzaiMode, needTypoCorrection: needTypoCorrection) else {
             return ConversionResult(mainResults: [], firstClauseResults: [])
         }
 

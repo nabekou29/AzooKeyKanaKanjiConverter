@@ -28,8 +28,9 @@ public struct ConvertRequestOptions: Sendable {
     ///   - textReplacer: 予測変換のための置換機を指定します。
     ///   - specialCandidateProviders: 特殊変換を実施する変換関数を挿入します
     ///   - metadata: メタデータを指定します。詳しくは`ConvertRequestOptions.Metadata`を参照してください。
-    public init(N_best: Int = 10, requireJapanesePrediction: Bool, requireEnglishPrediction: Bool, keyboardLanguage: KeyboardLanguage, englishCandidateInRoman2KanaInput: Bool = false, fullWidthRomanCandidate: Bool = false, halfWidthKanaCandidate: Bool = false, learningType: LearningType, maxMemoryCount: Int = 65536, shouldResetMemory: Bool = false, dictionaryResourceURL: URL, memoryDirectoryURL: URL, sharedContainerURL: URL, textReplacer: TextReplacer, specialCandidateProviders: [any SpecialCandidateProvider]?, zenzaiMode: ZenzaiMode = .off, preloadDictionary: Bool = false, metadata: ConvertRequestOptions.Metadata?) {
+    public init(N_best: Int = 10, needTypoCorrection: Bool? = nil, requireJapanesePrediction: Bool, requireEnglishPrediction: Bool, keyboardLanguage: KeyboardLanguage, englishCandidateInRoman2KanaInput: Bool = false, fullWidthRomanCandidate: Bool = false, halfWidthKanaCandidate: Bool = false, learningType: LearningType, maxMemoryCount: Int = 65536, shouldResetMemory: Bool = false, dictionaryResourceURL: URL, memoryDirectoryURL: URL, sharedContainerURL: URL, textReplacer: TextReplacer, specialCandidateProviders: [any SpecialCandidateProvider]?, zenzaiMode: ZenzaiMode = .off, preloadDictionary: Bool = false, metadata: ConvertRequestOptions.Metadata?) {
         self.N_best = N_best
+        self.needTypoCorrection = needTypoCorrection
         self.requireJapanesePrediction = requireJapanesePrediction
         self.requireEnglishPrediction = requireEnglishPrediction
         self.keyboardLanguage = keyboardLanguage
@@ -86,6 +87,7 @@ public struct ConvertRequestOptions: Sendable {
         specialCandidateProviders.append(.commaSeparatedNumber)
 
         self.N_best = N_best
+        self.needTypoCorrection = nil
         self.requireJapanesePrediction = requireJapanesePrediction
         self.requireEnglishPrediction = requireEnglishPrediction
         self.keyboardLanguage = keyboardLanguage
@@ -157,6 +159,7 @@ public struct ConvertRequestOptions: Sendable {
     public var requireJapanesePrediction: Bool
     public var requireEnglishPrediction: Bool
     public var keyboardLanguage: KeyboardLanguage
+    public var needTypoCorrection: Bool?
     // KeyboardSettingのinjection用途
     public var englishCandidateInRoman2KanaInput: Bool
     public var fullWidthRomanCandidate: Bool
@@ -183,6 +186,7 @@ public struct ConvertRequestOptions: Sendable {
     static var `default`: Self {
         Self(
             N_best: 10,
+            needTypoCorrection: nil,
             requireJapanesePrediction: true,
             requireEnglishPrediction: true,
             keyboardLanguage: .ja_JP,
