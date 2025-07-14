@@ -523,7 +523,6 @@ public final class DicdataStore {
             useMemory: self.learningManager.enabled,
             needTypoCorrection: needTypoCorrection
         )
-        print(stringToInfo)
         // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
         for (identifier, value) in indices {
             let result: [DicdataElement] = self.getDicdataFromLoudstxt3(identifier: identifier, indices: value).compactMap { (data) -> DicdataElement? in

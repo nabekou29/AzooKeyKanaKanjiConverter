@@ -538,7 +538,7 @@ import EfficientNGram
         seenCandidate.formUnion(clause_candidates.map {$0.text})
 
         // 最初の辞書データ
-        let dicCandidates: [Candidate] = result.lattice[inputIndex: 0]
+        let dicCandidates: [Candidate] = result.lattice[index: .bothIndex(inputIndex: 0, surfaceIndex: 0)]
             .map {
                 Candidate(
                     text: $0.data.word,

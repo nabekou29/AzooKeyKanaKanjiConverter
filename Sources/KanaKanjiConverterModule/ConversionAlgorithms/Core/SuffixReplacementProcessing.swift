@@ -40,10 +40,12 @@ extension Kana2Kanji {
         debug("kana2lattice_changed", inputData, counts, previousResult.inputData, inputCount, commonInputCount)
 
         // (1)
+        let indexMap = LatticeDualIndexMap(inputData)
+        let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
         var lattice = previousResult.lattice.prefix(inputCount: commonInputCount, surfaceCount: commonSurfaceCount)
 
         let terminalNodes: Lattice
-        if counts.addedInput == 0 {
+        if counts.addedInput == 0 && counts.addedSurface == 0 {
             terminalNodes = Lattice(
                 inputCount: inputCount,
                 surfaceCount: surfaceCount,
@@ -55,12 +57,29 @@ extension Kana2Kanji {
             )
         } else {
             // (2)
+            let rawNodes = latticeIndices.map { index in
+                let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
+                    (iIndex, max(commonInputCount, iIndex) ..< inputCount)
+                } else {
+                    nil
+                }
+                let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
+                    (sIndex, max(commonSurfaceCount, sIndex) ..< surfaceCount)
+                } else {
+                    nil
+                }
+                return self.dicdataStore.getLOUDSDataInRange(
+                    inputData: inputData,
+                    from: inputRange?.startIndex,
+                    toIndexRange: inputRange?.endIndexRange,
+                    surfaceRange: surfaceRange,
+                    needTypoCorrection: needTypoCorrection
+                )
+            }
             let addedNodes: Lattice = Lattice(
                 inputCount: inputCount,
                 surfaceCount: surfaceCount,
-                rawNodes: (0..<inputCount).map {(i: Int) in
-                    self.dicdataStore.getLOUDSDataInRange(inputData: inputData, from: i, toIndexRange: max(commonInputCount, i) ..< inputCount, needTypoCorrection: needTypoCorrection)
-                }
+                rawNodes: rawNodes
             )
 
             // (3)
@@ -73,7 +92,7 @@ extension Kana2Kanji {
                         continue
                     }
                     // 変換した文字数
-                    let nextIndex = node.range.endIndex
+                    let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
                     self.updateNextNodes(with: node, nextNodes: addedNodes[index: nextIndex], nBest: N_best)
                 }
             }
@@ -103,8 +122,8 @@ extension Kana2Kanji {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
-                let nextIndex = node.range.endIndex
-                if nextIndex == .input(inputCount) || nextIndex == .surface(surfaceCount) {
+                let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
+                if nextIndex.inputIndex == inputCount && nextIndex.surfaceIndex == surfaceCount {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
                     self.updateNextNodes(with: node, nextNodes: terminalNodes[index: nextIndex], nBest: N_best)

@@ -1,3 +1,4 @@
+import Algorithms
 import Foundation
 import SwiftUtils
 
@@ -20,16 +21,31 @@ extension Kana2Kanji {
     /// (4)ノードをアップデートした上で返却する。
     func kana2lattice_all_with_prefix_constraint(_ inputData: ComposingText, N_best: Int, constraint: PrefixConstraint) -> (result: LatticeNode, lattice: Lattice) {
         debug("新規に計算を行います。inputされた文字列は\(inputData.input.count)文字分の\(inputData.convertTarget)。制約は\(constraint)")
-        let inputCount: Int = inputData.input.count
-        let surfaceCount: Int = inputData.convertTarget.count
         let result: LatticeNode = LatticeNode.EOSNode
+        let inputCount: Int = inputData.input.count
+        let surfaceCount = inputData.convertTarget.count
+        let indexMap = LatticeDualIndexMap(inputData)
+        let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
+        let rawNodes = latticeIndices.map { index in
+            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
+                (sIndex, nil)
+            } else {
+                nil
+            }
+            return dicdataStore.getLOUDSDataInRange(
+                inputData: inputData,
+                from: index.inputIndex,
+                surfaceRange: surfaceRange,
+                needTypoCorrection: false
+            )
+        }
         let lattice: Lattice = Lattice(
             inputCount: inputCount,
             surfaceCount: surfaceCount,
-            rawNodes: (.zero ..< inputCount).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: false)}
+            rawNodes: rawNodes
         )
         // 「i文字目から始まるnodes」に対して
-        for (i, nodeArray) in lattice.indexedNodes() {
+        for (isHead, nodeArray) in lattice.indexedNodes(indices: latticeIndices) {
             // それぞれのnodeに対して
             for node in nodeArray {
                 if node.prevs.isEmpty {
@@ -37,7 +53,7 @@ extension Kana2Kanji {
                 }
                 // 生起確率を取得する。
                 let wValue: PValue = node.data.value()
-                if i.isZero {
+                if isHead {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue + self.dicdataStore.getCCValue($0.data.rcid, node.data.lcid)}
                 } else {
@@ -45,9 +61,9 @@ extension Kana2Kanji {
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
                 // 変換した文字数
-                let nextIndex = node.range.endIndex
+                let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
                 // 文字数がcountと等しい場合登録する
-                if nextIndex == .input(inputCount) || nextIndex == .surface(surfaceCount) {
+                if nextIndex.inputIndex == inputCount && nextIndex.surfaceIndex == surfaceCount {
                     for index in node.prevs.indices {
                         let newnode: RegisteredNode = node.getRegisteredNode(index, value: node.values[index])
                         // 学習データやユーザ辞書由来の場合は素通しする

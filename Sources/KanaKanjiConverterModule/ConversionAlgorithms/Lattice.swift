@@ -12,8 +12,8 @@ struct LatticeNodeArray: Sequence {
     }
 }
 
-struct LatticeDualIndexMap {
-    private(set) var inputIndexToSurfaceIndexMap: [Int: Int]
+struct LatticeDualIndexMap: Sendable {
+    private var inputIndexToSurfaceIndexMap: [Int: Int]
     init(_ composingText: ComposingText) {
         self.inputIndexToSurfaceIndexMap = composingText.inputIndexToSurfaceIndexMap()
     }
@@ -58,6 +58,26 @@ struct LatticeDualIndexMap {
             }
         }
     }
+
+    func indices(inputCount: Int, surfaceCount: Int) -> [DualIndex] {
+        var indices: [DualIndex] = []
+        var sIndexPointer = 0
+        for i in 0 ..< inputCount {
+            if let sIndex = self.inputIndexToSurfaceIndexMap[i] {
+                for j in sIndexPointer ..< sIndex {
+                    indices.append(.surfaceIndex(j))
+                }
+                indices.append(.bothIndex(inputIndex: i, surfaceIndex: sIndex))
+                sIndexPointer = sIndex + 1
+            } else {
+                indices.append(.inputIndex(i))
+            }
+        }
+        for j in sIndexPointer ..< surfaceCount {
+            indices.append(.surfaceIndex(j))
+        }
+        return indices
+    }
 }
 
 struct Lattice: Sequence {
@@ -74,7 +94,6 @@ struct Lattice: Sequence {
 
         for nodes in rawNodes {
             guard let first = nodes.first else { continue }
-            print(nodes.mapSet { $0.range.startIndex }, nodes.count)
             switch first.range.startIndex {
             case .surface(let i):
                 self.surfaceIndexedNodes[i].append(contentsOf: nodes)
@@ -92,26 +111,6 @@ struct Lattice: Sequence {
     private var inputIndexedNodes: [[LatticeNode]]
     private var surfaceIndexedNodes: [[LatticeNode]]
 
-    static func indices(inputCount: Int, surfaceCount: Int, map: LatticeDualIndexMap) -> [LatticeDualIndexMap.DualIndex] {
-        var indices: [LatticeDualIndexMap.DualIndex] = []
-        var sIndexPointer = 0
-        for i in 0 ..< inputCount {
-            if let sIndex = map.inputIndexToSurfaceIndexMap[i] {
-                for j in sIndexPointer ..< sIndex {
-                    indices.append(.surfaceIndex(j))
-                }
-                indices.append(.bothIndex(inputIndex: i, surfaceIndex: sIndex))
-                sIndexPointer = sIndex + 1
-            } else {
-                indices.append(.inputIndex(i))
-            }
-        }
-        for j in sIndexPointer ..< surfaceCount {
-            indices.append(.surfaceIndex(j))
-        }
-        return indices
-    }
-
     func prefix(inputCount: Int, surfaceCount: Int) -> Lattice {
         let filterClosure: (LatticeNode) -> Bool = { (node: LatticeNode) -> Bool in
             switch node.range.endIndex {
@@ -121,12 +120,12 @@ struct Lattice: Sequence {
                 value <= surfaceCount
             }
         }
-        let newInputIndexedNodes = Array(self.inputIndexedNodes.prefix(inputCount).map {(nodes: [LatticeNode]) in
+        let newInputIndexedNodes = self.inputIndexedNodes.prefix(inputCount).map {(nodes: [LatticeNode]) in
             nodes.filter(filterClosure)
-        }.drop(while: \.isEmpty))
-        let newSurfaceIndexedNodes = Array(self.surfaceIndexedNodes.prefix(surfaceCount).map {(nodes: [LatticeNode]) in
+        }
+        let newSurfaceIndexedNodes = self.surfaceIndexedNodes.prefix(surfaceCount).map {(nodes: [LatticeNode]) in
             nodes.filter(filterClosure)
-        }.drop(while: \.isEmpty))
+        }
 
         return Lattice(inputIndexedNodes: newInputIndexedNodes, surfaceIndexedNodes: newSurfaceIndexedNodes)
     }
@@ -157,21 +156,6 @@ struct Lattice: Sequence {
         }
     }
 
-    subscript(inputIndex i: Int) -> [LatticeNode] {
-        get {
-            self.inputIndexedNodes[i]
-        }
-    }
-
-    subscript(index index: LatticeIndex) -> [LatticeNode] {
-        get {
-            switch index {
-            case .input(let i): self.inputIndexedNodes[i]
-            case .surface(let i): self.surfaceIndexedNodes[i]
-            }
-        }
-    }
-
     subscript(index index: LatticeDualIndexMap.DualIndex) -> LatticeNodeArray {
         get {
             let iNodes: [LatticeNode] = if let iIndex = index.inputIndex { self.inputIndexedNodes[iIndex] } else { [] }
@@ -184,11 +168,6 @@ struct Lattice: Sequence {
         indices.lazy.map { index in
             return (index.inputIndex == 0 && index.surfaceIndex == 0, self[index: index])
         }
-    }
-
-    func indexedNodes() -> some Sequence<(index: LatticeIndex, nodes: [LatticeNode])> {
-        self.inputIndexedNodes.enumerated().lazy.map { (.input($0.offset), $0.element) }
-            .chained(self.surfaceIndexedNodes.enumerated().lazy.map { (.surface($0.offset), $0.element) })
     }
 
     struct Iterator: IteratorProtocol {

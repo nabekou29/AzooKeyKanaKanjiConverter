@@ -645,7 +645,7 @@ extension ComposingText {
 
         let commonSurface = self.convertTarget.commonPrefix(with: previousData.convertTarget)
         let deletedSurface = previousData.convertTarget.count - commonSurface.count
-        let addedSurface = self.convertTarget.suffix(from: commonSurface.startIndex).count
+        let addedSurface = self.convertTarget.count - commonSurface.count
         return (deleted, added, deletedSurface, addedSurface)
     }
 

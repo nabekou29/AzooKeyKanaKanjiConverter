@@ -6,6 +6,7 @@
 //  Copyright © 2020 ensan. All rights reserved.
 //
 
+import Algorithms
 import Foundation
 import SwiftUtils
 
@@ -24,9 +25,11 @@ extension Kana2Kanji {
         let convertedSurfaceCount = previousResult.inputData.convertTarget.count - surfaceCount
         // (1)
         let start = RegisteredNode.fromLastCandidate(completedData)
+        let indexMap = LatticeDualIndexMap(inputData)
+        let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
         let lattice = previousResult.lattice.suffix(inputCount: inputCount, surfaceCount: surfaceCount)
-        for (i, nodeArray) in lattice.indexedNodes() {
-            let prevs: [RegisteredNode] = if i.isZero {
+        for (isHead, nodeArray) in lattice.indexedNodes(indices: latticeIndices) {
+            let prevs: [RegisteredNode] = if isHead {
                 [start]
             } else {
                 []
@@ -40,7 +43,7 @@ extension Kana2Kanji {
         // (2)
         let result = LatticeNode.EOSNode
 
-        for (i, nodeArray) in lattice.indexedNodes() {
+        for (isHead, nodeArray) in lattice.indexedNodes(indices: latticeIndices) {
             for node in nodeArray {
                 if node.prevs.isEmpty {
                     continue
@@ -50,7 +53,7 @@ extension Kana2Kanji {
                 }
                 // 生起確率を取得する。
                 let wValue = node.data.value()
-                if i.isZero {
+                if isHead {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue + self.dicdataStore.getCCValue($0.data.rcid, node.data.lcid)}
                 } else {
@@ -58,8 +61,8 @@ extension Kana2Kanji {
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
                 // 変換した文字数
-                let nextIndex = node.range.endIndex
-                if nextIndex == .input(inputCount) || nextIndex == .surface(surfaceCount) {
+                let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
+                if nextIndex.inputIndex == inputCount || nextIndex.surfaceIndex == surfaceCount {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
                     self.updateNextNodes(with: node, nextNodes: lattice[index: nextIndex], nBest: N_best)

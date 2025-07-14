@@ -29,11 +29,11 @@ extension Kana2Kanji {
     /// (4)ノードをアップデートした上で返却する。
     func kana2lattice_all(_ inputData: ComposingText, N_best: Int, needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice) {
         debug("新規に計算を行います。inputされた文字列は\(inputData.input.count)文字分の\(inputData.convertTarget)")
+        let result: LatticeNode = LatticeNode.EOSNode
         let inputCount: Int = inputData.input.count
         let surfaceCount = inputData.convertTarget.count
-        let result: LatticeNode = LatticeNode.EOSNode
-        let i2sMap = LatticeDualIndexMap(inputData)
-        let latticeIndices = Lattice.indices(inputCount: inputCount, surfaceCount: surfaceCount, map: i2sMap)
+        let indexMap = LatticeDualIndexMap(inputData)
+        let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
         let rawNodes = latticeIndices.map { index in
             let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
                 (sIndex, nil)
@@ -72,7 +72,7 @@ extension Kana2Kanji {
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
                 // 後続ノードのindex（正規化する）
-                let nextIndex = i2sMap.dualIndex(for: node.range.endIndex)
+                let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
                 // 文字数がcountと等しい場合登録する
                 if nextIndex.inputIndex == inputCount && nextIndex.surfaceIndex == surfaceCount {
                     self.updateResultNode(with: node, resultNode: result)
