@@ -36,7 +36,9 @@ struct Kana2Kanji {
         let lastMid = data.clauses.last!.clause.mid
 
         let composingCount: ComposingCount = data.clauses.reduce(into: .inputCount(0)) {
-            $0 = .composite($0, $1.clause.range.count)
+            for range in $1.clause.ranges {
+                $0 = .composite($0, range.count)
+            }
         }
         return Candidate(
             text: text,

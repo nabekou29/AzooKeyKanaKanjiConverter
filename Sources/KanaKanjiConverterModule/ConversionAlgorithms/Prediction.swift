@@ -22,12 +22,15 @@ extension Kana2Kanji {
     /// - note:
     ///     この関数の役割は意味連接の考慮にある。
     func getPredictionCandidates(composingText: ComposingText, prepart: CandidateData, lastClause: ClauseDataUnit, N_best: Int) -> [Candidate] {
-        debug("getPredictionCandidates", composingText, lastClause.range, lastClause.text)
-        let lastRuby = switch lastClause.range {
-        case let .input(left, right):
-            ComposingText.getConvertTarget(for: composingText.input[left..<right]).toKatakana()
-        case let .surface(left, right):
-            String(composingText.convertTarget.dropFirst(left).prefix(right - left))
+        debug("getPredictionCandidates", composingText, lastClause.ranges, lastClause.text)
+        let lastRuby = lastClause.ranges.reduce(into: "") {
+            let ruby = switch $1 {
+            case let .input(left, right):
+                ComposingText.getConvertTarget(for: composingText.input[left..<right]).toKatakana()
+            case let .surface(left, right):
+                String(composingText.convertTarget.dropFirst(left).prefix(right - left))
+            }
+            $0.append(ruby)
         }
         let lastRubyCount = lastRuby.count
         let datas: [DicdataElement]

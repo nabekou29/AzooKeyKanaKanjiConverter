@@ -32,17 +32,17 @@ extension Kana2Kanji {
         let inputCount: Int = inputData.input.count
         let surfaceCount = inputData.convertTarget.count
         let result: LatticeNode = LatticeNode.EOSNode
-        let i2sMap = inputData.inputIndexToSurfaceIndexMap()
-        let latticeIndices = Lattice.indices(inputCount: inputCount, surfaceCount: surfaceCount, inputIndexToSurfaceIndexMap: i2sMap)
-        let rawNodes = latticeIndices.map { (iIndex, sIndex) in
-            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex {
+        let i2sMap = LatticeDualIndexMap(inputData)
+        let latticeIndices = Lattice.indices(inputCount: inputCount, surfaceCount: surfaceCount, map: i2sMap)
+        let rawNodes = latticeIndices.map { index in
+            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
                 (sIndex, nil)
             } else {
                 nil
             }
             return dicdataStore.getLOUDSDataInRange(
                 inputData: inputData,
-                from: iIndex,
+                from: index.inputIndex,
                 surfaceRange: surfaceRange,
                 needTypoCorrection: needTypoCorrection
             )
@@ -72,11 +72,7 @@ extension Kana2Kanji {
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
                 // 後続ノードのindex（正規化する）
-                let nextIndex: (inputIndex: Int?, surfaceIndex: Int?) = switch node.range.endIndex {
-                case .input(let index): (index, i2sMap[index])
-                case .surface(let index): (i2sMap.filter { $0.value == index}.first?.key, index)
-                }
-                print(nextIndex, node.data.word, node.data.ruby)
+                let nextIndex = i2sMap.dualIndex(for: node.range.endIndex)
                 // 文字数がcountと等しい場合登録する
                 if nextIndex.inputIndex == inputCount && nextIndex.surfaceIndex == surfaceCount {
                     self.updateResultNode(with: node, resultNode: result)

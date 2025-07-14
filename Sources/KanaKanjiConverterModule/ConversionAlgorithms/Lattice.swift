@@ -12,6 +12,54 @@ struct LatticeNodeArray: Sequence {
     }
 }
 
+struct LatticeDualIndexMap {
+    private(set) var inputIndexToSurfaceIndexMap: [Int: Int]
+    init(_ composingText: ComposingText) {
+        self.inputIndexToSurfaceIndexMap = composingText.inputIndexToSurfaceIndexMap()
+    }
+
+    enum DualIndex: Sendable, Equatable, Hashable {
+        case inputIndex(Int)
+        case surfaceIndex(Int)
+        case bothIndex(inputIndex: Int, surfaceIndex: Int)
+
+        var inputIndex: Int? {
+            switch self {
+            case .inputIndex(let index), .bothIndex(let index, _):
+                index
+            case .surfaceIndex:
+                nil
+            }
+        }
+
+        var surfaceIndex: Int? {
+            switch self {
+            case .inputIndex:
+                nil
+            case .surfaceIndex(let index), .bothIndex(_, let index):
+                index
+            }
+        }
+    }
+
+    func dualIndex(for latticeIndex: Lattice.LatticeIndex) -> DualIndex {
+        switch latticeIndex {
+        case .input(let iIndex):
+            if let sIndex = self.inputIndexToSurfaceIndexMap[iIndex] {
+                .bothIndex(inputIndex: iIndex, surfaceIndex: sIndex)
+            } else {
+                .inputIndex(iIndex)
+            }
+        case .surface(let sIndex):
+            if let iIndex = self.inputIndexToSurfaceIndexMap.filter({ $0.value == sIndex}).first?.key {
+                .bothIndex(inputIndex: iIndex, surfaceIndex: sIndex)
+            } else {
+                .surfaceIndex(sIndex)
+            }
+        }
+    }
+}
+
 struct Lattice: Sequence {
     typealias Element = LatticeNodeArray
 
@@ -44,22 +92,22 @@ struct Lattice: Sequence {
     private var inputIndexedNodes: [[LatticeNode]]
     private var surfaceIndexedNodes: [[LatticeNode]]
 
-    static func indices(inputCount: Int, surfaceCount: Int, inputIndexToSurfaceIndexMap: [Int: Int]) -> [(inputIndex: Int?, surfaceIndex: Int?)] {
-        var indices: [(inputIndex: Int?, surfaceIndex: Int?)] = []
+    static func indices(inputCount: Int, surfaceCount: Int, map: LatticeDualIndexMap) -> [LatticeDualIndexMap.DualIndex] {
+        var indices: [LatticeDualIndexMap.DualIndex] = []
         var sIndexPointer = 0
         for i in 0 ..< inputCount {
-            if let sIndex = inputIndexToSurfaceIndexMap[i] {
+            if let sIndex = map.inputIndexToSurfaceIndexMap[i] {
                 for j in sIndexPointer ..< sIndex {
-                    indices.append((nil, j))
+                    indices.append(.surfaceIndex(j))
                 }
-                indices.append((i, sIndex))
+                indices.append(.bothIndex(inputIndex: i, surfaceIndex: sIndex))
                 sIndexPointer = sIndex + 1
             } else {
-                indices.append((i, nil))
+                indices.append(.inputIndex(i))
             }
         }
         for j in sIndexPointer ..< surfaceCount {
-            indices.append((nil, j))
+            indices.append(.surfaceIndex(j))
         }
         return indices
     }
@@ -124,7 +172,7 @@ struct Lattice: Sequence {
         }
     }
 
-    subscript(index index: (inputIndex: Int?, surfaceIndex: Int?)) -> LatticeNodeArray {
+    subscript(index index: LatticeDualIndexMap.DualIndex) -> LatticeNodeArray {
         get {
             let iNodes: [LatticeNode] = if let iIndex = index.inputIndex { self.inputIndexedNodes[iIndex] } else { [] }
             let sNodes: [LatticeNode] = if let sIndex = index.surfaceIndex { self.surfaceIndexedNodes[sIndex] } else { [] }
@@ -132,7 +180,7 @@ struct Lattice: Sequence {
         }
     }
 
-    func indexedNodes(indices: [(inputIndex: Int?, surfaceIndex: Int?)]) -> some Sequence<(isHead: Bool, nodes: LatticeNodeArray)> {
+    func indexedNodes(indices: [LatticeDualIndexMap.DualIndex]) -> some Sequence<(isHead: Bool, nodes: LatticeNodeArray)> {
         indices.lazy.map { index in
             return (index.inputIndex == 0 && index.surfaceIndex == 0, self[index: index])
         }
@@ -218,25 +266,6 @@ struct Lattice: Sequence {
                 .surface(to)
             case .input(_, let to):
                 .input(to)
-            }
-        }
-
-        func merged(with other: Self) -> Self? {
-            return switch (self, other) {
-            case (let .surface(l, ml), let .surface(mr, r)):
-                if ml == mr {
-                    .surface(from: l, to: r)
-                } else {
-                    nil
-                }
-            case (let .input(l, ml), let .input(mr, r)):
-                if ml == mr {
-                    .input(from: l, to: r)
-                } else {
-                    nil
-                }
-            case (.surface, .input), (.input, .surface):
-                nil
             }
         }
 

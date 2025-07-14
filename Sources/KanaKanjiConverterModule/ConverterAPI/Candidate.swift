@@ -17,32 +17,28 @@ final class ClauseDataUnit {
     /// The text of the unit.
     var text: String = ""
     /// The range of the unit in input text.
-    var range: Lattice.LatticeRange = .zero
+    var ranges: [Lattice.LatticeRange] = []
 
     /// Merge the given unit to this unit.
     /// - Parameter:
     ///   - unit: The unit to merge.
     func merge(with unit: ClauseDataUnit) {
         self.text.append(unit.text)
-        if let newRange =  self.range.merged(with: unit.range) {
-            self.range = newRange
-        } else {
-            fatalError("このケースは想定していません。")
-        }
+        self.ranges.append(contentsOf: unit.ranges)
         self.nextLcid = unit.nextLcid
     }
 }
 
 extension ClauseDataUnit: Equatable {
     static func == (lhs: ClauseDataUnit, rhs: ClauseDataUnit) -> Bool {
-        lhs.mid == rhs.mid && lhs.nextLcid == rhs.nextLcid && lhs.text == rhs.text && lhs.range == rhs.range
+        lhs.mid == rhs.mid && lhs.nextLcid == rhs.nextLcid && lhs.text == rhs.text && lhs.ranges == rhs.ranges
     }
 }
 
 #if DEBUG
 extension ClauseDataUnit: CustomDebugStringConvertible {
     var debugDescription: String {
-        "ClauseDataUnit(mid: \(mid), nextLcid: \(nextLcid), text: \(text), range: \(range))"
+        "ClauseDataUnit(mid: \(mid), nextLcid: \(nextLcid), text: \(text), ranges: \(ranges))"
     }
 }
 #endif
@@ -78,7 +74,18 @@ public enum ComposingCount: Equatable, Sendable {
     case surfaceCount(Int)
 
     /// 複数のカウントの連結
-    indirect case composite(Self, Self)
+    indirect case composite(lhs: Self, rhs: Self)
+
+    static func composite(_ lhs: Self, _ rhs: Self) -> Self {
+        switch (lhs, rhs) {
+        case (.inputCount(let l), .inputCount(let r)):
+            .inputCount(l + r)
+        case (.surfaceCount(let l), .surfaceCount(let r)):
+            .surfaceCount(l + r)
+        default:
+            .composite(lhs: lhs, rhs: rhs)
+        }
+    }
 }
 
 /// 変換候補のデータ

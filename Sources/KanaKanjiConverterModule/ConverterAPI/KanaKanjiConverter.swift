@@ -472,7 +472,7 @@ import EfficientNGram
             return Candidate(
                 text: first.clause.text,
                 value: first.value,
-                composingCount: first.clause.range.count,
+                composingCount: first.clause.ranges.reduce(into: .inputCount(0)) { $0 = .composite($0, $1.count) },
                 lastMid: first.clause.mid,
                 data: Array(candidateData.data[0...count])
             )

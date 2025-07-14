@@ -59,7 +59,7 @@ extension RegisteredNodeProtocol {
         guard let prev else {
             let unit = ClauseDataUnit()
             unit.mid = self.data.mid
-            unit.range = self.range
+            unit.ranges = [self.range]
             return CandidateData(clauses: [(clause: unit, value: .zero)], data: [])
         }
         var lastcandidate = prev.getCandidateData()    // 自分に至るregisterdそれぞれのデータに処理
@@ -75,11 +75,7 @@ extension RegisteredNodeProtocol {
         if lastClause.text.isEmpty || !DicdataStore.isClause(prev.data.rcid, self.data.lcid) {
             // 文節ではないので、最後に追加する。
             lastClause.text.append(self.data.word)
-            if let newRange = lastClause.range.merged(with: self.range) {
-                lastClause.range = newRange
-            } else {
-                fatalError("このケースは想定していません。")
-            }
+            lastClause.ranges.append(self.range)
             // 最初だった場合を想定している
             if (lastClause.mid == 500 && self.data.mid != 500) || DicdataStore.includeMMValueCalculation(self.data) {
                 lastClause.mid = self.data.mid
@@ -92,7 +88,7 @@ extension RegisteredNodeProtocol {
         else {
             let unit = ClauseDataUnit()
             unit.text = self.data.word
-            unit.range = self.range
+            unit.ranges.append(self.range)
             if DicdataStore.includeMMValueCalculation(self.data) {
                 unit.mid = self.data.mid
             }
