@@ -35,14 +35,19 @@ extension Kana2Kanji {
         let indexMap = LatticeDualIndexMap(inputData)
         let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
         let rawNodes = latticeIndices.map { index in
+            let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
+                (iIndex, nil)
+            } else {
+                nil
+            }
             let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
                 (sIndex, nil)
             } else {
                 nil
             }
-            return dicdataStore.getLOUDSDataInRange(
-                inputData: inputData,
-                from: index.inputIndex,
+            return dicdataStore.lookupDicdata(
+                composingText: inputData,
+                inputRange: inputRange,
                 surfaceRange: surfaceRange,
                 needTypoCorrection: needTypoCorrection
             )

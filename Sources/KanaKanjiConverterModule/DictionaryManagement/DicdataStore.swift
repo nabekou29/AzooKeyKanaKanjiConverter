@@ -465,33 +465,33 @@ public final class DicdataStore {
         }
         return data
     }
-
-    /// kana2latticeから参照する。
+    
+    /// 辞書データを取得する
     /// - Parameters:
-    ///   - inputData: 入力データ
-    ///   - from: 起点
-    ///   - toIndexRange: `from ..< (toIndexRange)`の範囲で辞書ルックアップを行う。
-    public func getLOUDSDataInRange(
-        inputData: ComposingText,
-        from fromInputIndex: Int?,
-        toIndexRange: Range<Int>? = nil,
+    ///   - composingText: 現在の入力情報
+    ///   - inputRange: 検索に用いる`composingText.input`の範囲。
+    ///   - surfaceRange: 検索に用いる`composingText.convertTarget`の範囲。
+    ///   - needTypoCorrection: 誤り訂正を行うかどうか
+    /// - Returns: 発見された辞書データを`LatticeNode`のインスタンスとしたもの。
+    public func lookupDicdata(
+        composingText: ComposingText,
+        inputRange:(startIndex: Int, endIndexRange: Range<Int>?)? = nil,
         surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = nil,
         needTypoCorrection: Bool = true
     ) -> [LatticeNode] {
-        let inputProcessRange: TypoCorrectionGenerator.ProcessRange?
 
-        // TODO: make `fromInputIndex` optional later.
-        if let fromInputIndex {
-            let toInputIndexLeft = toIndexRange?.startIndex ?? fromInputIndex
+        let inputProcessRange: TypoCorrectionGenerator.ProcessRange?
+        if let inputRange {
+            let toInputIndexLeft = inputRange.endIndexRange?.startIndex ?? inputRange.startIndex
             let toInputIndexRight = min(
-                toIndexRange?.endIndex ?? inputData.input.count,
-                fromInputIndex + self.maxlength
+                inputRange.endIndexRange?.endIndex ?? composingText.input.count,
+                inputRange.startIndex + self.maxlength
             )
-            if fromInputIndex > toInputIndexLeft || toInputIndexLeft >= toInputIndexRight {
+            if inputRange.startIndex > toInputIndexLeft || toInputIndexLeft >= toInputIndexRight {
                 debug(#function, "index is wrong")
                 return []
             }
-            inputProcessRange = .init(leftIndex: fromInputIndex, rightIndexRange: toInputIndexLeft ..< toInputIndexRight)
+            inputProcessRange = .init(leftIndex: inputRange.startIndex, rightIndexRange: toInputIndexLeft ..< toInputIndexRight)
         } else {
             inputProcessRange = nil
         }
@@ -500,7 +500,7 @@ public final class DicdataStore {
         if let surfaceRange {
             let toSurfaceIndexLeft = surfaceRange.endIndexRange?.startIndex ?? surfaceRange.startIndex
             let toSurfaceIndexRight = min(
-                surfaceRange.endIndexRange?.endIndex ?? inputData.convertTarget.count,
+                surfaceRange.endIndexRange?.endIndex ?? composingText.convertTarget.count,
                 surfaceRange.startIndex + self.maxlength
             )
             if surfaceRange.startIndex > toSurfaceIndexLeft || toSurfaceIndexLeft >= toSurfaceIndexRight {
@@ -517,7 +517,7 @@ public final class DicdataStore {
         }
         // MARK: 誤り訂正の対象を列挙する。非常に重い処理。
         var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(
-            composingText: inputData,
+            composingText: composingText,
             inputProcessRange: inputProcessRange,
             surfaceProcessRange: surfaceProcessRange,
             useMemory: self.learningManager.enabled,
@@ -544,13 +544,13 @@ public final class DicdataStore {
 
         if let inputProcessRange {
             let segments = (inputProcessRange.leftIndex ..< inputProcessRange.rightIndexRange.endIndex).reduce(into: []) { (segments: inout [String], rightIndex: Int) in
-                segments.append((segments.last ?? "") + String(inputData.input[rightIndex].character.toKatakana()))
+                segments.append((segments.last ?? "") + String(composingText.input[rightIndex].character.toKatakana()))
             }
             for i in inputProcessRange.rightIndexRange {
                 do {
                     let result = self.getWiseDicdata(
                         convertTarget: segments[i - inputProcessRange.leftIndex],
-                        inputData: inputData,
+                        inputData: composingText,
                         inputRange: inputProcessRange.leftIndex ..< i + 1
                     )
                     for item in result {
@@ -560,13 +560,13 @@ public final class DicdataStore {
                 }
             }
         }
-        let needBOS = fromInputIndex == .zero
+        let needBOS = inputRange?.startIndex == .zero || surfaceRange?.startIndex == .zero
         let result: [LatticeNode] = dicdata.compactMap {
             guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
                 return nil
             }
             let range: Lattice.LatticeRange = switch endIndex {
-            case .input(let endIndex): .input(from: fromInputIndex!, to: endIndex + 1)
+            case .input(let endIndex): .input(from: (inputRange?.startIndex)!, to: endIndex + 1)
             case .surface(let endIndex): .surface(from: (surfaceRange?.startIndex)!, to: endIndex + 1)
             }
             let node = LatticeNode(data: $0, range: range)

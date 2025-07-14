@@ -68,10 +68,9 @@ extension Kana2Kanji {
                 } else {
                     nil
                 }
-                return self.dicdataStore.getLOUDSDataInRange(
-                    inputData: inputData,
-                    from: inputRange?.startIndex,
-                    toIndexRange: inputRange?.endIndexRange,
+                return self.dicdataStore.lookupDicdata(
+                    composingText: inputData,
+                    inputRange: inputRange,
                     surfaceRange: surfaceRange,
                     needTypoCorrection: needTypoCorrection
                 )
