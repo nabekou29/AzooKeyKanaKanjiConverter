@@ -542,22 +542,21 @@ public final class DicdataStore {
             dicdata.append(contentsOf: result)
         }
 
-        if let inputProcessRange {
-            let segments = (inputProcessRange.leftIndex ..< inputProcessRange.rightIndexRange.endIndex).reduce(into: []) { (segments: inout [String], rightIndex: Int) in
-                segments.append((segments.last ?? "") + String(composingText.input[rightIndex].character.toKatakana()))
-            }
-            for i in inputProcessRange.rightIndexRange {
-                do {
-                    let result = self.getWiseDicdata(
-                        convertTarget: segments[i - inputProcessRange.leftIndex],
-                        inputData: composingText,
-                        inputRange: inputProcessRange.leftIndex ..< i + 1
-                    )
-                    for item in result {
-                        stringToInfo[Array(item.ruby)] = (.input(i), 0)
-                    }
-                    dicdata.append(contentsOf: result)
+        // 機械的に一部のデータを生成する
+        if let surfaceProcessRange {
+            let chars = Array(composingText.convertTarget.toKatakana())
+            var segment = String(chars[surfaceProcessRange.leftIndex ..< surfaceProcessRange.rightIndexRange.lowerBound])
+            for i in surfaceProcessRange.rightIndexRange {
+                segment.append(String(chars[i]))
+                let result = self.getWiseDicdata(
+                    convertTarget: segment,
+                    inputData: composingText,
+                    surfaceRange: surfaceProcessRange.leftIndex ..< i + 1
+                )
+                for item in result {
+                    stringToInfo[Array(item.ruby)] = (.surface(i), 0)
                 }
+                dicdata.append(contentsOf: result)
             }
         }
         let needBOS = inputRange?.startIndex == .zero || surfaceRange?.startIndex == .zero
@@ -645,35 +644,27 @@ public final class DicdataStore {
     ///     - convertTarget: カタカナ変換済みの文字列
     /// - note
     ///     - 入力全体をカタカナとかひらがなに変換するやつは、Converter側でやっているので注意。
-    func getWiseDicdata(convertTarget: String, inputData: ComposingText, inputRange: Range<Int>) -> [DicdataElement] {
+    func getWiseDicdata(convertTarget: String, inputData: ComposingText, surfaceRange: Range<Int>) -> [DicdataElement] {
+        print(#function, convertTarget, inputData, surfaceRange)
         var result: [DicdataElement] = []
         result.append(contentsOf: self.getJapaneseNumberDicdata(head: convertTarget))
-        if inputData.input[..<inputRange.startIndex].last?.character.isNumber != true && inputData.input[inputRange.endIndex...].first?.character.isNumber != true, let number = Int(convertTarget) {
+        if inputData.convertTarget.prefix(surfaceRange.lowerBound).last?.isNumber != true,
+           inputData.convertTarget.dropFirst(surfaceRange.upperBound).first?.isNumber != true,
+            let number = Int(convertTarget) {
             result.append(DicdataElement(ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -14))
             if Double(number) <= 1E12 && -1E12 <= Double(number), let kansuji = self.numberFormatter.string(from: NSNumber(value: number)) {
                 result.append(DicdataElement(word: kansuji, ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -16))
             }
         }
-
         // convertTargetを英単語として候補に追加する
         if requestOptions.keyboardLanguage == .en_US && convertTarget.onlyRomanAlphabet {
             result.append(DicdataElement(ruby: convertTarget, cid: CIDData.固有名詞.cid, mid: MIDData.英単語.mid, value: -14))
         }
-
-        // ローマ字入力の場合、単体でひらがな・カタカナ化した候補も追加
-        if requestOptions.keyboardLanguage != .en_US && inputData.input[inputRange].allSatisfy({$0.inputStyle == .roman2kana}) {
-            let roman = String(inputData.input[inputRange].map(\.character))
-            if let katakana = Roman2Kana.katakanaChanges[roman], let hiragana = Roman2Kana.hiraganaChanges[Array(roman)] {
-                result.append(DicdataElement(word: String(hiragana), ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -13))
-                result.append(DicdataElement(ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -14))
-            }
-        }
-
-        // 入力を全てひらがな、カタカナに変換したものを候補に追加する
+        // convertTargetが1文字のケースでは、ひらがな・カタカナに変換したものを候補に追加する
         if convertTarget.count == 1 {
             let katakana = convertTarget.toKatakana()
             let hiragana = convertTarget.toHiragana()
-            if convertTarget == katakana && katakana == hiragana {
+            if katakana == hiragana {
                 // カタカナとひらがなが同じ場合（記号など）
                 let element = DicdataElement(ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -14)
                 result.append(element)
@@ -685,7 +676,6 @@ public final class DicdataStore {
                 result.append(katakanaElement)
             }
         }
-
         // 記号変換
         if convertTarget.count == 1, let first = convertTarget.first {
             var value: PValue = -14
