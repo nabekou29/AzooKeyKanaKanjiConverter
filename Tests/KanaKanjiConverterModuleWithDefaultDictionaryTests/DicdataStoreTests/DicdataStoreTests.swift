@@ -218,7 +218,7 @@ final class DicdataStoreTests: XCTestCase {
         do {
             var c = ComposingText()
             c.insertAtCursorPosition("999999999999", inputStyle: .roman2kana)
-            let result = dicdataStore.getWiseDicdata(convertTarget: c.convertTarget, inputData: c, inputRange: 0..<12)
+            let result = dicdataStore.getWiseDicdata(convertTarget: c.convertTarget, inputData: c, surfaceRange: 0..<12)
             XCTAssertTrue(result.contains(where: {$0.word == "999999999999"}))
             XCTAssertTrue(result.contains(where: {$0.word == "九千九百九十九億九千九百九十九万九千九百九十九"}))
         }
