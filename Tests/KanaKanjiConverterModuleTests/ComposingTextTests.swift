@@ -75,7 +75,7 @@ final class ComposingTextTests: XCTestCase {
             sequentialInput(&c, sequence: "itte", inputStyle: .roman2kana)
             XCTAssertEqual(c.input, [
                 ComposingText.InputElement(character: "i", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "っ", inputStyle: .direct),
+                ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
                 ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
                 ComposingText.InputElement(character: "e", inputStyle: .roman2kana)
             ])
@@ -88,7 +88,7 @@ final class ComposingTextTests: XCTestCase {
             sequentialInput(&c, sequence: "anta", inputStyle: .roman2kana)
             XCTAssertEqual(c.input, [
                 ComposingText.InputElement(character: "a", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "ん", inputStyle: .direct),
+                ComposingText.InputElement(character: "n", inputStyle: .roman2kana),
                 ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
                 ComposingText.InputElement(character: "a", inputStyle: .roman2kana)
             ])
@@ -223,9 +223,6 @@ final class ComposingTextTests: XCTestCase {
             sequentialInput(&c, sequence: "kyouhaiitenkida", inputStyle: .roman2kana)
             let map = c.inputIndexToSurfaceIndexMap()
 
-            // Note: 現在の実装では、アドホックな対処によってnが"ん"に切り替わる
-            XCTAssertEqual(c.input[10], .init(character: "ん", inputStyle: .direct))
-
             XCTAssertEqual(map[0], 0)     // ""
             XCTAssertEqual(map[1], nil)   // k
             XCTAssertEqual(map[2], nil)   // y
@@ -237,7 +234,7 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(map[8], 6)     // i
             XCTAssertEqual(map[9], nil)   // t
             XCTAssertEqual(map[10], 7)    // e
-            XCTAssertEqual(map[11], 8)    // n   // アドホックな対処の影響。nの場合はnilであるべき。
+            XCTAssertEqual(map[11], nil)  // n
             XCTAssertEqual(map[12], nil)  // k
             XCTAssertEqual(map[13], 9)    // i
             XCTAssertEqual(map[14], nil)  // d

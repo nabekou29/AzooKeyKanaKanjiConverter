@@ -213,31 +213,6 @@ public struct ComposingText: Sendable {
         return (oldString.count - common.count, String(newString.dropFirst(common.count)))
     }
 
-    /// inputの更新における特殊処理を扱う
-    /// TODO: アドホックな対処なのでどうにか一般化したい。
-    private mutating func updateInput(_ string: String, at inputCursorPosition: Int, inputStyle: InputStyle) {
-        if inputCursorPosition == 0 {
-            self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
-            return
-        }
-        let prev = self.input[inputCursorPosition - 1]
-        if inputStyle == .roman2kana && prev.inputStyle == inputStyle, let first = string.first, String(first).onlyRomanAlphabet {
-            if prev.character == first && !["a", "i", "u", "e", "o", "n"].contains(first) {
-                self.input[inputCursorPosition - 1] = InputElement(character: "っ", inputStyle: .direct)
-                self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
-                return
-            }
-            let n_prefix = self.input[0 ..< inputCursorPosition].suffix {$0.character == "n" && $0.inputStyle == .roman2kana}
-            if n_prefix.count % 2 == 1 && !["n", "a", "i", "u", "e", "o", "y"].contains(first)
-                && self.input.dropLast(n_prefix.count).last != .init(character: "x", inputStyle: .roman2kana) {
-                self.input[inputCursorPosition - 1] = InputElement(character: "ん", inputStyle: .direct)
-                self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
-                return
-            }
-        }
-        self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
-    }
-
     /// 現在のカーソル位置に文字を追加する関数
     public mutating func insertAtCursorPosition(_ string: String, inputStyle: InputStyle) {
         if string.isEmpty {
@@ -246,7 +221,7 @@ public struct ComposingText: Sendable {
         let inputCursorPosition = self.forceGetInputCursorPosition(target: self.convertTarget.prefix(convertTargetCursorPosition))
         // input, convertTarget, convertTargetCursorPositionの3つを更新する
         // inputを更新
-        self.updateInput(string, at: inputCursorPosition, inputStyle: inputStyle)
+        self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
 
         let oldConvertTarget = self.convertTarget.prefix(self.convertTargetCursorPosition)
         let newConvertTarget = Self.getConvertTarget(for: self.input.prefix(inputCursorPosition + string.count))
