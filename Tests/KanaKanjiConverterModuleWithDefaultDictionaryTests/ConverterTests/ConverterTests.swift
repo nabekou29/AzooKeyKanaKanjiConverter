@@ -132,6 +132,30 @@ final class ConverterTests: XCTestCase {
             }
     }
 
+    // memo: このケースでfatalErrorが発生する不具合が生じることがあった
+    func testIttaAndThenDelete() async throws {
+        let converter = await KanaKanjiConverter()
+        var c = ComposingText()
+        let text = "itta"
+        // 許容される変換結果
+        let possibles = [
+            "いった",
+            "行った",
+            "言った"
+        ]
+        for char in text {
+            c.insertAtCursorPosition(String(char), inputStyle: .roman2kana)
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            if c.input.count == text.count {
+                XCTAssertTrue(possibles.contains(results.mainResults.first!.text))
+            }
+        }
+        // 1文字削除
+        c.deleteBackwardFromCursorPosition(count: 1)
+        let results = await converter.requestCandidates(c, options: requestOptions())
+        XCTAssertTrue(results.mainResults.contains { $0.text == "言っ" })
+    }
+
     // 1文字ずつ入力するが、時折削除を行う
     // memo: 内部実装としてはdeleted_last_nのテストを意図している
     func testGradualConversionWithDelete() async throws {

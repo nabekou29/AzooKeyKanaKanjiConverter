@@ -488,7 +488,7 @@ public final class DicdataStore {
                 inputRange.startIndex + self.maxlength
             )
             if inputRange.startIndex > toInputIndexLeft || toInputIndexLeft >= toInputIndexRight {
-                debug(#function, "index is wrong")
+                debug(#function, "index is wrong", inputRange)
                 return []
             }
             inputProcessRange = .init(leftIndex: inputRange.startIndex, rightIndexRange: toInputIndexLeft ..< toInputIndexRight)
@@ -504,7 +504,7 @@ public final class DicdataStore {
                 surfaceRange.startIndex + self.maxlength
             )
             if surfaceRange.startIndex > toSurfaceIndexLeft || toSurfaceIndexLeft >= toSurfaceIndexRight {
-                debug(#function, "index is wrong")
+                debug(#function, "index is wrong", surfaceRange)
                 return []
             }
             surfaceProcessRange = .init(leftIndex: surfaceRange.startIndex, rightIndexRange: toSurfaceIndexLeft ..< toSurfaceIndexRight)

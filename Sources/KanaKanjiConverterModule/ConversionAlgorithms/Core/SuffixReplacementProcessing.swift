@@ -58,12 +58,12 @@ extension Kana2Kanji {
         } else {
             // (2)
             let rawNodes = latticeIndices.map { index in
-                let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
+                let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex, max(commonInputCount, iIndex) < inputCount {
                     (iIndex, max(commonInputCount, iIndex) ..< inputCount)
                 } else {
                     nil
                 }
-                let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
+                let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex, max(commonSurfaceCount, sIndex) < surfaceCount {
                     (sIndex, max(commonSurfaceCount, sIndex) ..< surfaceCount)
                 } else {
                     nil
@@ -92,7 +92,9 @@ extension Kana2Kanji {
                     }
                     // 変換した文字数
                     let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
-                    self.updateNextNodes(with: node, nextNodes: addedNodes[index: nextIndex], nBest: N_best)
+                    if nextIndex != .bothIndex(inputIndex: inputCount, surfaceIndex: surfaceCount) {
+                        self.updateNextNodes(with: node, nextNodes: addedNodes[index: nextIndex], nBest: N_best)
+                    }
                 }
             }
             lattice.merge(addedNodes)
