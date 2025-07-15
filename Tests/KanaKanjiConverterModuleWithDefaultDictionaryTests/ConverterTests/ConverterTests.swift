@@ -131,6 +131,29 @@ final class ConverterTests: XCTestCase {
                 }
             }
     }
+    // memo: このケースで単漢字変換などの結果が得られない問題があった
+    func testKimiAndThenDelete() async throws {
+        let converter = await KanaKanjiConverter()
+        var c = ComposingText()
+        let text = "kimi"
+        // 許容される変換結果
+        let possibles = [
+            "君",
+            "気味",
+            "黄身"
+        ]
+        for char in text {
+            c.insertAtCursorPosition(String(char), inputStyle: .roman2kana)
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            if c.input.count == text.count {
+                XCTAssertTrue(possibles.contains(results.mainResults.first!.text))
+            }
+        }
+        // 1文字削除
+        c.deleteBackwardFromCursorPosition(count: 1)
+        let results = await converter.requestCandidates(c, options: requestOptions())
+        XCTAssertTrue(results.mainResults.contains { $0.text == "黄" })
+    }
 
     // memo: このケースでfatalErrorが発生する不具合が生じることがあった
     func testIttaAndThenDelete() async throws {

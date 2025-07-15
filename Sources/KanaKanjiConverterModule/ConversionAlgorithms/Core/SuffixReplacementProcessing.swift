@@ -44,18 +44,16 @@ extension Kana2Kanji {
         let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
         var lattice = previousResult.lattice.prefix(inputCount: commonInputCount, surfaceCount: commonSurfaceCount)
 
-        let terminalNodes: Lattice
-        if counts.addedInput == 0 && counts.addedSurface == 0 {
-            terminalNodes = Lattice(
-                inputCount: inputCount,
-                surfaceCount: surfaceCount,
-                rawNodes: lattice.map {
-                    $0.filter {
-                        $0.range.endIndex == .input(inputCount) || $0.range.endIndex == .surface(inputCount)
-                    }
+        var terminalNodes = Lattice(
+            inputCount: inputCount,
+            surfaceCount: surfaceCount,
+            rawNodes: lattice.map {
+                $0.filter {
+                    $0.range.endIndex == .input(inputCount) || $0.range.endIndex == .surface(surfaceCount)
                 }
-            )
-        } else {
+            }
+        )
+        if !(counts.addedInput == 0 && counts.addedSurface == 0) {
             // (2)
             let rawNodes = latticeIndices.map { index in
                 let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex, max(commonInputCount, iIndex) < inputCount {
@@ -80,7 +78,6 @@ extension Kana2Kanji {
                 surfaceCount: surfaceCount,
                 rawNodes: rawNodes
             )
-
             // (3)
             for nodeArray in lattice {
                 for node in nodeArray {
@@ -98,7 +95,7 @@ extension Kana2Kanji {
                 }
             }
             lattice.merge(addedNodes)
-            terminalNodes = addedNodes
+            terminalNodes.merge(addedNodes)
         }
 
         // (3)
