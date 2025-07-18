@@ -22,7 +22,7 @@ extension Kana2Kanji {
     /// - note:
     ///     この関数の役割は意味連接の考慮にある。
     func getPredictionCandidates(composingText: ComposingText, prepart: CandidateData, lastClause: ClauseDataUnit, N_best: Int) -> [Candidate] {
-        debug("getPredictionCandidates", composingText, lastClause.ranges, lastClause.text)
+        debug(#function, composingText, lastClause.ranges, lastClause.text)
         let lastRuby = lastClause.ranges.reduce(into: "") {
             let ruby = switch $1 {
             case let .input(left, right):
@@ -71,10 +71,10 @@ extension Kana2Kanji {
                     break
                 }
                 let possibleNexts: [Substring] = DicdataStore.possibleNexts[String(roman), default: []].map {ruby + $0}
-                debug("getPredictionCandidates", lastRuby, ruby, roman, possibleNexts, prepart, lastRubyCount)
+                debug(#function, lastRuby, ruby, roman, possibleNexts, prepart, lastRubyCount)
                 dicdata = possibleNexts.flatMap { self.dicdataStore.getPredictionLOUDSDicdata(key: $0) }
             } else {
-                debug("getPredicitonCandidates", lastRuby, roman)
+                debug(#function, lastRuby, "roman == \"\"")
                 dicdata = self.dicdataStore.getPredictionLOUDSDicdata(key: lastRuby)
             }
         }
