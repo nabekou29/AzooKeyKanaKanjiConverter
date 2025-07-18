@@ -28,7 +28,7 @@ extension Kana2Kanji {
             case let .input(left, right):
                 ComposingText.getConvertTarget(for: composingText.input[left..<right]).toKatakana()
             case let .surface(left, right):
-                String(composingText.convertTarget.dropFirst(left).prefix(right - left))
+                String(composingText.convertTarget.dropFirst(left).prefix(right - left)).toKatakana()
             }
             $0.append(ruby)
         }
