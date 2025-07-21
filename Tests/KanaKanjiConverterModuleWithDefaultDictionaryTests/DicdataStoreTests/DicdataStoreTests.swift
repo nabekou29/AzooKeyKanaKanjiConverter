@@ -332,7 +332,7 @@ final class DicdataStoreTests: XCTestCase {
 
     func testPossibleNexts() throws {
         let possibleNexts = DicdataStore.possibleNexts
-        XCTAssertEqual(Set(possibleNexts["f", default: []]).symmetricDifference(["ファ", "フィ", "フ", "フェ", "フォ", "フャ", "フュ", "フョ", "フゥ"]), [])
+        XCTAssertEqual(Set(possibleNexts["f", default: []]).symmetricDifference(["ファ", "フィ", "フ", "フェ", "フォ", "フャ", "フュ", "フョ", "フゥ", "ッf"]), [])
         XCTAssertEqual(Set(possibleNexts["xy", default: []]).symmetricDifference(["ャ", "ョ", "ュ"]), [])
         XCTAssertEqual(possibleNexts["", default: []], [])
     }

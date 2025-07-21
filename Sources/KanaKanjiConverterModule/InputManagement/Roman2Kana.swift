@@ -283,6 +283,45 @@ enum Roman2Kana {
         "whu": "う",
         "whe": "うぇ",
         "who": "うぉ",
+        "bb": "っb",
+        "cc": "っc",
+        "dd": "っd",
+        "ff": "っf",
+        "gg": "っg",
+        "hh": "っh",
+        "jj": "っj",
+        "kk": "っk",
+        "ll": "っl",
+        "mm": "っm",
+        "pp": "っp",
+        "qq": "っq",
+        "rr": "っr",
+        "ss": "っs",
+        "tt": "っt",
+        "vv": "っv",
+        "ww": "っw",
+        "xx": "っx",
+        "yy": "っy",
+        "zz": "っz",
+        "nb": "んb",
+        "nc": "んc",
+        "nd": "んd",
+        "nf": "んf",
+        "ng": "んg",
+        "nh": "んh",
+        "nj": "んj",
+        "nk": "んk",
+        "nl": "んl",
+        "nm": "んm",
+        "np": "んp",
+        "nq": "んq",
+        "nr": "んr",
+        "ns": "んs",
+        "nt": "んt",
+        "nv": "んv",
+        "nw": "んw",
+        "nx": "んx",
+        "nz": "んz",
         "xn": "ん",
         "zh": "←",
         "zj": "↓",
@@ -290,28 +329,20 @@ enum Roman2Kana {
         "zl": "→"
     ].map {(Array($0.key), Array($0.value))})
 
-    static func toHiragana(currentText: [Character], added: Character) -> [Character] {
-        let last_3 = currentText.suffix(3)
-        if let kana = Roman2Kana.hiraganaChanges[last_3 + [added]] {
-            return currentText.prefix(currentText.count - last_3.count) + kana
-        }
-        let last_2 = currentText.suffix(2)
-        if let kana = Roman2Kana.hiraganaChanges[last_2 + [added]] {
-            return currentText.prefix(currentText.count - last_2.count) + kana
-        }
-        let last_1 = currentText.suffix(1)
-        if let kana = Roman2Kana.hiraganaChanges[last_1 + [added]] {
-            return currentText.prefix(currentText.count - last_1.count) + kana
-        }
-        if last_1 == [added] && String(added).onlyRomanAlphabet {
-            return currentText.prefix(currentText.count - last_1.count) + ["っ", added]
-        }
-        if last_1 == ["n"] && added != "y"{
-            return currentText.prefix(currentText.count - last_1.count) + ["ん", added]
-        }
+    static let maxKeyCount = hiraganaChanges.lazy.map { $0.key.count }.max() ?? 0
 
-        if let kana = Roman2Kana.hiraganaChanges[[added]] {
-            return currentText + kana
+    static func toHiragana(currentText: [Character], added: Character) -> [Character] {
+        for n in (0 ..< maxKeyCount).reversed() {
+            if n == 0 {
+                if let kana = Roman2Kana.hiraganaChanges[[added]] {
+                    return currentText + kana
+                }
+            } else {
+                let last = currentText.suffix(n)
+                if let kana = Roman2Kana.hiraganaChanges[last + [added]] {
+                    return currentText.prefix(currentText.count - last.count) + kana
+                }
+            }
         }
         return currentText + [added]
     }
