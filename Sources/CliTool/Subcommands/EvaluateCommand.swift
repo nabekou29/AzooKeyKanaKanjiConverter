@@ -146,15 +146,15 @@ extension Subcommands {
 
         /// ユーザ辞書
         var user_dictionary: [InputUserDictionaryItem]? = nil
+    }
 
-        struct InputUserDictionaryItem: Codable {
-            /// 漢字
-            var word: String
-            /// 読み
-            var reading: String
-            /// ヒント
-            var hint: String? = nil
-        }
+    struct InputUserDictionaryItem: Codable {
+        /// 漢字
+        var word: String
+        /// 読み
+        var reading: String
+        /// ヒント
+        var hint: String? = nil
     }
 
     struct EvaluateResult: Codable {
