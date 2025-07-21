@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import KanaKanjiConverterModuleWithDefaultDictionary
+@testable import KanaKanjiConverterModuleWithDefaultDictionary
 import XCTest
 
 final class ConverterTests: XCTestCase {
@@ -17,9 +17,10 @@ final class ConverterTests: XCTestCase {
         }
     }
 
-    func requestOptions() -> ConvertRequestOptions {
+    func requestOptions(needTypoCorrection: Bool = false) -> ConvertRequestOptions {
         .withDefaultDictionary(
             N_best: 10,
+            needTypoCorrection: needTypoCorrection,
             requireJapanesePrediction: false,
             requireEnglishPrediction: false,
             keyboardLanguage: .ja_JP,
@@ -56,19 +57,21 @@ final class ConverterTests: XCTestCase {
     }
 
     func testRoman2KanaFullConversion() async throws {
-        do {
-            let converter = await KanaKanjiConverter()
-            var c = ComposingText()
-            c.insertAtCursorPosition("azuーkiーhasinjidainokiーboーdoapuridesu", inputStyle: .roman2kana)
-            let results = await converter.requestCandidates(c, options: requestOptions())
-            XCTAssertEqual(results.mainResults.first?.text, "azooKeyは新時代のキーボードアプリです")
-        }
-        do {
-            let converter = await KanaKanjiConverter()
-            var c = ComposingText()
-            c.insertAtCursorPosition("youshoukikaratenisusuieiyakyuushourinjikenpounadosamazamanasupoーtuwokeikennsinagarasodatishougakkouzidaiharosanzerusukinkounitaizaisiteorigoruhuyatenisuwonaratteita", inputStyle: .roman2kana)
-            let results = await converter.requestCandidates(c, options: requestOptions())
-            XCTAssertEqual(results.mainResults.first?.text, "幼少期からテニス水泳野球少林寺拳法など様々なスポーツを経験しながら育ち小学校時代はロサンゼルス近郊に滞在しておりゴルフやテニスを習っていた")
+        for needTypoCorrection in [true, false] {
+            do {
+                let converter = await KanaKanjiConverter()
+                var c = ComposingText()
+                c.insertAtCursorPosition("azuーkiーhasinjidainokiーboーdoapuridesu", inputStyle: .roman2kana)
+                let results = await converter.requestCandidates(c, options: requestOptions(needTypoCorrection: needTypoCorrection))
+                XCTAssertEqual(results.mainResults.first?.text, "azooKeyは新時代のキーボードアプリです")
+            }
+            do {
+                let converter = await KanaKanjiConverter()
+                var c = ComposingText()
+                c.insertAtCursorPosition("youshoukikaratenisusuieiyakyuushourinjikenpounadosamazamanasupoーtuwokeikennsinagarasodatishougakkouzidaiharosanzerusukinkounitaizaisiteorigoruhuyatenisuwonaratteita", inputStyle: .roman2kana)
+                let results = await converter.requestCandidates(c, options: requestOptions(needTypoCorrection: needTypoCorrection))
+                XCTAssertEqual(results.mainResults.first?.text, "幼少期からテニス水泳野球少林寺拳法など様々なスポーツを経験しながら育ち小学校時代はロサンゼルス近郊に滞在しておりゴルフやテニスを習っていた")
+            }
         }
     }
 
@@ -128,6 +131,53 @@ final class ConverterTests: XCTestCase {
                 }
             }
     }
+    // memo: このケースで単漢字変換などの結果が得られない問題があった
+    func testKimiAndThenDelete() async throws {
+        let converter = await KanaKanjiConverter()
+        var c = ComposingText()
+        let text = "kimi"
+        // 許容される変換結果
+        let possibles = [
+            "君",
+            "気味",
+            "黄身"
+        ]
+        for char in text {
+            c.insertAtCursorPosition(String(char), inputStyle: .roman2kana)
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            if c.input.count == text.count {
+                XCTAssertTrue(possibles.contains(results.mainResults.first!.text))
+            }
+        }
+        // 1文字削除
+        c.deleteBackwardFromCursorPosition(count: 1)
+        let results = await converter.requestCandidates(c, options: requestOptions())
+        XCTAssertTrue(results.mainResults.contains { $0.text == "黄" })
+    }
+
+    // memo: このケースでfatalErrorが発生する不具合が生じることがあった
+    func testIttaAndThenDelete() async throws {
+        let converter = await KanaKanjiConverter()
+        var c = ComposingText()
+        let text = "itta"
+        // 許容される変換結果
+        let possibles = [
+            "いった",
+            "行った",
+            "言った"
+        ]
+        for char in text {
+            c.insertAtCursorPosition(String(char), inputStyle: .roman2kana)
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            if c.input.count == text.count {
+                XCTAssertTrue(possibles.contains(results.mainResults.first!.text))
+            }
+        }
+        // 1文字削除
+        c.deleteBackwardFromCursorPosition(count: 1)
+        let results = await converter.requestCandidates(c, options: requestOptions())
+        XCTAssertTrue(results.mainResults.contains { $0.text == "言っ" })
+    }
 
     // 1文字ずつ入力するが、時折削除を行う
     // memo: 内部実装としてはdeleted_last_nのテストを意図している
@@ -171,72 +221,103 @@ final class ConverterTests: XCTestCase {
 
     // 必ず正解すべきテストケース
     func testMustCases() async throws {
-            // ダイレクト入力
-            do {
-                let cases: [(input: String, expect: String)] = [
-                    ("つかっている", "使っている"),
-                    ("しんだどうぶつ", "死んだ動物"),
-                    ("けいさん", "計算"),
-                    ("azooKeyをつかう", "azooKeyを使う"),
-                    ("じどうAIそうじゅう。", "自動AI操縦。"),
-                    ("1234567890123456789012", "1234567890123456789012")
-                ]
+        // ダイレクト入力
+        do {
+            let cases: [(input: String, expect: String)] = [
+                ("つかっている", "使っている"),
+                ("しんだどうぶつ", "死んだ動物"),
+                ("けいさん", "計算"),
+                ("azooKeyをつかう", "azooKeyを使う"),
+                ("じどうAIそうじゅう。", "自動AI操縦。"),
+                ("1234567890123456789012", "1234567890123456789012")
+            ]
 
-                // full input
-                var options = requestOptions()
-                options.requireJapanesePrediction = false
-                for (input, expect) in cases {
-                    let converter = await KanaKanjiConverter()
-                    var c = ComposingText()
-                    sequentialInput(&c, sequence: input, inputStyle: .direct)
+            // full input
+            var options = requestOptions()
+            options.requireJapanesePrediction = false
+            for (input, expect) in cases {
+                let converter = await KanaKanjiConverter()
+                var c = ComposingText()
+                sequentialInput(&c, sequence: input, inputStyle: .direct)
+                let results = await converter.requestCandidates(c, options: options)
+                XCTAssertEqual(results.mainResults.first?.text, expect)
+            }
+            // gradual input
+            for (input, expect) in cases {
+                let converter = await KanaKanjiConverter()
+                var c = ComposingText()
+                for char in input {
+                    c.insertAtCursorPosition(String(char), inputStyle: .direct)
                     let results = await converter.requestCandidates(c, options: options)
-                    XCTAssertEqual(results.mainResults.first?.text, expect)
-                }
-                // gradual input
-                for (input, expect) in cases {
-                    let converter = await KanaKanjiConverter()
-                    var c = ComposingText()
-                    for char in input {
-                        c.insertAtCursorPosition(String(char), inputStyle: .direct)
-                        let results = await converter.requestCandidates(c, options: options)
-                        if c.input.count == input.count {
-                            XCTAssertEqual(results.mainResults.first?.text, expect)
-                        }
+                    if c.input.count == input.count {
+                        XCTAssertEqual(results.mainResults.first?.text, expect)
                     }
                 }
             }
-            // ローマ字入力
-            do {
-                let cases: [(input: String, expect: String)] = [
-                    ("tukatteiru", "使っている"),
-                    ("sindadoubutu", "死んだ動物"),
-                    ("keisann", "計算")
-                ]
+        }
+        // ローマ字入力
+        do {
+            let cases: [(input: String, expect: String)] = [
+                ("tukatteiru", "使っている"),
+                ("sindadoubutu", "死んだ動物"),
+                ("keisann", "計算")
+            ]
 
-                // full input
-                var options = requestOptions()
-                options.requireJapanesePrediction = false
-                for (input, expect) in cases {
-                    let converter = await KanaKanjiConverter()
-                    var c = ComposingText()
-                    sequentialInput(&c, sequence: input, inputStyle: .roman2kana)
+            // full input
+            var options = requestOptions()
+            options.requireJapanesePrediction = false
+            for (input, expect) in cases {
+                let converter = await KanaKanjiConverter()
+                var c = ComposingText()
+                sequentialInput(&c, sequence: input, inputStyle: .roman2kana)
+                let results = await converter.requestCandidates(c, options: options)
+                XCTAssertEqual(results.mainResults.first?.text, expect)
+            }
+
+            // gradual input
+            for (input, expect) in cases {
+                let converter = await KanaKanjiConverter()
+                var c = ComposingText()
+                for char in input {
+                    c.insertAtCursorPosition(String(char), inputStyle: .roman2kana)
                     let results = await converter.requestCandidates(c, options: options)
-                    XCTAssertEqual(results.mainResults.first?.text, expect)
-                }
-
-                // gradual input
-                for (input, expect) in cases {
-                    let converter = await KanaKanjiConverter()
-                    var c = ComposingText()
-                    for char in input {
-                        c.insertAtCursorPosition(String(char), inputStyle: .roman2kana)
-                        let results = await converter.requestCandidates(c, options: options)
-                        if c.input.count == input.count {
-                            XCTAssertEqual(results.mainResults.first?.text, expect)
-                        }
+                    if c.input.count == input.count {
+                        XCTAssertEqual(results.mainResults.first?.text, expect)
                     }
                 }
             }
+        }
+        // typo訂正アリ
+        do {
+            let cases: [(input: String, expect: String)] = [
+                ("たいかくせい", "大学生"),
+                ("きみのことかすき", "君のことが好き"),
+                ("おへんとうをもつていく", "お弁当を持っていく"),
+            ]
+
+            // full input
+            var options = requestOptions(needTypoCorrection: true)
+            options.requireJapanesePrediction = false
+            for (input, expect) in cases {
+                let converter = await KanaKanjiConverter()
+                var c = ComposingText()
+                sequentialInput(&c, sequence: input, inputStyle: .direct)
+                let results = await converter.requestCandidates(c, options: options)
+                XCTAssertEqual(results.mainResults.first?.text, expect)
+            }
+            // gradual input
+            for (input, expect) in cases {
+                let converter = await KanaKanjiConverter()
+                var c = ComposingText()
+                for char in input {
+                    c.insertAtCursorPosition(String(char), inputStyle: .direct)
+                    let results = await converter.requestCandidates(c, options: options)
+                    if c.input.count == input.count {
+                        XCTAssertEqual(results.mainResults.first?.text, expect)
+                    }
+                }
+            }
+        }
     }
 
     // 変換結果が比較的一意なテストケースを無数に持ち、一定の割合を正解することを要求する

@@ -213,31 +213,6 @@ public struct ComposingText: Sendable {
         return (oldString.count - common.count, String(newString.dropFirst(common.count)))
     }
 
-    /// inputの更新における特殊処理を扱う
-    /// TODO: アドホックな対処なのでどうにか一般化したい。
-    private mutating func updateInput(_ string: String, at inputCursorPosition: Int, inputStyle: InputStyle) {
-        if inputCursorPosition == 0 {
-            self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
-            return
-        }
-        let prev = self.input[inputCursorPosition - 1]
-        if inputStyle == .roman2kana && prev.inputStyle == inputStyle, let first = string.first, String(first).onlyRomanAlphabet {
-            if prev.character == first && !["a", "i", "u", "e", "o", "n"].contains(first) {
-                self.input[inputCursorPosition - 1] = InputElement(character: "っ", inputStyle: .direct)
-                self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
-                return
-            }
-            let n_prefix = self.input[0 ..< inputCursorPosition].suffix {$0.character == "n" && $0.inputStyle == .roman2kana}
-            if n_prefix.count % 2 == 1 && !["n", "a", "i", "u", "e", "o", "y"].contains(first)
-                && self.input.dropLast(n_prefix.count).last != .init(character: "x", inputStyle: .roman2kana) {
-                self.input[inputCursorPosition - 1] = InputElement(character: "ん", inputStyle: .direct)
-                self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
-                return
-            }
-        }
-        self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
-    }
-
     /// 現在のカーソル位置に文字を追加する関数
     public mutating func insertAtCursorPosition(_ string: String, inputStyle: InputStyle) {
         if string.isEmpty {
@@ -246,7 +221,7 @@ public struct ComposingText: Sendable {
         let inputCursorPosition = self.forceGetInputCursorPosition(target: self.convertTarget.prefix(convertTargetCursorPosition))
         // input, convertTarget, convertTargetCursorPositionの3つを更新する
         // inputを更新
-        self.updateInput(string, at: inputCursorPosition, inputStyle: inputStyle)
+        self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
 
         let oldConvertTarget = self.convertTarget.prefix(self.convertTargetCursorPosition)
         let newConvertTarget = Self.getConvertTarget(for: self.input.prefix(inputCursorPosition + string.count))
@@ -341,18 +316,37 @@ public struct ComposingText: Sendable {
     /// 文頭の方を確定させる関数
     ///  - parameters:
     ///   - correspondingCount: `input`において対応する文字数
-    public mutating func prefixComplete(correspondingCount: Int) {
-        let correspondingCount = min(correspondingCount, self.input.count)
-        self.input.removeFirst(correspondingCount)
-        // convetTargetを更新する
-        let newConvertTarget = Self.getConvertTarget(for: self.input)
-        // カーソルの位置は、消す文字数の分削除する
-        let cursorDelta = self.convertTarget.count - newConvertTarget.count
-        self.convertTarget = newConvertTarget
-        self.convertTargetCursorPosition -= cursorDelta
-        // もしも左端にカーソルが位置していたら、文頭に移動させる
-        if self.convertTargetCursorPosition == 0 {
-            self.convertTargetCursorPosition = self.convertTarget.count
+    public mutating func prefixComplete(composingCount: ComposingCount) {
+        switch composingCount {
+        case .inputCount(let correspondingCount):
+            let correspondingCount = min(correspondingCount, self.input.count)
+            self.input.removeFirst(correspondingCount)
+            // convetTargetを更新する
+            let newConvertTarget = Self.getConvertTarget(for: self.input)
+            // カーソルの位置は、消す文字数の分削除する
+            let cursorDelta = self.convertTarget.count - newConvertTarget.count
+            self.convertTarget = newConvertTarget
+            self.convertTargetCursorPosition -= cursorDelta
+            // もしも左端にカーソルが位置していたら、文頭に移動させる
+            if self.convertTargetCursorPosition == 0 {
+                self.convertTargetCursorPosition = self.convertTarget.count
+            }
+        case .surfaceCount(let correspondingCount):
+            // 先頭correspondingCountを削除する操作に相当する
+            // カーソルを移動する
+            let prefix = self.convertTarget.prefix(correspondingCount)
+            let index = self.forceGetInputCursorPosition(target: prefix)
+            self.input = Array(self.input[index...])
+            self.convertTarget = String(self.convertTarget.dropFirst(correspondingCount))
+            self.convertTargetCursorPosition -= correspondingCount
+            // もしも左端にカーソルが位置していたら、文頭に移動させる
+            if self.convertTargetCursorPosition == 0 {
+                self.convertTargetCursorPosition = self.convertTarget.count
+            }
+
+        case .composite(let left, let right):
+            self.prefixComplete(composingCount: left)
+            self.prefixComplete(composingCount: right)
         }
     }
 
@@ -363,6 +357,40 @@ public struct ComposingText: Sendable {
         text.input = Array(text.input.prefix(index))
         text.convertTarget = String(text.convertTarget.prefix(text.convertTargetCursorPosition))
         return text
+    }
+
+    public func inputIndexToSurfaceIndexMap() -> [Int: Int] {
+        // i2c: input indexからconvert target indexへのmap
+        // c2i: convert target indexからinput indexへのmap
+
+        // 例1.
+        // [k, y, o, u, h, a, i, i, t, e, n, k, i, d, a]
+        // [き, ょ, う, は, い, い, て, ん, き, だ]
+        // i2c: [0: 0, 3: 2(きょ), 4: 3(う), 6: 4(は), 7: 5(い), 8: 6(い), 10: 7(て), 13: 9(んき), 15: 10(だ)]
+
+        var map: [Int: (surfaceIndex: Int, surface: String)] = [0: (0, "")]
+
+        // 逐次更新用のバッファ
+        var convertTargetElements: [ConvertTargetElement] = []
+
+        for (idx, element) in self.input.enumerated() {
+            // 要素を追加して表層文字列を更新
+            Self.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
+            // 表層側の長さを再計算
+            let currentSurface = convertTargetElements.reduce(into: "") { $0 += $1.string }
+            // idx 個の要素を処理し終えた直後（= 次の要素を処理する前）の
+            // カーソル位置は idx + 1
+            map[idx + 1] = (currentSurface.count, currentSurface)
+        }
+        // 最終的なサーフェスと一致したものだけ残す
+        let finalSurface = convertTargetElements.reduce(into: "") { $0 += $1.string }
+        return map
+            .filter {
+                finalSurface.hasPrefix($0.value.surface)
+            }
+            .mapValues {
+                $0.surfaceIndex
+            }
     }
 
     public mutating func stopComposition() {
@@ -580,17 +608,20 @@ extension ComposingText.ConvertTargetElement: Equatable {}
 extension ComposingText {
     /// 2つの`ComposingText`のデータを比較し、差分を計算する。
     /// `convertTarget`との整合性をとるため、`convertTarget`に合わせた上で比較する
-    func differenceSuffix(to previousData: ComposingText) -> (deleted: Int, addedCount: Int) {
+    func differenceSuffix(to previousData: ComposingText) -> (deletedInput: Int, addedInput: Int, deletedSurface: Int, addedSurface: Int) {
         // k→か、sh→しゃ、のような場合、差分は全てx ... lastの範囲に現れるので、差分計算が問題なく動作する
         // かn → かんs、のような場合、「かんs、んs、s」のようなものは現れるが、「かん」が生成できない
         // 本質的にこれはポリシーの問題であり、「は|しゃ」の変換で「はし」が部分変換として現れないことと同根の問題である。
         // 解決のためには、inputの段階で「ん」をdirectで扱うべきである。
-
         // 差分を計算する
         let common = self.input.commonPrefix(with: previousData.input)
         let deleted = previousData.input.count - common.count
         let added = self.input.dropFirst(common.count).count
-        return (deleted, added)
+
+        let commonSurface = self.convertTarget.commonPrefix(with: previousData.convertTarget)
+        let deletedSurface = previousData.convertTarget.count - commonSurface.count
+        let addedSurface = self.convertTarget.count - commonSurface.count
+        return (deleted, added, deletedSurface, addedSurface)
     }
 
     func inputHasSuffix(inputOf suffix: ComposingText) -> Bool {

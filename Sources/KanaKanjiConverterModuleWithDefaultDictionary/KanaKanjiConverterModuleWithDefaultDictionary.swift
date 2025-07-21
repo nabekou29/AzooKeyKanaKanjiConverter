@@ -4,6 +4,7 @@ public import Foundation
 public extension ConvertRequestOptions {
     static func withDefaultDictionary(
         N_best: Int = 10,
+        needTypoCorrection: Bool? = nil,
         requireJapanesePrediction: Bool,
         requireEnglishPrediction: Bool,
         keyboardLanguage: KeyboardLanguage,
@@ -29,13 +30,26 @@ public extension ConvertRequestOptions {
         #else
         let dictionaryDirectory = Bundle.module.resourceURL!.appendingPathComponent("Dictionary", isDirectory: true)
         #endif
+
+        var specialCandidateProviders = [any SpecialCandidateProvider]()
+        if typographyLetterCandidate {
+            specialCandidateProviders.append(.typography)
+        }
+        if unicodeCandidate {
+            specialCandidateProviders.append(.unicode)
+        }
+        specialCandidateProviders.append(.emailAddress)
+        specialCandidateProviders.append(.timeExpression)
+        specialCandidateProviders.append(.calendar)
+        specialCandidateProviders.append(.version)
+        specialCandidateProviders.append(.commaSeparatedNumber)
+
         return Self(
             N_best: N_best,
+            needTypoCorrection: needTypoCorrection,
             requireJapanesePrediction: requireJapanesePrediction,
             requireEnglishPrediction: requireEnglishPrediction,
             keyboardLanguage: keyboardLanguage,
-            typographyLetterCandidate: typographyLetterCandidate,
-            unicodeCandidate: unicodeCandidate,
             englishCandidateInRoman2KanaInput: englishCandidateInRoman2KanaInput,
             fullWidthRomanCandidate: fullWidthRomanCandidate,
             halfWidthKanaCandidate: halfWidthKanaCandidate,
@@ -44,8 +58,9 @@ public extension ConvertRequestOptions {
             shouldResetMemory: shouldResetMemory,
             dictionaryResourceURL: dictionaryDirectory,
             memoryDirectoryURL: memoryDirectoryURL,
-            sharedContainerURL: sharedContainerURL,
+            sharedContainerURL: sharedContainerURL,            
             textReplacer: textReplacer,
+            specialCandidateProviders: specialCandidateProviders,
             zenzaiMode: zenzaiMode,
             preloadDictionary: preloadDictionary,
             metadata: metadata

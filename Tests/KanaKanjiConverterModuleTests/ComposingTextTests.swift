@@ -75,7 +75,7 @@ final class ComposingTextTests: XCTestCase {
             sequentialInput(&c, sequence: "itte", inputStyle: .roman2kana)
             XCTAssertEqual(c.input, [
                 ComposingText.InputElement(character: "i", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "っ", inputStyle: .direct),
+                ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
                 ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
                 ComposingText.InputElement(character: "e", inputStyle: .roman2kana)
             ])
@@ -88,7 +88,7 @@ final class ComposingTextTests: XCTestCase {
             sequentialInput(&c, sequence: "anta", inputStyle: .roman2kana)
             XCTAssertEqual(c.input, [
                 ComposingText.InputElement(character: "a", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "ん", inputStyle: .direct),
+                ComposingText.InputElement(character: "n", inputStyle: .roman2kana),
                 ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
                 ComposingText.InputElement(character: "a", inputStyle: .roman2kana)
             ])
@@ -202,8 +202,8 @@ final class ComposingTextTests: XCTestCase {
             var c2 = ComposingText()
             c2.insertAtCursorPosition("hasiru", inputStyle: .roman2kana)
 
-            XCTAssertEqual(c2.differenceSuffix(to: c1).deleted, 0)
-            XCTAssertEqual(c2.differenceSuffix(to: c1).addedCount, 1)
+            XCTAssertEqual(c2.differenceSuffix(to: c1).deletedInput, 0)
+            XCTAssertEqual(c2.differenceSuffix(to: c1).addedInput, 1)
         }
         do {
             var c1 = ComposingText()
@@ -212,8 +212,47 @@ final class ComposingTextTests: XCTestCase {
             var c2 = ComposingText()
             c2.insertAtCursorPosition("tukatte", inputStyle: .roman2kana)
 
-            XCTAssertEqual(c2.differenceSuffix(to: c1).deleted, 0)
-            XCTAssertEqual(c2.differenceSuffix(to: c1).addedCount, 1)
+            XCTAssertEqual(c2.differenceSuffix(to: c1).deletedInput, 0)
+            XCTAssertEqual(c2.differenceSuffix(to: c1).addedInput, 1)
+        }
+    }
+
+    func testIndexMap() throws {
+        do {
+            var c = ComposingText()
+            sequentialInput(&c, sequence: "kyouhaiitenkida", inputStyle: .roman2kana)
+            let map = c.inputIndexToSurfaceIndexMap()
+
+            XCTAssertEqual(map[0], 0)     // ""
+            XCTAssertEqual(map[1], nil)   // k
+            XCTAssertEqual(map[2], nil)   // y
+            XCTAssertEqual(map[3], 2)     // o
+            XCTAssertEqual(map[4], 3)     // u
+            XCTAssertEqual(map[5], nil)   // h
+            XCTAssertEqual(map[6], 4)     // a
+            XCTAssertEqual(map[7], 5)     // i
+            XCTAssertEqual(map[8], 6)     // i
+            XCTAssertEqual(map[9], nil)   // t
+            XCTAssertEqual(map[10], 7)    // e
+            XCTAssertEqual(map[11], nil)  // n
+            XCTAssertEqual(map[12], nil)  // k
+            XCTAssertEqual(map[13], 9)    // i
+            XCTAssertEqual(map[14], nil)  // d
+            XCTAssertEqual(map[15], 10)   // a
+        }
+        do {
+            var c = ComposingText()
+            sequentialInput(&c, sequence: "sakujoshori", inputStyle: .roman2kana)
+            let map = c.inputIndexToSurfaceIndexMap()
+            let reversedMap = (0 ..< c.convertTarget.count + 1).compactMap {
+                if map.values.contains($0) {
+                    String(c.convertTarget.prefix($0))
+                } else {
+                    nil
+                }
+            }
+            XCTAssertFalse(reversedMap.contains("さくじ"))
+            XCTAssertFalse(reversedMap.contains("さくじょし"))
         }
     }
 }

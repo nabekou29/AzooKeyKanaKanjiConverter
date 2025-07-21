@@ -14,7 +14,7 @@ protocol RegisteredNodeProtocol {
     var data: DicdataElement {get}
     var prev: (any RegisteredNodeProtocol)? {get}
     var totalValue: PValue {get}
-    var inputRange: Range<Int> {get}
+    var range: Lattice.LatticeRange {get}
 }
 
 struct RegisteredNode: RegisteredNodeProtocol {
@@ -25,19 +25,19 @@ struct RegisteredNode: RegisteredNodeProtocol {
     /// 始点からこのノードまでのコスト
     let totalValue: PValue
     /// `composingText`の`input`で対応する範囲
-    let inputRange: Range<Int>
+    let range: Lattice.LatticeRange
 
-    init(data: DicdataElement, registered: RegisteredNode?, totalValue: PValue, inputRange: Range<Int>) {
+    init(data: DicdataElement, registered: RegisteredNode?, totalValue: PValue, range: Lattice.LatticeRange) {
         self.data = data
         self.prev = registered
         self.totalValue = totalValue
-        self.inputRange = inputRange
+        self.range = range
     }
 
     /// 始点ノードを生成する関数
     /// - Returns: 始点ノードのデータ
     static func BOSNode() -> RegisteredNode {
-        RegisteredNode(data: DicdataElement.BOSData, registered: nil, totalValue: 0, inputRange: 0 ..< 0)
+        RegisteredNode(data: DicdataElement.BOSData, registered: nil, totalValue: 0, range: .zero)
     }
 
     /// 入力中、確定した部分を考慮した始点ノードを生成する関数
@@ -47,7 +47,7 @@ struct RegisteredNode: RegisteredNodeProtocol {
             data: DicdataElement(word: "", ruby: "", lcid: CIDData.BOS.cid, rcid: candidate.data.last?.rcid ?? CIDData.BOS.cid, mid: candidate.lastMid, value: 0),
             registered: nil,
             totalValue: 0,
-            inputRange: 0 ..< 0
+            range: .zero
         )
     }
 }
@@ -59,7 +59,7 @@ extension RegisteredNodeProtocol {
         guard let prev else {
             let unit = ClauseDataUnit()
             unit.mid = self.data.mid
-            unit.inputRange = self.inputRange
+            unit.ranges = [self.range]
             return CandidateData(clauses: [(clause: unit, value: .zero)], data: [])
         }
         var lastcandidate = prev.getCandidateData()    // 自分に至るregisterdそれぞれのデータに処理
@@ -75,7 +75,7 @@ extension RegisteredNodeProtocol {
         if lastClause.text.isEmpty || !DicdataStore.isClause(prev.data.rcid, self.data.lcid) {
             // 文節ではないので、最後に追加する。
             lastClause.text.append(self.data.word)
-            lastClause.inputRange = lastClause.inputRange.startIndex ..< self.inputRange.endIndex
+            lastClause.ranges.append(self.range)
             // 最初だった場合を想定している
             if (lastClause.mid == 500 && self.data.mid != 500) || DicdataStore.includeMMValueCalculation(self.data) {
                 lastClause.mid = self.data.mid
@@ -88,7 +88,7 @@ extension RegisteredNodeProtocol {
         else {
             let unit = ClauseDataUnit()
             unit.text = self.data.word
-            unit.inputRange = self.inputRange
+            unit.ranges.append(self.range)
             if DicdataStore.includeMMValueCalculation(self.data) {
                 unit.mid = self.data.mid
             }

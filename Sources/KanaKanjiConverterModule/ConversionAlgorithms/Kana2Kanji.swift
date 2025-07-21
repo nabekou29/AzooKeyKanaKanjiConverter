@@ -34,11 +34,16 @@ struct Kana2Kanji {
         let text = data.clauses.map {$0.clause.text}.joined()
         let value = data.clauses.last!.value + mmValue.value
         let lastMid = data.clauses.last!.clause.mid
-        let correspondingCount = data.clauses.reduce(into: 0) {$0 += $1.clause.inputRange.count}
+
+        let composingCount: ComposingCount = data.clauses.reduce(into: .inputCount(0)) {
+            for range in $1.clause.ranges {
+                $0 = .composite($0, range.count)
+            }
+        }
         return Candidate(
             text: text,
             value: value,
-            correspondingCount: correspondingCount,
+            composingCount: composingCount,
             lastMid: lastMid,
             data: data.data
         )

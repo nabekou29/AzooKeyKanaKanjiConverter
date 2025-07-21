@@ -6,6 +6,7 @@
 //  Copyright © 2022 ensan. All rights reserved.
 //
 
+import Algorithms
 import Foundation
 import SwiftUtils
 
@@ -26,12 +27,13 @@ extension Kana2Kanji {
 
     func kana2lattice_no_change(N_best: Int, previousResult: (inputData: ComposingText, lattice: Lattice)) -> (result: LatticeNode, lattice: Lattice) {
         debug("キャッシュから復元、元の文字は：", previousResult.inputData.convertTarget)
-        let count = previousResult.inputData.input.count
+        let inputCount = previousResult.inputData.input.count
+        let surfaceCount = previousResult.inputData.convertTarget.count
         // (1)
         let result = LatticeNode.EOSNode
 
         for nodeArray in previousResult.lattice {
-            for node in nodeArray where node.inputRange.endIndex == count {
+            for node in nodeArray where node.range.endIndex == .input(inputCount) || node.range.endIndex == .surface(surfaceCount) {
                 if node.prevs.isEmpty {
                     continue
                 }

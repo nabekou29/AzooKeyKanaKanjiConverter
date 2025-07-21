@@ -36,7 +36,7 @@ public struct PostCompositionPredictionCandidate {
                 candidate.data.append(data)
             }
             candidate.value = self.value
-            candidate.correspondingCount = candidate.data.reduce(into: 0) { $0 += $1.ruby.count }
+            candidate.composingCount = .surfaceCount(candidate.rubyCount)
             candidate.lastMid = data.last(where: DicdataStore.includeMMValueCalculation)?.mid ?? candidate.lastMid
             return candidate
         case .replacement(let targetData, let replacementData):
@@ -45,7 +45,7 @@ public struct PostCompositionPredictionCandidate {
             candidate.text = candidate.data.reduce(into: "") {$0 += $1.word}
             candidate.value = self.value
             candidate.lastMid = candidate.data.last(where: DicdataStore.includeMMValueCalculation)?.mid ?? MIDData.BOS.mid
-            candidate.correspondingCount = candidate.data.reduce(into: 0) { $0 += $1.ruby.count }
+            candidate.composingCount = .surfaceCount(candidate.rubyCount)
             return candidate
         }
     }

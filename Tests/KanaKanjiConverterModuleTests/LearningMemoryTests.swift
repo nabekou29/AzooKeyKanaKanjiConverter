@@ -88,7 +88,7 @@ final class LearningMemoryTests: XCTestCase {
                 Candidate(
                     text: element.word,
                     value: element.value(),
-                    correspondingCount: 3,
+                    composingCount: .inputCount(3),
                     lastMid: element.mid,
                     data: [element]
                 )
@@ -128,7 +128,7 @@ final class LearningMemoryTests: XCTestCase {
                 Candidate(
                     text: element.word,
                     value: element.value(),
-                    correspondingCount: 3,
+                    composingCount: .inputCount(3),
                     lastMid: element.mid,
                     data: [element]
                 )

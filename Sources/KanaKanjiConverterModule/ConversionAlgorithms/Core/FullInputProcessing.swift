@@ -6,6 +6,7 @@
 //  Copyright © 2020 ensan. All rights reserved.
 //
 
+import Algorithms
 import Foundation
 import SwiftUtils
 
@@ -28,11 +29,36 @@ extension Kana2Kanji {
     /// (4)ノードをアップデートした上で返却する。
     func kana2lattice_all(_ inputData: ComposingText, N_best: Int, needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice) {
         debug("新規に計算を行います。inputされた文字列は\(inputData.input.count)文字分の\(inputData.convertTarget)")
-        let count: Int = inputData.input.count
         let result: LatticeNode = LatticeNode.EOSNode
-        let lattice: Lattice = Lattice(nodes: (.zero ..< count).map {dicdataStore.getLOUDSDataInRange(inputData: inputData, from: $0, needTypoCorrection: needTypoCorrection)})
+        let inputCount: Int = inputData.input.count
+        let surfaceCount = inputData.convertTarget.count
+        let indexMap = LatticeDualIndexMap(inputData)
+        let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
+        let rawNodes = latticeIndices.map { index in
+            let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
+                (iIndex, nil)
+            } else {
+                nil
+            }
+            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
+                (sIndex, nil)
+            } else {
+                nil
+            }
+            return dicdataStore.lookupDicdata(
+                composingText: inputData,
+                inputRange: inputRange,
+                surfaceRange: surfaceRange,
+                needTypoCorrection: needTypoCorrection
+            )
+        }
+        let lattice: Lattice = Lattice(
+            inputCount: inputCount,
+            surfaceCount: surfaceCount,
+            rawNodes: rawNodes
+        )
         // 「i文字目から始まるnodes」に対して
-        for (i, nodeArray) in lattice.enumerated() {
+        for (isHead, nodeArray) in lattice.indexedNodes(indices: latticeIndices) {
             // それぞれのnodeに対して
             for node in nodeArray {
                 if node.prevs.isEmpty {
@@ -43,20 +69,20 @@ extension Kana2Kanji {
                 }
                 // 生起確率を取得する。
                 let wValue: PValue = node.data.value()
-                if i == 0 {
+                if isHead {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue + self.dicdataStore.getCCValue($0.data.rcid, node.data.lcid)}
                 } else {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
-                // 変換した文字数
-                let nextIndex: Int = node.inputRange.endIndex
+                // 後続ノードのindex（正規化する）
+                let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
                 // 文字数がcountと等しい場合登録する
-                if nextIndex == count {
+                if nextIndex.inputIndex == inputCount && nextIndex.surfaceIndex == surfaceCount {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
-                    self.updateNextNodes(with: node, nextNodes: lattice[inputIndex: nextIndex], nBest: N_best)
+                    self.updateNextNodes(with: node, nextNodes: lattice[index: nextIndex], nBest: N_best)
                 }
             }
         }
@@ -70,7 +96,7 @@ extension Kana2Kanji {
         }
     }
     /// N-Best計算を高速に実行しつつ、遷移先ノードを更新する
-    func updateNextNodes(with node: LatticeNode, nextNodes: [LatticeNode], nBest: Int) {
+    func updateNextNodes(with node: LatticeNode, nextNodes: some Sequence<LatticeNode>, nBest: Int) {
         for nextnode in nextNodes {
             if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
                 continue

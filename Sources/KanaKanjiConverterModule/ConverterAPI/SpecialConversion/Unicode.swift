@@ -22,7 +22,7 @@ extension KanaKanjiConverter {
                     Candidate(
                         text: char,
                         value: value0,
-                        correspondingCount: inputData.input.count,
+                        composingCount: .inputCount(inputData.input.count),
                         lastMid: MIDData.一般.mid,
                         data: [DicdataElement(word: char, ruby: string, cid: .zero, mid: MIDData.一般.mid, value: value0)]
                     )

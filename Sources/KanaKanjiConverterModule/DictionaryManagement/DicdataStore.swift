@@ -242,20 +242,93 @@ public final class DicdataStore {
         return [louds.searchNodeIndex(chars: charIDs)].compactMap {$0}
     }
 
+    private struct UnifiedGenerator {
+        struct SurfaceGenerator {
+            var surface: [Character] = []
+            var range: TypoCorrectionGenerator.ProcessRange
+            var currentIndex: Int
+
+            init(surface: [Character], range: TypoCorrectionGenerator.ProcessRange) {
+                self.surface = surface
+                self.range = range
+                self.currentIndex = range.rightIndexRange.lowerBound
+            }
+
+            mutating func setUnreachablePath<C: Collection<Character>>(target: C) where C.Indices == Range<Int> {
+                if self.surface[self.range.leftIndex...].hasPrefix(target) {
+                    // new upper boundを計算
+                    let currentLowerBound = self.range.rightIndexRange.lowerBound
+                    let currentUpperBound = self.range.rightIndexRange.upperBound
+                    let targetUpperBound = self.range.leftIndex + target.indices.upperBound
+                    self.range.rightIndexRange = min(currentLowerBound, targetUpperBound) ..< min(currentUpperBound, targetUpperBound)
+                }
+            }
+
+            mutating func next() -> ([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))? {
+                if self.surface.indices.contains(self.currentIndex), self.currentIndex < self.range.rightIndexRange.upperBound {
+                    defer {
+                        self.currentIndex += 1
+                    }
+                    let characters = Array(self.surface[self.range.leftIndex ... self.currentIndex])
+                    return (characters, (.surface(self.currentIndex), 0))
+                }
+                return nil
+            }
+        }
+
+        var typoCorrectionGenerator: TypoCorrectionGenerator? = nil
+        var surfaceGenerator: SurfaceGenerator? = nil
+
+        mutating func register(_ generator: TypoCorrectionGenerator) {
+            self.typoCorrectionGenerator = generator
+        }
+        mutating func register(_ generator: SurfaceGenerator) {
+            self.surfaceGenerator = generator
+        }
+        mutating func setUnreachablePath<C: Collection<Character>>(target: C) where C.Indices == Range<Int> {
+            self.typoCorrectionGenerator?.setUnreachablePath(target: target)
+            self.surfaceGenerator?.setUnreachablePath(target: target)
+        }
+        mutating func next() -> ([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))? {
+            if let next = self.surfaceGenerator?.next() {
+                return next
+            }
+            if let next = self.typoCorrectionGenerator?.next() {
+                return next
+            }
+            return nil
+        }
+    }
+
     func movingTowardPrefixSearch(
-        inputs: [ComposingText.InputElement],
-        leftIndex: Int,
-        rightIndexRange: Range<Int>,
+        composingText: ComposingText,
+        inputProcessRange: TypoCorrectionGenerator.ProcessRange?,
+        surfaceProcessRange: TypoCorrectionGenerator.ProcessRange?,
         useMemory: Bool,
         needTypoCorrection: Bool
     ) -> (
-        stringToInfo: [[Character]: (endIndex: Int, penalty: PValue)],
+        stringToInfo: [[Character]: (endIndex: Lattice.LatticeIndex, penalty: PValue)],
         indices: [(key: String, indices: [Int])],
         temporaryMemoryDicdata: [DicdataElement]
     ) {
-        var generator = TypoCorrectionGenerator(inputs: inputs, leftIndex: leftIndex, rightIndexRange: rightIndexRange, needTypoCorrection: needTypoCorrection)
+        var generator = UnifiedGenerator()
+        if let surfaceProcessRange {
+            let surfaceGenerator = UnifiedGenerator.SurfaceGenerator(
+                surface: Array(composingText.convertTarget.toKatakana()),
+                range: surfaceProcessRange
+            )
+            generator.register(surfaceGenerator)
+        }
+        if let inputProcessRange {
+            let typoCorrectionGenerator = TypoCorrectionGenerator(
+                inputs: composingText.input,
+                range: inputProcessRange,
+                needTypoCorrection: needTypoCorrection
+            )
+            generator.register(typoCorrectionGenerator)
+        }
         var targetLOUDS: [String: LOUDS.MovingTowardPrefixSearchHelper] = [:]
-        var stringToInfo: [([Character], (endIndex: Int, penalty: PValue))] = []
+        var stringToInfo: [([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))] = []
         // 動的辞書（一時学習データ、動的ユーザ辞書）から取り出されたデータ
         var dynamicDicdata: [Int: [DicdataElement]] = [:]
         // ジェネレータを舐める
@@ -332,8 +405,25 @@ public final class DicdataStore {
         }
         let minCount = stringToInfo.map {$0.0.count}.min() ?? 0
         return (
-            Dictionary(stringToInfo, uniquingKeysWith: {$0.penalty < $1.penalty ? $1 : $0}),
-            targetLOUDS.map { ($0.key, $0.value.indicesInDepth(depth: minCount - 1 ..< .max) )},
+            Dictionary(
+                stringToInfo,
+                uniquingKeysWith: { (lhs, rhs) in
+                    if lhs.penalty < rhs.penalty {
+                        return lhs
+                    } else if lhs.penalty == rhs.penalty {
+                        return switch (lhs.endIndex, rhs.endIndex) {
+                        case (.input, .input), (.surface, .surface): lhs // どっちでもいい
+                        case (.surface, .input): lhs  // surfaceIndexを優先
+                        case (.input, .surface): rhs  // surfaceIndexを優先
+                        }
+                    } else {
+                        return rhs
+                    }
+                }
+            ),
+            targetLOUDS.map {
+                ($0.key, $0.value.indicesInDepth(depth: minCount - 1 ..< .max))
+            },
             dynamicDicdata.flatMap {
                 minCount < $0.key + 1 ? $0.value : []
             }
@@ -375,30 +465,69 @@ public final class DicdataStore {
         }
         return data
     }
-
-    /// kana2latticeから参照する。
+    
+    /// 辞書データを取得する
     /// - Parameters:
-    ///   - inputData: 入力データ
-    ///   - from: 起点
-    ///   - toIndexRange: `from ..< (toIndexRange)`の範囲で辞書ルックアップを行う。
-    public func getLOUDSDataInRange(inputData: ComposingText, from fromIndex: Int, toIndexRange: Range<Int>? = nil, needTypoCorrection: Bool = true) -> [LatticeNode] {
-        let toIndexLeft = toIndexRange?.startIndex ?? fromIndex
-        let toIndexRight = min(toIndexRange?.endIndex ?? inputData.input.count, fromIndex + self.maxlength)
-        if fromIndex > toIndexLeft || toIndexLeft >= toIndexRight {
-            debug(#function, "index is wrong")
+    ///   - composingText: 現在の入力情報
+    ///   - inputRange: 検索に用いる`composingText.input`の範囲。
+    ///   - surfaceRange: 検索に用いる`composingText.convertTarget`の範囲。
+    ///   - needTypoCorrection: 誤り訂正を行うかどうか
+    /// - Returns: 発見された辞書データを`LatticeNode`のインスタンスとしたもの。
+    public func lookupDicdata(
+        composingText: ComposingText,
+        inputRange:(startIndex: Int, endIndexRange: Range<Int>?)? = nil,
+        surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = nil,
+        needTypoCorrection: Bool = true
+    ) -> [LatticeNode] {
+
+        let inputProcessRange: TypoCorrectionGenerator.ProcessRange?
+        if let inputRange {
+            let toInputIndexLeft = inputRange.endIndexRange?.startIndex ?? inputRange.startIndex
+            let toInputIndexRight = min(
+                inputRange.endIndexRange?.endIndex ?? composingText.input.count,
+                inputRange.startIndex + self.maxlength
+            )
+            if inputRange.startIndex > toInputIndexLeft || toInputIndexLeft >= toInputIndexRight {
+                debug(#function, "index is wrong", inputRange)
+                return []
+            }
+            inputProcessRange = .init(leftIndex: inputRange.startIndex, rightIndexRange: toInputIndexLeft ..< toInputIndexRight)
+        } else {
+            inputProcessRange = nil
+        }
+
+        let surfaceProcessRange: TypoCorrectionGenerator.ProcessRange?
+        if let surfaceRange {
+            let toSurfaceIndexLeft = surfaceRange.endIndexRange?.startIndex ?? surfaceRange.startIndex
+            let toSurfaceIndexRight = min(
+                surfaceRange.endIndexRange?.endIndex ?? composingText.convertTarget.count,
+                surfaceRange.startIndex + self.maxlength
+            )
+            if surfaceRange.startIndex > toSurfaceIndexLeft || toSurfaceIndexLeft >= toSurfaceIndexRight {
+                debug(#function, "index is wrong", surfaceRange)
+                return []
+            }
+            surfaceProcessRange = .init(leftIndex: surfaceRange.startIndex, rightIndexRange: toSurfaceIndexLeft ..< toSurfaceIndexRight)
+        } else {
+            surfaceProcessRange = nil
+        }
+        if inputProcessRange == nil && surfaceProcessRange == nil {
+            debug(#function, "either of inputProcessRange and surfaceProcessRange must not be nil")
             return []
         }
-
-        let segments = (fromIndex ..< toIndexRight).reduce(into: []) { (segments: inout [String], rightIndex: Int) in
-            segments.append((segments.last ?? "") + String(inputData.input[rightIndex].character.toKatakana()))
-        }
         // MARK: 誤り訂正の対象を列挙する。非常に重い処理。
-        var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(inputs: inputData.input, leftIndex: fromIndex, rightIndexRange: toIndexLeft ..< toIndexRight, useMemory: self.learningManager.enabled, needTypoCorrection: needTypoCorrection)
+        var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(
+            composingText: composingText,
+            inputProcessRange: inputProcessRange,
+            surfaceProcessRange: surfaceProcessRange,
+            useMemory: self.learningManager.enabled,
+            needTypoCorrection: needTypoCorrection
+        )
         // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
         for (identifier, value) in indices {
             let result: [DicdataElement] = self.getDicdataFromLoudstxt3(identifier: identifier, indices: value).compactMap { (data) -> DicdataElement? in
                 let rubyArray = Array(data.ruby)
-                let penalty = stringToInfo[rubyArray, default: (0, .zero)].penalty
+                let penalty = stringToInfo[rubyArray]?.penalty ?? 0
                 if penalty.isZero {
                     return data
                 }
@@ -413,34 +542,39 @@ public final class DicdataStore {
             dicdata.append(contentsOf: result)
         }
 
-        for i in toIndexLeft ..< toIndexRight {
-            do {
-                let result = self.getWiseDicdata(convertTarget: segments[i - fromIndex], inputData: inputData, inputRange: fromIndex ..< i + 1)
+        // 機械的に一部のデータを生成する
+        if let surfaceProcessRange {
+            let chars = Array(composingText.convertTarget.toKatakana())
+            var segment = String(chars[surfaceProcessRange.leftIndex ..< surfaceProcessRange.rightIndexRange.lowerBound])
+            for i in surfaceProcessRange.rightIndexRange {
+                segment.append(String(chars[i]))
+                let result = self.getWiseDicdata(
+                    convertTarget: segment,
+                    inputData: composingText,
+                    surfaceRange: surfaceProcessRange.leftIndex ..< i + 1
+                )
                 for item in result {
-                    stringToInfo[Array(item.ruby)] = (i, 0)
+                    stringToInfo[Array(item.ruby)] = (.surface(i), 0)
                 }
                 dicdata.append(contentsOf: result)
             }
         }
-        if fromIndex == .zero {
-            let result: [LatticeNode] = dicdata.compactMap {
-                guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
-                    return nil
-                }
-                let node = LatticeNode(data: $0, inputRange: fromIndex ..< endIndex + 1)
+        let needBOS = inputRange?.startIndex == .zero || surfaceRange?.startIndex == .zero
+        let result: [LatticeNode] = dicdata.compactMap {
+            guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
+                return nil
+            }
+            let range: Lattice.LatticeRange = switch endIndex {
+            case .input(let endIndex): .input(from: (inputRange?.startIndex)!, to: endIndex + 1)
+            case .surface(let endIndex): .surface(from: (surfaceRange?.startIndex)!, to: endIndex + 1)
+            }
+            let node = LatticeNode(data: $0, range: range)
+            if needBOS {
                 node.prevs.append(RegisteredNode.BOSNode())
-                return node
             }
-            return result
-        } else {
-            let result: [LatticeNode] = dicdata.compactMap {
-                guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
-                    return nil
-                }
-                return LatticeNode(data: $0, inputRange: fromIndex ..< endIndex + 1)
-            }
-            return result
+            return node
         }
+        return result
     }
 
     func getZeroHintPredictionDicdata(lastRcid: Int) -> [DicdataElement] {
@@ -510,35 +644,27 @@ public final class DicdataStore {
     ///     - convertTarget: カタカナ変換済みの文字列
     /// - note
     ///     - 入力全体をカタカナとかひらがなに変換するやつは、Converter側でやっているので注意。
-    func getWiseDicdata(convertTarget: String, inputData: ComposingText, inputRange: Range<Int>) -> [DicdataElement] {
+    func getWiseDicdata(convertTarget: String, inputData: ComposingText, surfaceRange: Range<Int>) -> [DicdataElement] {
+        print(#function, convertTarget, inputData, surfaceRange)
         var result: [DicdataElement] = []
         result.append(contentsOf: self.getJapaneseNumberDicdata(head: convertTarget))
-        if inputData.input[..<inputRange.startIndex].last?.character.isNumber != true && inputData.input[inputRange.endIndex...].first?.character.isNumber != true, let number = Int(convertTarget) {
+        if inputData.convertTarget.prefix(surfaceRange.lowerBound).last?.isNumber != true,
+           inputData.convertTarget.dropFirst(surfaceRange.upperBound).first?.isNumber != true,
+            let number = Int(convertTarget) {
             result.append(DicdataElement(ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -14))
             if Double(number) <= 1E12 && -1E12 <= Double(number), let kansuji = self.numberFormatter.string(from: NSNumber(value: number)) {
                 result.append(DicdataElement(word: kansuji, ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -16))
             }
         }
-
         // convertTargetを英単語として候補に追加する
         if requestOptions.keyboardLanguage == .en_US && convertTarget.onlyRomanAlphabet {
             result.append(DicdataElement(ruby: convertTarget, cid: CIDData.固有名詞.cid, mid: MIDData.英単語.mid, value: -14))
         }
-
-        // ローマ字入力の場合、単体でひらがな・カタカナ化した候補も追加
-        if requestOptions.keyboardLanguage != .en_US && inputData.input[inputRange].allSatisfy({$0.inputStyle == .roman2kana}) {
-            let roman = String(inputData.input[inputRange].map(\.character))
-            if let katakana = Roman2Kana.katakanaChanges[roman], let hiragana = Roman2Kana.hiraganaChanges[Array(roman)] {
-                result.append(DicdataElement(word: String(hiragana), ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -13))
-                result.append(DicdataElement(ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -14))
-            }
-        }
-
-        // 入力を全てひらがな、カタカナに変換したものを候補に追加する
+        // convertTargetが1文字のケースでは、ひらがな・カタカナに変換したものを候補に追加する
         if convertTarget.count == 1 {
             let katakana = convertTarget.toKatakana()
             let hiragana = convertTarget.toHiragana()
-            if convertTarget == katakana && katakana == hiragana {
+            if katakana == hiragana {
                 // カタカナとひらがなが同じ場合（記号など）
                 let element = DicdataElement(ruby: katakana, cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -14)
                 result.append(element)
@@ -550,7 +676,6 @@ public final class DicdataStore {
                 result.append(katakanaElement)
             }
         }
-
         // 記号変換
         if convertTarget.count == 1, let first = convertTarget.first {
             var value: PValue = -14

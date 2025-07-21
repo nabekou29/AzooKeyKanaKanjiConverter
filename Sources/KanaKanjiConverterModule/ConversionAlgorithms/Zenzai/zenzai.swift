@@ -65,7 +65,7 @@ extension Kana2Kanji {
         var constraint = zenzaiCache?.getNewConstraint(for: inputData) ?? PrefixConstraint([])
         debug("initial constraint", constraint)
         let eosNode = LatticeNode.EOSNode
-        var lattice: Lattice = Lattice(nodes: [])
+        var lattice: Lattice = Lattice()
         var constructedCandidates: [(RegisteredNode, Candidate)] = []
         var insertedCandidates: [(RegisteredNode, Candidate)] = []
         defer {

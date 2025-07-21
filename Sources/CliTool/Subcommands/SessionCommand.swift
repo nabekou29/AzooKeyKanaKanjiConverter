@@ -30,6 +30,8 @@ extension Subcommands {
         var reportScore = false
         @Flag(name: [.customLong("roman2kana")], help: "Use roman2kana input.")
         var roman2kana = false
+        @Option(name: [.customLong("config_user_dictionary")], help: "User Dictionary JSON file path")
+        var configUserDictionary: String? = nil
         @Option(name: [.customLong("config_zenzai_inference_limit")], help: "inference limit for zenzai.")
         var configZenzaiInferenceLimit: Int = .max
         @Flag(name: [.customLong("config_zenzai_rich_n_best")], help: "enable rich n_best generation for zenzai.")
@@ -70,6 +72,15 @@ extension Subcommands {
             }
         }
 
+        private func parseUserDictionaryFile() throws -> [InputUserDictionaryItem] {
+            guard let configUserDictionary else {
+                return []
+            }
+            let url = URL(fileURLWithPath: configUserDictionary)
+            let data = try Data(contentsOf: url)
+            return try JSONDecoder().decode([InputUserDictionaryItem].self, from: data)
+        }
+
         @MainActor mutating func run() async {
             if self.zenzV1 || self.zenzV2 {
                 print("\(bold: "We strongly recommend to use zenz-v3 models")")
@@ -80,6 +91,11 @@ extension Subcommands {
             if !self.zenzWeightPath.isEmpty && (!self.zenzV1 && !self.zenzV2 && !self.zenzV3) {
                 print("zenz version is not specified. By default, zenz-v3 will be used.")
             }
+
+            let userDictionary = try! self.parseUserDictionaryFile().map {
+                DicdataElement(word: $0.word, ruby: $0.reading.toKatakana(), cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -10)
+            }
+
             let learningType: LearningType = if self.readOnlyMemoryPath != nil {
                 // 読み取りのみ
                 .onlyOutput
@@ -107,6 +123,7 @@ extension Subcommands {
             converter.sendToDicdataStore(
                 .setRequestOptions(requestOptions(learningType: learningType, memoryDirectory: memoryDirectory, leftSideContext: nil))
             )
+            converter.sendToDicdataStore(.importDynamicUserDict(userDictionary))
             var composingText = ComposingText()
             let inputStyle: InputStyle = self.roman2kana ? .roman2kana : .direct
             var lastCandidates: [Candidate] = []
@@ -220,7 +237,7 @@ extension Subcommands {
                         print("Submit \(candidate.text)")
                         converter.setCompletedData(candidate)
                         converter.updateLearningData(candidate)
-                        composingText.prefixComplete(correspondingCount: candidate.correspondingCount)
+                        composingText.prefixComplete(composingCount: candidate.composingCount)
                         if composingText.isEmpty {
                             composingText.stopComposition()
                             converter.stopComposition()

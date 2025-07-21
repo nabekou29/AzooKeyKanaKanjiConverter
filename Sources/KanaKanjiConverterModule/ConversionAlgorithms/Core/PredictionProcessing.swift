@@ -14,7 +14,7 @@ extension Kana2Kanji {
             return Candidate(
                 text: left.text + right.text,
                 value: left.value + right.value,
-                correspondingCount: left.correspondingCount + right.correspondingCount,
+                composingCount: .composite(left.composingCount, right.composingCount),
                 lastMid: right.lastMid,
                 data: left.data + right.data
             )
@@ -26,7 +26,7 @@ extension Kana2Kanji {
         return Candidate(
             text: left.text + right.text,
             value: newValue,
-            correspondingCount: left.correspondingCount + right.correspondingCount,
+            composingCount: .composite(left.composingCount, right.composingCount),
             lastMid: right.lastMid,
             data: left.data + right.data
         )
@@ -57,7 +57,7 @@ extension Kana2Kanji {
                 prefixCandidate.data = prefixCandidateData
 
                 prefixCandidate.text = prefixCandidateData.reduce(into: "") { $0 += $1.word }
-                prefixCandidate.correspondingCount = prefixCandidateData.reduce(into: 0) { $0 += $1.ruby.count }
+                prefixCandidate.composingCount = .surfaceCount(prefixCandidateData.reduce(into: 0) { $0 += $1.ruby.count })
             }
 
             totalWord.insert(contentsOf: element.word, at: totalWord.startIndex)
