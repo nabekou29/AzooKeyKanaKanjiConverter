@@ -67,7 +67,7 @@ public enum CompleteAction: Equatable, Sendable {
     case moveCursor(Int)
 }
 
-public enum ComposingCount: Equatable, Sendable {
+public enum ComposingCount: Sendable, Equatable {
     /// composingText.inputにおいて対応する文字数。
     case inputCount(Int)
     /// composingText.convertTargeにおいて対応する文字数。
@@ -85,6 +85,55 @@ public enum ComposingCount: Equatable, Sendable {
         default:
             .composite(lhs: lhs, rhs: rhs)
         }
+    }
+
+    private struct FlatComposingCount: Equatable {
+        enum Kind {
+            case inputCount
+            case surfaceCount
+        }
+        var kind: Kind
+        var value: Int
+        static func inputCount(_ value: Int) -> Self {
+            .init(kind: .inputCount, value: value)
+        }
+        static func surfaceCount(_ value: Int) -> Self {
+            .init(kind: .surfaceCount, value: value)
+        }
+    }
+
+    private var flatten: [FlatComposingCount] {
+        switch self {
+        case .inputCount(let value):
+            if value == 0 {
+                []
+            } else {
+                [.inputCount(value)]
+            }
+        case .surfaceCount(let value):
+            if value == 0 {
+                []
+            } else {
+                [.surfaceCount(value)]
+            }
+        case .composite(let lhs, let rhs):
+            {
+                let lFlatten = lhs.flatten
+                let rFlatten = rhs.flatten
+                return switch (lFlatten.last?.kind, rFlatten.first?.kind) {
+                case (.inputCount, .inputCount):
+                    lFlatten.dropLast() + [.inputCount(lFlatten.last!.value + rFlatten.first!.value)] + rFlatten.dropFirst()
+                case (.surfaceCount, .surfaceCount):
+                    lFlatten.dropLast() + [.surfaceCount(lFlatten.last!.value + rFlatten.first!.value)] + rFlatten.dropFirst()
+                default:
+                    lFlatten + rFlatten
+                }
+            }()
+        }
+    }
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.flatten == rhs.flatten
     }
 }
 
