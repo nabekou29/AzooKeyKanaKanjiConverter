@@ -589,12 +589,16 @@ import EfficientNGram
             item.parseTemplate()
         }
         // 文節のみ変換するパターン（上位5件）
-        let firstClauseResults = self.getUniqueCandidate(clauseCandidates).min(count: 5) {
+        var firstClauseResults = self.getUniqueCandidate(clauseCandidates).min(count: 5) {
             if $0.rubyCount == $1.rubyCount {
                 $0.value > $1.value
             } else {
                 $0.rubyCount > $1.rubyCount
             }
+        }
+        firstClauseResults.mutatingForEach { item in
+            item.withActions(self.getAppropriateActions(item))
+            item.parseTemplate()
         }
         return ConversionResult(mainResults: result, firstClauseResults: firstClauseResults)
     }
