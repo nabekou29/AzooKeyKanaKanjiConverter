@@ -185,10 +185,17 @@ public struct ComposingText: Sendable {
             // 例えばcovnertTargetが「あき|ょ」で、`[a, k, y, o]`まで見て「あきょ」になってしまった場合、「あき」がprefixとなる。
             // この場合、lastPrefix=1なので、1番目から現在までの入力をひらがな(suffix)で置き換える
             else if converted.hasPrefix(target) {
+                // lastPrefixIndex: 「あ」までなので1
+                // count: 「あきょ」までなので4
+                // replaceCount: 3
                 let replaceCount = count - lastPrefixIndex
+                // suffix: 「あきょ」から「あ」を落とした分なので、「きょ」
                 let suffix = converted.suffix(converted.count - lastPrefix.count)
+                // lastPrefixIndexから現在のカウントまでをReplace
                 self.input.removeSubrange(count - replaceCount ..< count)
-                self.input.insert(contentsOf: suffix.map {InputElement(character: $0, inputStyle: CharacterUtils.isRomanLetter($0) ? .roman2kana : .direct)}, at: count - replaceCount)
+                // suffix1文字ずつを入力に追加する
+                // この結果として生じる文字列については、`frozen`で処理する
+                self.input.insert(contentsOf: suffix.map {InputElement(character: $0, inputStyle: .frozen)}, at: count - replaceCount)
 
                 count -= replaceCount
                 count += suffix.count
@@ -436,7 +443,9 @@ extension ComposingText {
         case .direct:
             return current + [newCharacter]
         case .roman2kana:
-            return Roman2Kana.toHiragana(currentText: current, added: newCharacter)
+            return InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: current, added: newCharacter)
+        case .mapped(let id):
+            return InputStyleManager.shared.table(for: id).toHiragana(currentText: current, added: newCharacter)
         }
     }
 
@@ -445,7 +454,9 @@ extension ComposingText {
         case .direct:
             convertTarget.append(newCharacter)
         case .roman2kana:
-            convertTarget = Roman2Kana.toHiragana(currentText: convertTarget, added: newCharacter)
+            convertTarget = InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: convertTarget, added: newCharacter)
+        case .mapped(let id):
+            convertTarget = InputStyleManager.shared.table(for: id).toHiragana(currentText: convertTarget, added: newCharacter)
         }
     }
 
@@ -486,9 +497,11 @@ extension ComposingText.InputElement: CustomDebugStringConvertible {
     public var debugDescription: String {
         switch self.inputStyle {
         case .direct:
-            return "direct(\(character))"
+            "direct(\(character))"
         case .roman2kana:
-            return "roman2kana(\(character))"
+            "roman2kana(\(character))"
+        case .mapped(let id):
+            "mapped(\(id); \(character))"
         }
     }
 }
@@ -500,7 +513,14 @@ extension ComposingText.ConvertTargetElement: CustomDebugStringConvertible {
 }
 extension InputStyle: CustomDebugStringConvertible {
     public var debugDescription: String {
-        "." + self.rawValue
+        switch self {
+        case .direct:
+            ".direct"
+        case .roman2kana:
+            ".roman2kana"
+        case .mapped(let id):
+            ".mapped(\(id))"
+        }
     }
 }
 #endif

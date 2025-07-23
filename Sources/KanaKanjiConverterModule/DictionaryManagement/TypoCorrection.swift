@@ -97,9 +97,14 @@ struct TypoCorrectionGenerator: Sendable {
                 switch item.inputStyle {
                 case .direct:
                     stablePrefix.append(contentsOf: item.string)
-                case .roman2kana:
+                case .roman2kana, .mapped:
+                    let table = if case let .mapped(id) = item.inputStyle {
+                        InputStyleManager.shared.table(for: id)
+                    } else {
+                        InputStyleManager.shared.table(for: .defaultRomanToKana)
+                    }
                     var stableIndex = item.string.endIndex
-                    for suffix in Roman2Kana.unstableSuffixes {
+                    for suffix in table.unstableSuffixes {
                         if item.string.hasSuffix(suffix) {
                             stableIndex = min(stableIndex, item.string.endIndex - suffix.count)
                         }
@@ -197,7 +202,7 @@ struct TypoCorrectionGenerator: Sendable {
                 return result
             }
         }
-        if (elements.allSatisfy {$0.inputStyle == .roman2kana}) {
+        if (elements.allSatisfy {$0.inputStyle == .roman2kana || $0.inputStyle == .mapped(id: .defaultRomanToKana)}) {
             let dictionary: [String: [TypoCandidate]] = frozen ? [:] : Self.roman2KanaPossibleTypo
             if key.count > 1 {
                 return dictionary[key, default: []]
@@ -210,7 +215,14 @@ struct TypoCorrectionGenerator: Sendable {
                 return result
             }
         }
-        return []
+        // `.mapped`や、混ざっているケースでここに到達する
+        return if elements.count == 1 {
+            [
+                TypoCandidate(inputElements: [elements.first!], weight: 0)
+            ]
+        } else {
+            []
+        }
     }
 
     fileprivate static let lengths = [0, 1]
