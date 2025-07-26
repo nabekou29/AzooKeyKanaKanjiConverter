@@ -241,6 +241,80 @@ final class ConverterTests: XCTestCase {
         XCTAssertTrue(c.isEmpty)
     }
 
+    func testTrailing_N_and_EndOfTextBehavior() async throws {
+        do {
+            let converter = await KanaKanjiConverter()
+            var c = ComposingText()
+            c.insertAtCursorPosition("kekkon", inputStyle: .roman2kana)
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "結婚")
+        }
+        do {
+            let converter = await KanaKanjiConverter()
+            var c = ComposingText()
+            c.insertAtCursorPosition("kekko", inputStyle: .roman2kana)
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition("n", inputStyle: .roman2kana)
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "結婚")
+        }
+        do {
+            let converter = await KanaKanjiConverter()
+            var c = ComposingText()
+            c.insertAtCursorPosition("kekkon", inputStyle: .roman2kana)
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "結婚")
+        }
+        do {
+            let converter = await KanaKanjiConverter()
+            var c = ComposingText()
+            c.insertAtCursorPosition("aiueo", inputStyle: .roman2kana)
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "あいうえお")
+        }
+        do {
+            let converter = await KanaKanjiConverter()
+            var c = ComposingText()
+            c.insertAtCursorPosition("an", inputStyle: .roman2kana)
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition("ka", inputStyle: .roman2kana)
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "安価")
+        }
+        do {
+            let converter = await KanaKanjiConverter()
+            var c = ComposingText()
+            c.insertAtCursorPosition("shain", inputStyle: .roman2kana)
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let _ = await converter.requestCandidates(c, options: requestOptions())
+            c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+            let results = await converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "社員")
+        }
+    }
 
     // 必ず正解すべきテストケース
     func testMustCases() async throws {

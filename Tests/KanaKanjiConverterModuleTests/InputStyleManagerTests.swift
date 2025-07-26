@@ -6,23 +6,23 @@ final class InputStyleManagerTests: XCTestCase {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("custom.tsv")
         try "a\tあ\nka\tか\n".write(to: url, atomically: true, encoding: .utf8)
         let table = InputStyleManager.shared.table(for: .custom(url))
-        XCTAssertEqual(table.toHiragana(currentText: [], added: "a"), Array("あ"))
-        XCTAssertEqual(table.toHiragana(currentText: ["k"], added: "a"), Array("か"))
+        XCTAssertEqual(table.toHiragana(currentText: [], added: .character("a")), Array("あ"))
+        XCTAssertEqual(table.toHiragana(currentText: ["k"], added: .character("a")), Array("か"))
     }
 
     func testCustomTableLoadingWithBlankLines() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("custom.tsv")
         try "a\tあ\n\n\nka\tか\n".write(to: url, atomically: true, encoding: .utf8)
         let table = InputStyleManager.shared.table(for: .custom(url))
-        XCTAssertEqual(table.toHiragana(currentText: [], added: "a"), Array("あ"))
-        XCTAssertEqual(table.toHiragana(currentText: ["k"], added: "a"), Array("か"))
+        XCTAssertEqual(table.toHiragana(currentText: [], added: .character("a")), Array("あ"))
+        XCTAssertEqual(table.toHiragana(currentText: ["k"], added: .character("a")), Array("か"))
     }
 
     func testCustomTableLoadingWithCommentLines() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("custom.tsv")
         try "a\tあ\n# here is comment\nka\tか\n".write(to: url, atomically: true, encoding: .utf8)
         let table = InputStyleManager.shared.table(for: .custom(url))
-        XCTAssertEqual(table.toHiragana(currentText: [], added: "a"), Array("あ"))
-        XCTAssertEqual(table.toHiragana(currentText: ["k"], added: "a"), Array("か"))
+        XCTAssertEqual(table.toHiragana(currentText: [], added: .character("a")), Array("あ"))
+        XCTAssertEqual(table.toHiragana(currentText: ["k"], added: .character("a")), Array("か"))
     }
 }

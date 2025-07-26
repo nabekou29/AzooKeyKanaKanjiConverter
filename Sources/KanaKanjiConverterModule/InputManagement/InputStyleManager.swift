@@ -5,16 +5,23 @@ final class InputStyleManager {
     nonisolated(unsafe) static let shared = InputStyleManager()
 
     struct Table {
-        init(hiraganaChanges: [[Character] : [Character]]) {
-            self.hiraganaChanges = hiraganaChanges
-            self.unstableSuffixes = hiraganaChanges.keys.flatMapSet { characters in
-                characters.indices.map { i in
-                    Array(characters[...i])
+        init(pieceHiraganaChanges: [[InputPiece]: [Character]]) {
+            self.hiraganaChanges = pieceHiraganaChanges
+            self.unstableSuffixes = pieceHiraganaChanges.keys.flatMapSet { pieces in
+                pieces.indices.map { i in
+                    pieces[...i].compactMap { piece in
+                        if case let .character(c) = piece { c } else { nil }
+                    }
                 }
             }
-            let katakanaChanges = Dictionary(uniqueKeysWithValues: hiraganaChanges.map { (String($0.key), String($0.value).toKatakana()) })
-            self.katakanaChanges = katakanaChanges
-            self.maxKeyCount = hiraganaChanges.lazy.map { $0.key.count }.max() ?? 0
+            let katakanaChanges: [String: String] = Dictionary(uniqueKeysWithValues: pieceHiraganaChanges.compactMap { key, value -> (String, String)? in
+                let chars = key.compactMap { piece -> Character? in
+                    if case let .character(c) = piece { c } else { nil }
+                }
+                guard chars.count == key.count else { return nil }
+                return (String(chars), String(value).toKatakana())
+            })
+            self.maxKeyCount = pieceHiraganaChanges.keys.map { $0.count }.max() ?? 0
             self.possibleNexts = {
                 var results: [String: [String]] = [:]
                 for (key, value) in katakanaChanges {
@@ -26,29 +33,29 @@ final class InputStyleManager {
                 return results
             }()
         }
-        
+
         let unstableSuffixes: Set<[Character]>
-        let katakanaChanges: [String: String]
-        let hiraganaChanges: [[Character]: [Character]]
+        let hiraganaChanges: [[InputPiece]: [Character]]
         let maxKeyCount: Int
         let possibleNexts: [String: [String]]
 
-        static let empty = Table(hiraganaChanges: [:])
+        static let empty = Table(pieceHiraganaChanges: [:])
 
-        func toHiragana(currentText: [Character], added: Character) -> [Character] {
-            for n in (0 ..< self.maxKeyCount).reversed() {
-                if n == 0 {
-                    if let kana = self.hiraganaChanges[[added]] {
-                        return currentText + kana
-                    }
-                } else {
-                    let last = currentText.suffix(n)
-                    if let kana = self.hiraganaChanges[last + [added]] {
-                        return currentText.prefix(currentText.count - last.count) + kana
-                    }
+        func toHiragana(currentText: [Character], added: InputPiece) -> [Character] {
+            let limit = max(0, min(self.maxKeyCount - 1, currentText.count))
+            for n in (0 ... limit).reversed() {
+                var key = Array(currentText.suffix(n).map { InputPiece.character($0) })
+                key.append(added)
+                if let kana = self.hiraganaChanges[key] {
+                    return Array(currentText.dropLast(n)) + kana
                 }
             }
-            return currentText + [added]
+            switch added {
+            case .character(let ch):
+                return currentText + [ch]
+            case .endOfText:
+                return currentText
+            }
         }
     }
 
@@ -56,8 +63,8 @@ final class InputStyleManager {
 
     private init() {
         // デフォルトのテーブルは最初から追加しておく
-        let defaultRomanToKana = Table(hiraganaChanges: Roman2KanaMaps.defaultRomanToKanaMap)
-        let defaultAZIK = Table(hiraganaChanges: Roman2KanaMaps.defaultAzikMap)
+        let defaultRomanToKana = Table(pieceHiraganaChanges: Roman2KanaMaps.defaultRomanToKanaPieceMap)
+        let defaultAZIK = Table(pieceHiraganaChanges: Roman2KanaMaps.defaultAzikPieceMap)
         self.tables = [
             .empty: .empty,
             .defaultRomanToKana: defaultRomanToKana,
@@ -83,7 +90,7 @@ final class InputStyleManager {
 
     private static func loadTable(from url: URL) throws -> Table {
         let content = try String(contentsOf: url, encoding: .utf8)
-        var map: [[Character]: [Character]] = [:]
+        var map: [[InputPiece]: [Character]] = [:]
         for line in content.components(separatedBy: .newlines) {
             // 空行は無視
             guard !line.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
@@ -92,10 +99,10 @@ final class InputStyleManager {
             let cols = line.split(separator: "\t")
             // 要素の無い行は無視
             guard cols.count >= 2 else { continue }
-            let key = Array(String(cols[0]))
+            let key = String(cols[0]).map(InputPiece.character)
             let value = Array(String(cols[1]))
             map[key] = value
         }
-        return Table(hiraganaChanges: map)
+        return Table(pieceHiraganaChanges: map)
     }
 }

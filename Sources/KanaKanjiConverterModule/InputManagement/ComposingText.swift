@@ -31,10 +31,19 @@ public struct ComposingText: Sendable {
 
     /// ユーザ入力の単位
     public struct InputElement: Sendable {
-        /// 入力された文字
-        public var character: Character
+        /// 入力された要素
+        public var piece: InputPiece
         /// そのときの入力方式(ローマ字入力 / ダイレクト入力)
         public var inputStyle: InputStyle
+
+        public init(piece: InputPiece, inputStyle: InputStyle) {
+            self.piece = piece
+            self.inputStyle = inputStyle
+        }
+
+        public init(character: Character, inputStyle: InputStyle) {
+            self.init(piece: .character(character), inputStyle: inputStyle)
+        }
     }
 
     /// 変換対象文字列が存在するか否か
@@ -170,15 +179,18 @@ public struct ComposingText: Sendable {
         var lastPrefixIndex = 0
         var lastPrefix = ""
         var converting: [ConvertTargetElement] = []
+        var validCount: Int? = nil
 
         for element in input {
             Self.updateConvertTargetElements(currentElements: &converting, newElement: element)
             var converted = converting.reduce(into: "") {$0 += $1.string}
             count += 1
 
-            // 一致していたらその時点のカウントを返す
+            // convertedがtargetと一致するようなcount(validCount)は複数ありえるが、その中で最も大きいものを返す
             if converted == target {
-                return count
+                validCount = count
+            } else if let validCount {
+                return validCount
             }
             // 一致ではないのにhasPrefixが成立する場合、変換しすぎている
             // この場合、inputの変換が必要になる。
@@ -195,7 +207,7 @@ public struct ComposingText: Sendable {
                 self.input.removeSubrange(count - replaceCount ..< count)
                 // suffix1文字ずつを入力に追加する
                 // この結果として生じる文字列については、`frozen`で処理する
-                self.input.insert(contentsOf: suffix.map {InputElement(character: $0, inputStyle: .frozen)}, at: count - replaceCount)
+                self.input.insert(contentsOf: suffix.map {InputElement(piece: .character($0), inputStyle: .frozen)}, at: count - replaceCount)
 
                 count -= replaceCount
                 count += suffix.count
@@ -210,28 +222,30 @@ public struct ComposingText: Sendable {
                 lastPrefixIndex = count
                 lastPrefix = converted
             }
-
         }
-        return count
+        return validCount ?? count
     }
 
     private func diff(from oldString: some StringProtocol, to newString: String) -> (delete: Int, input: String) {
         let common = oldString.commonPrefix(with: newString)
         return (oldString.count - common.count, String(newString.dropFirst(common.count)))
     }
-
     /// 現在のカーソル位置に文字を追加する関数
     public mutating func insertAtCursorPosition(_ string: String, inputStyle: InputStyle) {
-        if string.isEmpty {
+        self.insertAtCursorPosition(string.map {InputElement(piece: .character($0), inputStyle: inputStyle)})
+    }
+    /// 現在のカーソル位置に文字を追加する関数
+    public mutating func insertAtCursorPosition(_ elements: [InputElement]) {
+        if elements.isEmpty {
             return
         }
         let inputCursorPosition = self.forceGetInputCursorPosition(target: self.convertTarget.prefix(convertTargetCursorPosition))
         // input, convertTarget, convertTargetCursorPositionの3つを更新する
         // inputを更新
-        self.input.insert(contentsOf: string.map {InputElement(character: $0, inputStyle: inputStyle)}, at: inputCursorPosition)
+        self.input.insert(contentsOf: elements, at: inputCursorPosition)
 
         let oldConvertTarget = self.convertTarget.prefix(self.convertTargetCursorPosition)
-        let newConvertTarget = Self.getConvertTarget(for: self.input.prefix(inputCursorPosition + string.count))
+        let newConvertTarget = Self.getConvertTarget(for: self.input.prefix(inputCursorPosition + elements.count))
         let diff = self.diff(from: oldConvertTarget, to: newConvertTarget)
         // convertTargetを更新
         self.convertTarget.removeFirst(convertTargetCursorPosition)
@@ -428,14 +442,25 @@ extension ComposingText {
     }
 
     static func updateConvertTargetElements(currentElements: inout [ConvertTargetElement], newElement: InputElement) {
-        // currentElementsが空の場合、および
-        // 直前のElementの入力方式が同じでない場合は、新たなConvertTargetElementを作成して追加する
-        if currentElements.last?.inputStyle != newElement.inputStyle {
-            currentElements.append(ConvertTargetElement(string: updateConvertTarget(current: [], inputStyle: newElement.inputStyle, newCharacter: newElement.character), inputStyle: newElement.inputStyle))
-            return
+        switch newElement.piece {
+        case .character(let ch):
+            if currentElements.last?.inputStyle != newElement.inputStyle {
+                currentElements.append(
+                    ConvertTargetElement(
+                        string: updateConvertTarget(current: [], inputStyle: newElement.inputStyle, newCharacter: ch),
+                        inputStyle: newElement.inputStyle
+                    )
+                )
+                return
+            }
+            updateConvertTarget(&currentElements[currentElements.endIndex - 1].string, inputStyle: newElement.inputStyle, newCharacter: ch)
+        case .endOfText:
+            guard let lastIndex = currentElements.indices.last,
+                  currentElements[lastIndex].inputStyle == newElement.inputStyle else {
+                return
+            }
+            updateConvertTarget(&currentElements[lastIndex].string, inputStyle: newElement.inputStyle, piece: .endOfText)
         }
-        // 末尾のエレメントの文字列を更新する
-        updateConvertTarget(&currentElements[currentElements.endIndex - 1].string, inputStyle: newElement.inputStyle, newCharacter: newElement.character)
     }
 
     static func updateConvertTarget(current: [Character], inputStyle: InputStyle, newCharacter: Character) -> [Character] {
@@ -443,9 +468,9 @@ extension ComposingText {
         case .direct:
             return current + [newCharacter]
         case .roman2kana:
-            return InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: current, added: newCharacter)
+            return InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: current, added: .character(newCharacter))
         case .mapped(let id):
-            return InputStyleManager.shared.table(for: id).toHiragana(currentText: current, added: newCharacter)
+            return InputStyleManager.shared.table(for: id).toHiragana(currentText: current, added: .character(newCharacter))
         }
     }
 
@@ -454,9 +479,41 @@ extension ComposingText {
         case .direct:
             convertTarget.append(newCharacter)
         case .roman2kana:
-            convertTarget = InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: convertTarget, added: newCharacter)
+            convertTarget = InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: convertTarget, added: .character(newCharacter))
         case .mapped(let id):
-            convertTarget = InputStyleManager.shared.table(for: id).toHiragana(currentText: convertTarget, added: newCharacter)
+            convertTarget = InputStyleManager.shared.table(for: id).toHiragana(currentText: convertTarget, added: .character(newCharacter))
+        }
+    }
+
+    static func updateConvertTarget(current: [Character], inputStyle: InputStyle, piece: InputPiece) -> [Character] {
+        switch piece {
+        case .character(let ch):
+            return updateConvertTarget(current: current, inputStyle: inputStyle, newCharacter: ch)
+        case .endOfText:
+            switch inputStyle {
+            case .direct:
+                return current
+            case .roman2kana:
+                return InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: current, added: .endOfText)
+            case .mapped(let id):
+                return InputStyleManager.shared.table(for: id).toHiragana(currentText: current, added: .endOfText)
+            }
+        }
+    }
+
+    static func updateConvertTarget(_ convertTarget: inout [Character], inputStyle: InputStyle, piece: InputPiece) {
+        switch piece {
+        case .character(let ch):
+            updateConvertTarget(&convertTarget, inputStyle: inputStyle, newCharacter: ch)
+        case .endOfText:
+            switch inputStyle {
+            case .direct:
+                break
+            case .roman2kana:
+                convertTarget = InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: convertTarget, added: .endOfText)
+            case .mapped(let id):
+                convertTarget = InputStyleManager.shared.table(for: id).toHiragana(currentText: convertTarget, added: .endOfText)
+            }
         }
     }
 
@@ -497,11 +554,11 @@ extension ComposingText.InputElement: CustomDebugStringConvertible {
     public var debugDescription: String {
         switch self.inputStyle {
         case .direct:
-            "direct(\(character))"
+            if case let .character(ch) = piece { "direct(\(ch))" } else { "direct(<eot>)" }
         case .roman2kana:
-            "roman2kana(\(character))"
+            if case let .character(ch) = piece { "roman2kana(\(ch))" } else { "roman2kana(<eot>)" }
         case .mapped(let id):
-            "mapped(\(id); \(character))"
+            if case let .character(ch) = piece { "mapped(\(id); \(ch))" } else { "mapped(\(id); <eot>)" }
         }
     }
 }
