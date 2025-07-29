@@ -152,7 +152,15 @@ struct TypoCorrectionGenerator: Sendable {
             // 訂正数上限(3個)
             if penalty >= maxPenalty {
                 var convertTargetElements = convertTargetElements
-                let correct = [inputs[self.range.leftIndex + count]].map {ComposingText.InputElement(character: $0.character.toKatakana(), inputStyle: $0.inputStyle)}
+                let correct = [inputs[self.range.leftIndex + count]].map { element in
+                    let char: Character
+                    if case let .character(c) = element.piece {
+                        char = c.toKatakana()
+                    } else {
+                        return element
+                    }
+                    return ComposingText.InputElement(piece: .character(char), inputStyle: element.inputStyle)
+                }
                 if count + correct.count > self.nodes.endIndex {
                     if let result {
                         return result
@@ -189,7 +197,11 @@ struct TypoCorrectionGenerator: Sendable {
     }
 
     fileprivate static func getTypo(_ elements: some Collection<ComposingText.InputElement>, frozen: Bool = false) -> [TypoCandidate] {
-        let key = elements.reduce(into: "") {$0.append($1.character.toKatakana())}
+        let key = elements.reduce(into: "") {
+            if case let .character(c) = $1.piece {
+                $0.append(c.toKatakana())
+            }
+        }
 
         if (elements.allSatisfy {$0.inputStyle == .direct}) {
             let dictionary: [String: [TypoCandidate]] = frozen ? [:] : Self.directPossibleTypo
@@ -198,7 +210,7 @@ struct TypoCorrectionGenerator: Sendable {
             } else if key.count == 1 {
                 var result = dictionary[key, default: []]
                 // そのまま
-                result.append(TypoCandidate(inputElements: key.map {ComposingText.InputElement(character: $0, inputStyle: .direct)}, weight: 0))
+                result.append(TypoCandidate(inputElements: key.map { ComposingText.InputElement(piece: .character($0), inputStyle: .direct) }, weight: 0))
                 return result
             }
         }
@@ -210,7 +222,7 @@ struct TypoCorrectionGenerator: Sendable {
                 var result = dictionary[key, default: []]
                 // そのまま
                 result.append(
-                    TypoCandidate(inputElements: key.map {ComposingText.InputElement(character: $0, inputStyle: .roman2kana)}, weight: 0)
+                    TypoCandidate(inputElements: key.map { ComposingText.InputElement(piece: .character($0), inputStyle: .roman2kana) }, weight: 0)
                 )
                 return result
             }
@@ -275,7 +287,7 @@ struct TypoCorrectionGenerator: Sendable {
     ].mapValues {
         $0.map {
             TypoCandidate(
-                inputElements: $0.value.map {ComposingText.InputElement(character: $0, inputStyle: .direct)},
+                inputElements: $0.value.map { ComposingText.InputElement(piece: .character($0), inputStyle: .direct) },
                 weight: $0.weight
             )
         }
@@ -295,7 +307,7 @@ struct TypoCorrectionGenerator: Sendable {
     ].mapValues {
         $0.map {
             TypoCandidate(
-                inputElements: $0.map {ComposingText.InputElement(character: $0, inputStyle: .roman2kana)},
+                inputElements: $0.map { ComposingText.InputElement(piece: .character($0), inputStyle: .roman2kana) },
                 weight: 3.5
             )
         }

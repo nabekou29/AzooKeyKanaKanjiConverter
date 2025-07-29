@@ -4,60 +4,12 @@ import SwiftUtils
 final class InputStyleManager {
     nonisolated(unsafe) static let shared = InputStyleManager()
 
-    struct Table {
-        init(hiraganaChanges: [[Character] : [Character]]) {
-            self.hiraganaChanges = hiraganaChanges
-            self.unstableSuffixes = hiraganaChanges.keys.flatMapSet { characters in
-                characters.indices.map { i in
-                    Array(characters[...i])
-                }
-            }
-            let katakanaChanges = Dictionary(uniqueKeysWithValues: hiraganaChanges.map { (String($0.key), String($0.value).toKatakana()) })
-            self.katakanaChanges = katakanaChanges
-            self.maxKeyCount = hiraganaChanges.lazy.map { $0.key.count }.max() ?? 0
-            self.possibleNexts = {
-                var results: [String: [String]] = [:]
-                for (key, value) in katakanaChanges {
-                    for prefixCount in 0 ..< key.count where 0 < prefixCount {
-                        let prefix = String(key.prefix(prefixCount))
-                        results[prefix, default: []].append(value)
-                    }
-                }
-                return results
-            }()
-        }
-        
-        let unstableSuffixes: Set<[Character]>
-        let katakanaChanges: [String: String]
-        let hiraganaChanges: [[Character]: [Character]]
-        let maxKeyCount: Int
-        let possibleNexts: [String: [String]]
-
-        static let empty = Table(hiraganaChanges: [:])
-
-        func toHiragana(currentText: [Character], added: Character) -> [Character] {
-            for n in (0 ..< self.maxKeyCount).reversed() {
-                if n == 0 {
-                    if let kana = self.hiraganaChanges[[added]] {
-                        return currentText + kana
-                    }
-                } else {
-                    let last = currentText.suffix(n)
-                    if let kana = self.hiraganaChanges[last + [added]] {
-                        return currentText.prefix(currentText.count - last.count) + kana
-                    }
-                }
-            }
-            return currentText + [added]
-        }
-    }
-
-    private var tables: [InputTableID: Table] = [:]
+    private var tables: [InputTableID: InputTable] = [:]
 
     private init() {
         // デフォルトのテーブルは最初から追加しておく
-        let defaultRomanToKana = Table(hiraganaChanges: Roman2KanaMaps.defaultRomanToKanaMap)
-        let defaultAZIK = Table(hiraganaChanges: Roman2KanaMaps.defaultAzikMap)
+        let defaultRomanToKana = InputTable(pieceHiraganaChanges: Roman2KanaMaps.defaultRomanToKanaPieceMap)
+        let defaultAZIK = InputTable(pieceHiraganaChanges: Roman2KanaMaps.defaultAzikPieceMap)
         self.tables = [
             .empty: .empty,
             .defaultRomanToKana: defaultRomanToKana,
@@ -65,7 +17,7 @@ final class InputStyleManager {
         ]
     }
 
-    func table(for id: InputTableID) -> Table {
+    func table(for id: InputTableID) -> InputTable {
         switch id {
         case .defaultRomanToKana, .defaultAZIK, .empty:
             return self.tables[id]!
@@ -81,9 +33,9 @@ final class InputStyleManager {
         }
     }
 
-    private static func loadTable(from url: URL) throws -> Table {
+    private static func loadTable(from url: URL) throws -> InputTable {
         let content = try String(contentsOf: url, encoding: .utf8)
-        var map: [[Character]: [Character]] = [:]
+        var map: [[InputTable.KeyElement]: [InputTable.ValueElement]] = [:]
         for line in content.components(separatedBy: .newlines) {
             // 空行は無視
             guard !line.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
@@ -92,10 +44,10 @@ final class InputStyleManager {
             let cols = line.split(separator: "\t")
             // 要素の無い行は無視
             guard cols.count >= 2 else { continue }
-            let key = Array(String(cols[0]))
-            let value = Array(String(cols[1]))
+            let key = cols[0].map(InputPiece.character).map(InputTable.KeyElement.piece)
+            let value = cols[1].map(InputTable.ValueElement.character)
             map[key] = value
         }
-        return Table(hiraganaChanges: map)
+        return InputTable(pieceHiraganaChanges: map)
     }
 }

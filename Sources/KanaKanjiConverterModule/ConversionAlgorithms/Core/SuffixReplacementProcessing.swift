@@ -89,7 +89,7 @@ extension Kana2Kanji {
                     }
                     // 変換した文字数
                     let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
-                    if nextIndex != .bothIndex(inputIndex: inputCount, surfaceIndex: surfaceCount) {
+                    if nextIndex.surfaceIndex != surfaceCount {
                         self.updateNextNodes(with: node, nextNodes: addedNodes[index: nextIndex], nBest: N_best)
                     }
                 }
@@ -121,7 +121,7 @@ extension Kana2Kanji {
                     node.values = node.prevs.map {$0.totalValue + wValue}
                 }
                 let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
-                if nextIndex.inputIndex == inputCount && nextIndex.surfaceIndex == surfaceCount {
+                if nextIndex.surfaceIndex == surfaceCount {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
                     self.updateNextNodes(with: node, nextNodes: terminalNodes[index: nextIndex], nBest: N_best)

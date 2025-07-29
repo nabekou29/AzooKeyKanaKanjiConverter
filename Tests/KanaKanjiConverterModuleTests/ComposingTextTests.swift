@@ -209,4 +209,48 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertFalse(reversedMap.contains("さくじょし"))
         }
     }
+
+    func testNEndOfTextConversion() throws {
+        let elements: [ComposingText.InputElement] = [
+            .init(character: "n", inputStyle: .roman2kana),
+            .init(piece: .endOfText, inputStyle: .roman2kana)
+        ]
+        XCTAssertEqual(ComposingText.getConvertTarget(for: elements), "ん")
+    }
+
+    func testNEndOfTextComposition() throws {
+        var c = ComposingText()
+        c.insertAtCursorPosition("a", inputStyle: .roman2kana)
+        c.insertAtCursorPosition("n", inputStyle: .roman2kana)
+        XCTAssertEqual(c.convertTarget, "あn")
+        c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+        XCTAssertEqual(c.convertTarget, "あん")
+        c.insertAtCursorPosition("i", inputStyle: .roman2kana)
+        XCTAssertEqual(c.convertTarget, "あんい")
+        c.deleteBackwardFromCursorPosition(count: 1)
+        XCTAssertEqual(c.convertTarget, "あん")
+        c.deleteBackwardFromCursorPosition(count: 1)
+        XCTAssertEqual(c.convertTarget, "あ")
+        XCTAssertEqual(c.input, [.init(character: "a", inputStyle: .roman2kana)])
+        c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+        XCTAssertEqual(c.convertTarget, "あ")
+        c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+        XCTAssertEqual(c.convertTarget, "あ")
+    }
+
+    func testEndOfTextDeletion() throws {
+        var c = ComposingText()
+        c.insertAtCursorPosition("a", inputStyle: .roman2kana)
+        c.insertAtCursorPosition("n", inputStyle: .roman2kana)
+        XCTAssertEqual(c.convertTarget, "あn")
+        c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+        c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+        c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+        c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+        c.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: .roman2kana)])
+        XCTAssertEqual(c.convertTarget, "あん")
+        c.deleteBackwardFromCursorPosition(count: 1)
+        XCTAssertEqual(c.convertTarget, "あ")
+        XCTAssertEqual(c.input, [.init(character: "a", inputStyle: .roman2kana)])
+    }
 }

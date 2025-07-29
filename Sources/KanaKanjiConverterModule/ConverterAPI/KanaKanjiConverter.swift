@@ -208,7 +208,9 @@ import EfficientNGram
         switch language {
         case "en-US":
             var result: [Candidate] = []
-            let ruby = String(inputData.input.map {$0.character})
+            let ruby = String(inputData.input.compactMap {
+                if case let .character(c) = $0.piece { c } else { nil }
+            })
             let range = NSRange(location: 0, length: ruby.utf16.count)
             if !ruby.onlyRomanAlphabet {
                 return result
@@ -243,7 +245,9 @@ import EfficientNGram
             return result
         case "el":
             var result: [Candidate] = []
-            let ruby = String(inputData.input.map {$0.character})
+            let ruby = String(inputData.input.compactMap {
+                if case let .character(c) = $0.piece { c } else { nil }
+            })
             let range = NSRange(location: 0, length: ruby.utf16.count)
             if let completions = checker.completions(forPartialWordRange: range, in: ruby, language: language) {
                 if !completions.isEmpty {
@@ -336,7 +340,9 @@ import EfficientNGram
     ///   付加的な変換候補
     private func getTopLevelAdditionalCandidate(_ inputData: ComposingText, options: ConvertRequestOptions) -> [Candidate] {
         var candidates: [Candidate] = []
-        if options.englishCandidateInRoman2KanaInput, inputData.input.allSatisfy({$0.character.isASCII}) {
+        if options.englishCandidateInRoman2KanaInput, inputData.input.allSatisfy({
+            if case let .character(c) = $0.piece { c.isASCII } else { false }
+        }) {
             candidates.append(contentsOf: self.getForeignPredictionCandidate(inputData: inputData, language: "en-US", penalty: -10))
         }
         return candidates

@@ -211,6 +211,8 @@ extension Subcommands {
                     \(bold: ":p, :pred") - predict next one character
                     \(bold: ":%d") - select candidate at that index (like :3 to select 3rd candidate)
                     \(bold: ":ctx %s") - set the string as context
+                    \(bold: ":input %s") - insert special characters to input. Supported special characters:
+                    - eot: end of text (for finalizing composition)
                     \(bold: ":dump %s") - dump command history to specified file name (default: history.txt).
                     """)
                 default:
@@ -218,6 +220,14 @@ extension Subcommands {
                         let ctx = String(input.split(by: ":ctx ").last ?? "")
                         leftSideContext.append(ctx)
                         continue
+                    } else if input.hasPrefix(":input") {
+                        let specialInput = String(input.split(by: ":input ").last ?? "")
+                        switch specialInput {
+                        case "eot":
+                            composingText.insertAtCursorPosition([.init(piece: .endOfText, inputStyle: inputStyle)])
+                        default:
+                            fatalError("Unknown special input: \(specialInput)")
+                        }
                     } else if input.hasPrefix(":dump") {
                         let fileName = if ":dump " < input {
                             String(input.dropFirst(6))
