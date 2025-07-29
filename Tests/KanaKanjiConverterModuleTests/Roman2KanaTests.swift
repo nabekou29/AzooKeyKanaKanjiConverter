@@ -24,4 +24,25 @@ final class Roman2KanaTests: XCTestCase {
         // TT -> TT
         XCTAssertEqual(table.toHiragana(currentText: Array("T"), added: .character("T")), Array("TT"))
     }
+
+    func testAny1Cases() throws {
+        let table = InputTable(pieceHiraganaChanges: [
+            [.any1, .any1]: [.character("😄")],
+            [.piece(.character("s")), .piece(.character("s"))]: [.character("ß")],
+            [.piece(.character("a")), .piece(.character("z")), .piece(.character("z"))]: [.character("Q")],
+            [.any1, .any1, .any1]: [.character("["), .any1, .character("]")],
+            [.piece(.character("n")), .any1]: [.character("ん"), .any1]
+        ])
+        XCTAssertEqual(table.toHiragana(currentText: Array("a"), added: .character("b")), Array("ab"))
+        XCTAssertEqual(table.toHiragana(currentText: Array("abc"), added: .character("d")), Array("abcd"))
+        XCTAssertEqual(table.toHiragana(currentText: Array(""), added: .character("z")), Array("z"))
+        XCTAssertEqual(table.toHiragana(currentText: Array("z"), added: .character("z")), Array("😄"))
+        XCTAssertEqual(table.toHiragana(currentText: Array("z"), added: .character("s")), Array("zs"))
+        XCTAssertEqual(table.toHiragana(currentText: Array("s"), added: .character("s")), Array("ß"))
+        XCTAssertEqual(table.toHiragana(currentText: Array("az"), added: .character("z")), Array("Q"))
+        XCTAssertEqual(table.toHiragana(currentText: Array("ss"), added: .character("s")), Array("[s]"))
+        XCTAssertEqual(table.toHiragana(currentText: Array("sr"), added: .character("s")), Array("srs"))
+        XCTAssertEqual(table.toHiragana(currentText: Array("n"), added: .character("t")), Array("んt"))
+        XCTAssertEqual(table.toHiragana(currentText: Array("n"), added: .character("n")), Array("んn"))
+    }
 }
