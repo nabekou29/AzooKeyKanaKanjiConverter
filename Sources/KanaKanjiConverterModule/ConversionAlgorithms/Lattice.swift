@@ -64,10 +64,12 @@ struct LatticeDualIndexMap: Sendable {
         var sIndexPointer = 0
         for i in 0 ..< inputCount {
             if let sIndex = self.inputIndexToSurfaceIndexMap[i] {
-                for j in min(surfaceCount, sIndexPointer) ..< sIndex {
+                for j in min(surfaceCount, sIndexPointer) ..< min(surfaceCount, sIndex) {
                     indices.append(.surfaceIndex(j))
                 }
-                indices.append(.bothIndex(inputIndex: i, surfaceIndex: sIndex))
+                if i < inputCount && sIndex < surfaceCount {
+                    indices.append(.bothIndex(inputIndex: i, surfaceIndex: sIndex))
+                }
                 sIndexPointer = sIndex + 1
             } else {
                 indices.append(.inputIndex(i))

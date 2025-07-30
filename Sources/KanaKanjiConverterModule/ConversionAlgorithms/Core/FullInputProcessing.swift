@@ -79,7 +79,7 @@ extension Kana2Kanji {
                 // 後続ノードのindex（正規化する）
                 let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
                 // 文字数がcountと等しい場合登録する
-                if nextIndex.inputIndex == inputCount && nextIndex.surfaceIndex == surfaceCount {
+                if nextIndex.surfaceIndex == surfaceCount {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
                     self.updateNextNodes(with: node, nextNodes: lattice[index: nextIndex], nBest: N_best)
