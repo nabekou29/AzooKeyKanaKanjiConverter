@@ -33,6 +33,70 @@ final class InputStyleManager {
         }
     }
 
+    private static func parseKey(_ str: Substring) -> [InputTable.KeyElement] {
+        var result: [InputTable.KeyElement] = []
+        var i = str.startIndex
+        while i < str.endIndex {
+            if str[i] == "{",
+               let end = str[i...].firstIndex(of: "}") {
+                let token = String(str[str.index(after: i)..<end])
+                switch token {
+                case "composition-separator":
+                    result.append(.piece(.endOfText))
+                    i = str.index(after: end)
+                    continue
+                case "any-0x00":
+                    result.append(.any1)
+                    i = str.index(after: end)
+                    continue
+                case "lbracket":
+                    result.append(.piece(.character("{")))
+                    i = str.index(after: end)
+                    continue
+                case "rbracket":
+                    result.append(.piece(.character("}")))
+                    i = str.index(after: end)
+                    continue
+                default:
+                    break
+                }
+            }
+            result.append(.piece(.character(str[i])))
+            i = str.index(after: i)
+        }
+        return result
+    }
+
+    private static func parseValue(_ str: Substring) -> [InputTable.ValueElement] {
+        var result: [InputTable.ValueElement] = []
+        var i = str.startIndex
+        while i < str.endIndex {
+            if str[i] == "{",
+               let end = str[i...].firstIndex(of: "}") {
+                let token = String(str[str.index(after: i)..<end])
+                switch token {
+                case "any-0x00":
+                    result.append(.any1)
+                    i = str.index(after: end)
+                    continue
+                case "lbracket":
+                    result.append(.character("{"))
+                    i = str.index(after: end)
+                    continue
+                case "rbracket":
+                    result.append(.character("}"))
+                    i = str.index(after: end)
+                    continue
+                default:
+                    break
+                }
+            }
+            result.append(.character(str[i]))
+            i = str.index(after: i)
+        }
+        return result
+    }
+
     private static func loadTable(from url: URL) throws -> InputTable {
         let content = try String(contentsOf: url, encoding: .utf8)
         var map: [[InputTable.KeyElement]: [InputTable.ValueElement]] = [:]
@@ -44,8 +108,8 @@ final class InputStyleManager {
             let cols = line.split(separator: "\t")
             // 要素の無い行は無視
             guard cols.count >= 2 else { continue }
-            let key = cols[0].map(InputPiece.character).map(InputTable.KeyElement.piece)
-            let value = cols[1].map(InputTable.ValueElement.character)
+            let key = parseKey(cols[0])
+            let value = parseValue(cols[1])
             map[key] = value
         }
         return InputTable(pieceHiraganaChanges: map)
