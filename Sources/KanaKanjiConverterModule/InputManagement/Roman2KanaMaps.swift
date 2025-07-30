@@ -296,6 +296,7 @@ enum Roman2KanaMaps {
         "xx": "っx",
         "yy": "っy",
         "zz": "っz",
+        "ny": "ny",  // n<any> -> ん<any>の例外処理
         "xn": "ん",
         "zh": "←",
         "zj": "↓",
