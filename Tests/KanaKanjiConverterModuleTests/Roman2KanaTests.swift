@@ -29,6 +29,9 @@ final class Roman2KanaTests: XCTestCase {
         XCTAssertEqual(table.toHiragana(currentText: Array("n"), added: .character("+")), Array("ん+"))
         XCTAssertEqual(table.toHiragana(currentText: Array("n"), added: .character("N")), Array("んN"))
         XCTAssertEqual(table.toHiragana(currentText: Array("n"), added: .endOfText), Array("ん"))
+
+        // nyu
+        XCTAssertEqual(table.toHiragana(currentText: Array("ny"), added: .character("u")), Array("にゅ"))
     }
 
     func testAny1Cases() throws {
