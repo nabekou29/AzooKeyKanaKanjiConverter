@@ -25,4 +25,21 @@ final class InputStyleManagerTests: XCTestCase {
         XCTAssertEqual(table.toHiragana(currentText: [], added: .character("a")), Array("あ"))
         XCTAssertEqual(table.toHiragana(currentText: ["k"], added: .character("a")), Array("か"))
     }
+
+    func testCustomTableLoadingWithSpecialTokens() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("custom_special.tsv")
+        let lines = [
+            "n{any-0x00}\tん{any-0x00}",
+            "n{composition-separator}\tん",
+            "{lbracket}{rbracket}\t{}"
+        ].joined(separator: "\n")
+        try lines.write(to: url, atomically: true, encoding: .utf8)
+        let table = InputStyleManager.shared.table(for: .custom(url))
+        // n<any> -> ん<any>
+        XCTAssertEqual(table.toHiragana(currentText: ["n"], added: .character("a")), Array("んa"))
+        // n followed by end-of-text -> ん
+        XCTAssertEqual(table.toHiragana(currentText: ["n"], added: .endOfText), Array("ん"))
+        // "{" then "}" -> "{}"
+        XCTAssertEqual(table.toHiragana(currentText: ["{"], added: .character("}")), Array("{}"))
+    }
 }
