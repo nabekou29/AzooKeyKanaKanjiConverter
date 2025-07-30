@@ -68,7 +68,7 @@ extension Kana2Kanji {
                 // 変換した文字数
                 let nextIndex = indexMap.dualIndex(for: node.range.endIndex)
                 // 文字数がcountと等しい場合登録する
-                if nextIndex.inputIndex == inputCount && nextIndex.surfaceIndex == surfaceCount {
+                if nextIndex.surfaceIndex == surfaceCount {
                     for index in node.prevs.indices {
                         let newnode: RegisteredNode = node.getRegisteredNode(index, value: node.values[index])
                         // 学習データやユーザ辞書由来の場合は素通しする
