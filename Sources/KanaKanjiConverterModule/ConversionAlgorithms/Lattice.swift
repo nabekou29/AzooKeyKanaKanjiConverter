@@ -168,7 +168,7 @@ struct Lattice: Sequence {
 
     func indexedNodes(indices: [LatticeDualIndexMap.DualIndex]) -> some Sequence<(isHead: Bool, nodes: LatticeNodeArray)> {
         indices.lazy.map { index in
-            return (index.inputIndex == 0 && index.surfaceIndex == 0, self[index: index])
+            (index.inputIndex == 0 && index.surfaceIndex == 0, self[index: index])
         }
     }
 
@@ -177,7 +177,7 @@ struct Lattice: Sequence {
             self.lattice = lattice
             self.indices = (0, lattice.surfaceIndexedNodes.endIndex, 0, lattice.inputIndexedNodes.endIndex)
         }
-        
+
         typealias Element = LatticeNodeArray
         let lattice: Lattice
         var indices: (currentSurfaceIndex: Int, surfaceEndIndex: Int, currentInputIndex: Int, inputEndIndex: Int)

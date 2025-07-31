@@ -1,7 +1,7 @@
 import Algorithms
+import EfficientNGram
 import Foundation
 import SwiftUtils
-import EfficientNGram
 
 extension Kana2Kanji {
     struct ZenzaiCache: Sendable {
@@ -183,7 +183,7 @@ extension Kana2Kanji {
         candidateIndex: Int,
         candidates: [Candidate],
         reviewResult: consuming ZenzContext.CandidateEvaluationResult,
-        constraint: inout PrefixConstraint,
+        constraint: inout PrefixConstraint
     ) -> NextAction {
         switch reviewResult {
         case .error:

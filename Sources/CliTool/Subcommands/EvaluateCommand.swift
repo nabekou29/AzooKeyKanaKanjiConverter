@@ -1,6 +1,6 @@
-import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
 import Foundation
+import KanaKanjiConverterModuleWithDefaultDictionary
 import SwiftUtils
 
 extension Subcommands {
@@ -9,7 +9,7 @@ extension Subcommands {
         var inputFile: String = ""
 
         @Option(name: [.customLong("output")], help: "Output file path.")
-        var outputFilePath: String? = nil
+        var outputFilePath: String?
         @Option(name: [.customLong("config_n_best")], help: "The parameter n (n best parameter) for internal viterbi search.")
         var configNBest: Int = 10
         @Flag(name: [.customLong("stable")], help: "Report only stable properties; timestamps and values will not be reported.")
@@ -142,10 +142,10 @@ extension Subcommands {
         var tag: [String] = []
 
         /// 左文脈
-        var left_context: String? = nil
+        var left_context: String?
 
         /// ユーザ辞書
-        var user_dictionary: [InputUserDictionaryItem]? = nil
+        var user_dictionary: [InputUserDictionaryItem]?
     }
 
     struct InputUserDictionaryItem: Codable {
@@ -154,7 +154,7 @@ extension Subcommands {
         /// 読み
         var reading: String
         /// ヒント
-        var hint: String? = nil
+        var hint: String?
     }
 
     struct EvaluateResult: Codable {
@@ -170,7 +170,7 @@ extension Subcommands {
             }
             self.stat = stat
         }
-        
+
         /// `N_Best`クエリ
         var n_best: Int
 
@@ -213,7 +213,7 @@ extension Subcommands {
                 } ?? -1
             }
         }
-        
+
         /// 入力クエリ
         var query: String
 

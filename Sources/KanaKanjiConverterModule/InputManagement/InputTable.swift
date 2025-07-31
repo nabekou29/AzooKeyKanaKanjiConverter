@@ -126,7 +126,7 @@ struct InputTable: Sendable {
         }
 
         var frontier: [Candidate] = [.init(node: root, state: .init(), any1Count: 0)]
-        var best: (kana: [Character], depth: Int, any1Count: Int)? = nil
+        var best: (kana: [Character], depth: Int, any1Count: Int)?
 
         /// Update the current `best` candidate if the new one is deeper,
         /// or at the same depth but with fewer `.any1` hops.
@@ -170,7 +170,6 @@ struct InputTable: Sendable {
         return best.map { ($0.kana, $0.depth) }
     }
 
-
     /// Convert roman/katakana input pieces into hiragana.
     /// `any1` edges serve strictly as fall‑backs: a concrete `.piece`
     /// transition always has priority and we only follow `.any1`
@@ -202,4 +201,3 @@ struct InputTable: Sendable {
         }
     }
 }
-

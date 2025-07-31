@@ -1,5 +1,5 @@
-import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
+import KanaKanjiConverterModuleWithDefaultDictionary
 
 @main
 struct Anco: AsyncParsableCommand {
@@ -16,6 +16,4 @@ struct Anco: AsyncParsableCommand {
         ],
         defaultSubcommand: Subcommands.Run.self
     )
-
-    init() {}
 }

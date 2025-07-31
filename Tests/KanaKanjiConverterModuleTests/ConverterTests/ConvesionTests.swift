@@ -1,12 +1,12 @@
 //
 //  ConversionTests.swift
-//  
+//
 //
 //  Created by miwa on 2023/08/16.
 //
 
-import XCTest
 @testable import KanaKanjiConverterModule
+import XCTest
 
 final class ConverterTests: XCTestCase {
     func requestOptions() -> ConvertRequestOptions {

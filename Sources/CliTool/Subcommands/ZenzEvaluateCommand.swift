@@ -1,6 +1,6 @@
-import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
 import Foundation
+import KanaKanjiConverterModuleWithDefaultDictionary
 import SwiftUtils
 
 extension Subcommands {
@@ -9,7 +9,7 @@ extension Subcommands {
         var inputFile: String = ""
 
         @Option(name: [.customLong("output")], help: "Output file path.")
-        var outputFilePath: String? = nil
+        var outputFilePath: String?
         @Flag(name: [.customLong("stable")], help: "Report only stable properties; timestamps and values will not be reported.")
         var stable: Bool = false
         @Option(name: [.customLong("zenz")], help: "gguf format model weight for zenz.")

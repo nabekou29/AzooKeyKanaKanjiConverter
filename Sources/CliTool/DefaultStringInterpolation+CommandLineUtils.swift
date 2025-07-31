@@ -8,7 +8,7 @@
 import Foundation
 
 extension DefaultStringInterpolation {
-    mutating func appendInterpolation(bold value: String){
+    mutating func appendInterpolation(bold value: String) {
         self.appendInterpolation("\u{1B}[1m" + value + "\u{1B}[m")
     }
 }

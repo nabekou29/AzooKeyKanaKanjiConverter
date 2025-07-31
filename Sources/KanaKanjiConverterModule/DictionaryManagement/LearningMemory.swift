@@ -90,7 +90,7 @@ struct LongTermLearningMemory {
         for i in 0...value.quotient {
             var value: UInt64 = 0
             for j in 0..<unit {
-                value += (_bools[i * unit + j] ? 1:0) << (unit - j - 1)
+                value += (_bools[i * unit + j] ? 1 : 0) << (unit - j - 1)
             }
             result.append(value)
         }
@@ -400,7 +400,7 @@ struct LongTermLearningMemory {
             let indiceses: [Range<Int>] = (0..<loudsTxt3FileCount).map {
                 let start = $0 * txtFileSplit
                 let _end = ($0 + 1) * txtFileSplit
-                let end = dicdata.count < _end ? dicdata.count:_end
+                let end = dicdata.count < _end ? dicdata.count : _end
                 return start..<end
             }
 

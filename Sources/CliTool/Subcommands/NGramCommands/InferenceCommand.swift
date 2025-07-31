@@ -1,6 +1,6 @@
-import Foundation
-import EfficientNGram
 import ArgumentParser
+import EfficientNGram
+import Foundation
 
 extension Subcommands.NGram {
     struct Inference: ParsableCommand {

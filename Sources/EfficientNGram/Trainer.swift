@@ -66,7 +66,7 @@ final class SwiftTrainer {
         let padded = Array(repeating: self.tokenizer.startTokenID, count: n - 1) + sent + [self.tokenizer.endTokenID]
         // スライディングウィンドウで n 個ずつ
         for i in 0..<(padded.count - n + 1) {
-            countNGram(padded[i..<i+n])
+            countNGram(padded[i..<i + n])
         }
     }
 
@@ -99,7 +99,7 @@ final class SwiftTrainer {
     }
 
     static func decodeKey(v1: Int8, v2: Int8) -> Int {
-        return Int(v1-1) * Int(Int8.max-1) + Int(v2-1)
+        Int(v1 - 1) * Int(Int8.max - 1) + Int(v2 - 1)
     }
     /// 文字列 + 4バイト整数を Base64 にエンコードした文字列を作る
     /// Python の encode_key_value(key, value) 相当
@@ -180,7 +180,6 @@ final class SwiftTrainer {
         print("Saved \(path): \(encodedStrings.count) entries")
     }
 
-
     /// 上記のカウント結果を marisa ファイルとして保存
     func saveToMarisaTrie(baseFilePattern: String, outputDir: String? = nil) {
         let fileManager = FileManager.default
@@ -205,21 +204,21 @@ final class SwiftTrainer {
             print("ディレクトリ作成エラー: \(error)")
             return
         }
-        
+
         // ファイルパスの生成（marisa ディレクトリ内に配置）
         let paths = [
             "\(baseFilePattern)_c_abc.marisa",
             "\(baseFilePattern)_c_bc.marisa",
             "\(baseFilePattern)_u_abx.marisa",
             "\(baseFilePattern)_u_xbc.marisa",
-            "\(baseFilePattern)_r_xbx.marisa",
+            "\(baseFilePattern)_r_xbx.marisa"
         ].map { file in
             marisaDir.appendingPathComponent(file).path
         }
 
         // 各 Trie ファイルを保存
         buildAndSaveTrie(from: c_abc, to: paths[0], forBulkGet: true)
-        buildAndSaveTrie(from: c_bc,  to: paths[1])
+        buildAndSaveTrie(from: c_bc, to: paths[1])
         buildAndSaveTrie(from: u_abx, to: paths[2])
         buildAndSaveTrie(from: u_xbc, to: paths[3], forBulkGet: true)
         buildAndSaveTrie(from: r_xbx, to: paths[4])

@@ -89,7 +89,7 @@ extension Kana2Kanji {
         result.reserveCapacity(N_best &+ 1)
         for data in (dicdata + osuserdict) {
             let includeMMValueCalculation = DicdataStore.includeMMValueCalculation(data)
-            let mmValue: PValue = includeMMValueCalculation ? self.dicdataStore.getMMValue(lastMid, data.mid):.zero
+            let mmValue: PValue = includeMMValueCalculation ? self.dicdataStore.getMMValue(lastMid, data.mid) : .zero
             let ccValue: PValue = self.dicdataStore.getCCValue(lastRcid, data.lcid)
             let penalty: PValue = -PValue(data.ruby.count &- lastRuby.count) * 3.0   // 文字数差をペナルティとする
             let wValue: PValue = data.value()
@@ -105,7 +105,7 @@ extension Kana2Kanji {
                 text: lastCandidate.text + data.word,
                 value: newValue,
                 composingCount: composingCount,
-                lastMid: includeMMValueCalculation ? data.mid:lastMid,
+                lastMid: includeMMValueCalculation ? data.mid : lastMid,
                 data: nodedata
             )
             // カウントがオーバーしそうな場合は除去する

@@ -1,6 +1,6 @@
-import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
 import Foundation
+import KanaKanjiConverterModuleWithDefaultDictionary
 import SwiftUtils
 
 extension Subcommands {

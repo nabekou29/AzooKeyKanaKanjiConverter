@@ -81,7 +81,7 @@ extension KanaKanjiConverter {
                     return String(scalar)
                 }
                 if $0.isRomanLowercased {
-                    if $0 == "h"{
+                    if $0 == "h" {
                         return "ℎ"
                     }
                     let scalar = UnicodeScalar($0.value + 119789)!

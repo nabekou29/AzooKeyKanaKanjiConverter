@@ -88,22 +88,22 @@ public final class DicdataStore {
         for url in fileURLs {
             let identifier = url.deletingPathExtension().lastPathComponent
             let pathExt = url.pathExtension
-            
+
             switch pathExt {
-                case "louds":
-                    // userやmemoryは実行中に更新される場合があるため、キャッシュから除外
-                    if identifier == "user" || identifier == "memory" {
-                        continue
-                    }
-                    loudses[identifier] = LOUDS.load(identifier, option: self.requestOptions)
-                case "loudstxt3":
-                    if let data = try? Data(contentsOf: url) {
-                        loudstxts[identifier] = data
-                    } else {
-                        debug("Error: Could not load loudstxt3 file at \(url)")
-                    }
-                default:
+            case "louds":
+                // userやmemoryは実行中に更新される場合があるため、キャッシュから除外
+                if identifier == "user" || identifier == "memory" {
                     continue
+                }
+                loudses[identifier] = LOUDS.load(identifier, option: self.requestOptions)
+            case "loudstxt3":
+                if let data = try? Data(contentsOf: url) {
+                    loudstxts[identifier] = data
+                } else {
+                    debug("Error: Could not load loudstxt3 file at \(url)")
+                }
+            default:
+                continue
             }
         }
     }
@@ -212,7 +212,7 @@ public final class DicdataStore {
             "<": "[3C]",
             ">": "[3E]",
             "\\": "[5C]",
-            "|": "[7C]",
+            "|": "[7C]"
         ][query, default: query]
         if let louds = LOUDS.load(identifier, option: self.requestOptions) {
             self.loudses[query] = louds
@@ -276,8 +276,8 @@ public final class DicdataStore {
             }
         }
 
-        var typoCorrectionGenerator: TypoCorrectionGenerator? = nil
-        var surfaceGenerator: SurfaceGenerator? = nil
+        var typoCorrectionGenerator: TypoCorrectionGenerator?
+        var surfaceGenerator: SurfaceGenerator?
 
         mutating func register(_ generator: TypoCorrectionGenerator) {
             self.typoCorrectionGenerator = generator
@@ -465,7 +465,7 @@ public final class DicdataStore {
         }
         return data
     }
-    
+
     /// 辞書データを取得する
     /// - Parameters:
     ///   - composingText: 現在の入力情報
@@ -475,7 +475,7 @@ public final class DicdataStore {
     /// - Returns: 発見された辞書データを`LatticeNode`のインスタンスとしたもの。
     public func lookupDicdata(
         composingText: ComposingText,
-        inputRange:(startIndex: Int, endIndexRange: Range<Int>?)? = nil,
+        inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = nil,
         surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = nil,
         needTypoCorrection: Bool = true
     ) -> [LatticeNode] {
@@ -631,7 +631,7 @@ public final class DicdataStore {
 
     private func parseLoudstxt2FormattedEntry(from dataString: [some StringProtocol]) -> DicdataElement {
         let ruby = String(dataString[0])
-        let word = dataString[1].isEmpty ? ruby:String(dataString[1])
+        let word = dataString[1].isEmpty ? ruby : String(dataString[1])
         let lcid = Int(dataString[2]) ?? .zero
         let rcid = Int(dataString[3]) ?? lcid
         let mid = Int(dataString[4]) ?? .zero
@@ -650,7 +650,7 @@ public final class DicdataStore {
         result.append(contentsOf: self.getJapaneseNumberDicdata(head: convertTarget))
         if inputData.convertTarget.prefix(surfaceRange.lowerBound).last?.isNumber != true,
            inputData.convertTarget.dropFirst(surfaceRange.upperBound).first?.isNumber != true,
-            let number = Int(convertTarget) {
+           let number = Int(convertTarget) {
             result.append(DicdataElement(ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -14))
             if Double(number) <= 1E12 && -1E12 <= Double(number), let kansuji = self.numberFormatter.string(from: NSNumber(value: number)) {
                 result.append(DicdataElement(word: kansuji, ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -16))

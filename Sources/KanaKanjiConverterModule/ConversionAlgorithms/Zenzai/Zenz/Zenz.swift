@@ -1,6 +1,6 @@
+import EfficientNGram
 package import Foundation
 import SwiftUtils
-import EfficientNGram
 
 @MainActor package final class Zenz {
     package var resourceURL: URL
@@ -8,17 +8,17 @@ import EfficientNGram
     init(resourceURL: URL) throws {
         self.resourceURL = resourceURL
         do {
-#if canImport(Darwin)
+            #if canImport(Darwin)
             if #available(iOS 16, macOS 13, *) {
                 self.zenzContext = try ZenzContext.createContext(path: resourceURL.path(percentEncoded: false))
             } else {
                 // this is not percent-encoded
                 self.zenzContext = try ZenzContext.createContext(path: resourceURL.path)
             }
-#else
+            #else
             // this is not percent-encoded
             self.zenzContext = try ZenzContext.createContext(path: resourceURL.path)
-#endif
+            #endif
             debug("Loaded model \(resourceURL.lastPathComponent)")
         } catch {
             throw error
@@ -61,6 +61,6 @@ import EfficientNGram
     }
 
     package func pureGreedyDecoding(pureInput: String, maxCount: Int = .max) -> String {
-        return self.zenzContext?.pure_greedy_decoding(leftSideContext: pureInput, maxCount: maxCount) ?? ""
+        self.zenzContext?.pure_greedy_decoding(leftSideContext: pureInput, maxCount: maxCount) ?? ""
     }
 }

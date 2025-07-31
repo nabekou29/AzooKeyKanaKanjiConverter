@@ -1,6 +1,6 @@
-import Tokenizers
-import Hub
 import Foundation
+import Hub
+import Tokenizers
 
 public struct ZenzTokenizer {
     private let tokenizer: any Tokenizer
@@ -13,10 +13,10 @@ public struct ZenzTokenizer {
         self.tokenizer = tokenizer
     }
     func encode(text: String) -> [Int] {
-        return self.tokenizer.encode(text: text)
+        self.tokenizer.encode(text: text)
     }
     func decode(tokens: [Int]) -> String {
-        return self.tokenizer.decode(tokens: tokens)
+        self.tokenizer.decode(tokens: tokens)
     }
     var startTokenID: Int {
         self.tokenizer.bosTokenId!

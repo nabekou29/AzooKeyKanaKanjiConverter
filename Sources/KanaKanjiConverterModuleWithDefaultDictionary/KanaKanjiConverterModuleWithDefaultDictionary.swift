@@ -1,5 +1,5 @@
-@_exported public import KanaKanjiConverterModule
 public import Foundation
+@_exported public import KanaKanjiConverterModule
 
 public extension ConvertRequestOptions {
     static func withDefaultDictionary(
@@ -58,7 +58,7 @@ public extension ConvertRequestOptions {
             shouldResetMemory: shouldResetMemory,
             dictionaryResourceURL: dictionaryDirectory,
             memoryDirectoryURL: memoryDirectoryURL,
-            sharedContainerURL: sharedContainerURL,            
+            sharedContainerURL: sharedContainerURL,
             textReplacer: textReplacer,
             specialCandidateProviders: specialCandidateProviders,
             zenzaiMode: zenzaiMode,
@@ -68,12 +68,11 @@ public extension ConvertRequestOptions {
     }
 }
 
-
 public extension TextReplacer {
     static func withDefaultEmojiDictionary() -> Self {
         self.init {
             let directoryName = "EmojiDictionary"
-#if os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+            #if os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
             let directory = Bundle.module.bundleURL.appendingPathComponent(directoryName, isDirectory: true)
             return if #available(iOS 18.4, *) {
                 directory.appendingPathComponent("emoji_all_E16.0.txt", isDirectory: false)

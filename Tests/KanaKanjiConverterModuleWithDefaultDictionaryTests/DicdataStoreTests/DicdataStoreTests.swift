@@ -124,7 +124,7 @@ final class DicdataStoreTests: XCTestCase {
             ("レイラク", "零落"),
             ("ロウジョウ", "楼上"),
             ("ワクセイ", "惑星"),
-            ("ヲ", "を"),
+            ("ヲ", "を")
         ]
         for (key, word) in mustWords {
             var c = ComposingText()
@@ -165,7 +165,7 @@ final class DicdataStoreTests: XCTestCase {
             ("シヨーク", "ジョーク"),
             ("サリカニ", "ザリガニ"),
             ("ノクチヒテヨ", "野口英世"),
-            ("オタノフナカ", "織田信長"),
+            ("オタノフナカ", "織田信長")
         ]
         for (key, word) in mustWords {
             var c = ComposingText()
@@ -180,7 +180,7 @@ final class DicdataStoreTests: XCTestCase {
         let dicdataStore = DicdataStore(convertRequestOptions: requestOptions())
         let mustWords = [
             ("tskamatsu", "高松"),  // ts -> タ
-            ("kitsmura", "北村"),  // ts -> タ
+            ("kitsmura", "北村")  // ts -> タ
         ]
         for (key, word) in mustWords {
             var c = ComposingText()
@@ -244,10 +244,10 @@ final class DicdataStoreTests: XCTestCase {
             XCTAssertTrue(result.contains(where: {$0.word == "九千九百九十九億九千九百九十九万九千九百九十九"}))
         }
     }
-    
+
     func testDynamicUserDict() throws {
         let dicdataStore = DicdataStore(convertRequestOptions: requestOptions())
-        
+
         // 動的ユーザ辞書を設定
         let testDynamicUserDict = [
             DicdataElement(word: "テスト単語", ruby: "テストタンゴ", lcid: CIDData.固有名詞.cid, rcid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -10),
@@ -255,7 +255,7 @@ final class DicdataStoreTests: XCTestCase {
             DicdataElement(word: "動的辞書", ruby: "ドウテキジショ", lcid: CIDData.固有名詞.cid, rcid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -11)
         ]
         dicdataStore.sendToDicdataStore(.importDynamicUserDict(testDynamicUserDict))
-        
+
         // 完全一致テスト
         do {
             let result = dicdataStore.getMatchDynamicUserDict("テストタンゴ")
@@ -263,7 +263,7 @@ final class DicdataStoreTests: XCTestCase {
             XCTAssertEqual(result.first?.word, "テスト単語")
             XCTAssertEqual(result.first?.ruby, "テストタンゴ")
         }
-        
+
         // 前方一致テスト
         do {
             let result = dicdataStore.getPrefixMatchDynamicUserDict("カスタム")
@@ -271,7 +271,7 @@ final class DicdataStoreTests: XCTestCase {
             XCTAssertEqual(result.first?.word, "カスタム変換")
             XCTAssertEqual(result.first?.ruby, "カスタムヘンカン")
         }
-        
+
         // 変換動作テスト
         do {
             var c = ComposingText()
@@ -279,7 +279,7 @@ final class DicdataStoreTests: XCTestCase {
             let result = dicdataStore.lookupDicdata(composingText: c, inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex), needTypoCorrection: false)
             XCTAssertTrue(result.contains(where: {$0.data.word == "テスト単語"}))
         }
-        
+
         // 複数の動的ユーザ辞書エントリの変換テスト
         do {
             var c = ComposingText()
@@ -287,24 +287,24 @@ final class DicdataStoreTests: XCTestCase {
             let result = dicdataStore.lookupDicdata(composingText: c, inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex), needTypoCorrection: false)
             XCTAssertTrue(result.contains(where: {$0.data.word == "動的辞書"}))
         }
-        
+
         // 存在しないエントリのテスト
         do {
             let result = dicdataStore.getMatchDynamicUserDict("ソンザイシナイ")
             XCTAssertEqual(result.count, 0)
         }
     }
-    
+
     func testDynamicUserDictWithConversion() throws {
         let dicdataStore = DicdataStore(convertRequestOptions: requestOptions())
-        
+
         // 動的ユーザ辞書を設定
         let testDynamicUserDict = [
             DicdataElement(word: "テストワード", ruby: "テストワード", lcid: CIDData.固有名詞.cid, rcid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -8),
             DicdataElement(word: "特殊読み", ruby: "トクシュヨミ", lcid: CIDData.固有名詞.cid, rcid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -9)
         ]
         dicdataStore.sendToDicdataStore(.importDynamicUserDict(testDynamicUserDict))
-        
+
         // ローマ字入力での変換テスト
         do {
             var c = ComposingText()
@@ -318,7 +318,7 @@ final class DicdataStoreTests: XCTestCase {
             XCTAssertTrue(result.contains(where: {$0.data.word == "テストワード"}))
             XCTAssertEqual(result.first(where: {$0.data.word == "テストワード"})?.range, .surface(from: 0, to: 6))
         }
-        
+
         // 動的ユーザ辞書の単語が通常の辞書よりも優先されることのテスト
         do {
             var c = ComposingText()
