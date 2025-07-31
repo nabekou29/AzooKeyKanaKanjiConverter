@@ -3,11 +3,11 @@
 import llama
 #endif
 
-import SwiftUtils
-import HeapModule
 import Algorithms
-import Foundation
 import EfficientNGram
+import Foundation
+import HeapModule
+import SwiftUtils
 
 struct FixedSizeHeap<Element: Comparable> {
     private var size: Int
@@ -198,7 +198,7 @@ final class ZenzContext {
     func getLearningPriority(data: DicdataElement) -> Float {
         // 文字数の長い候補ほど優先的に適用されるようにする
         // 積極的な複合語化の効果を期待
-        return if 1 <= data.ruby.count && data.ruby.count <= 4 {
+        if 1 <= data.ruby.count && data.ruby.count <= 4 {
             Float(data.ruby.count + 2)
         } else if 5 <= data.ruby.count && data.ruby.count <= 15 {
             Float(data.ruby.count * 2)
@@ -528,7 +528,7 @@ final class ZenzContext {
     private func preprocessText(text: String) -> String {
         // replace space into ideographic space (\u3000) for zenz tokenizer
         // replace newline into null for zenz tokenizer
-        return text.replacingOccurrences(of: " ", with: "\u{3000}").replacingOccurrences(of: "\n", with: "")
+        text.replacingOccurrences(of: " ", with: "\u{3000}").replacingOccurrences(of: "\n", with: "")
     }
     private func tokenize(text: String, add_bos: Bool, add_eos: Bool = false) -> [llama_token] {
         let utf8Count = text.utf8.count

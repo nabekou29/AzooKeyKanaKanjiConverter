@@ -1,5 +1,5 @@
-import Foundation
 import ArgumentParser
+import Foundation
 
 extension Subcommands {
     struct NGram: ParsableCommand {

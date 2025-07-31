@@ -1,6 +1,6 @@
 import ArgumentParser
-import OrderedCollections
 import Foundation
+import OrderedCollections
 
 extension Subcommands.Dict {
     struct Build: ParsableCommand {
@@ -94,7 +94,7 @@ struct CostBuilder {
             let binaryData = try Data(contentsOf: URL(fileURLWithPath: path), options: [.uncached])
 
             let ui64array = binaryData.withUnsafeBytes {pointer -> [Float] in
-                return Array(
+                Array(
                     UnsafeBufferPointer(
                         start: pointer.baseAddress!.assumingMemoryBound(to: Float.self),
                         count: pointer.count / MemoryLayout<Float>.size
@@ -113,7 +113,7 @@ struct CostBuilder {
             let binaryData = try Data(contentsOf: URL(fileURLWithPath: path), options: [.uncached])
 
             let ui64array = binaryData.withUnsafeBytes {pointer -> [(Int16, Float)] in
-                return Array(
+                Array(
                     UnsafeBufferPointer(
                         start: pointer.baseAddress!.assumingMemoryBound(to: (Int16, Float).self),
                         count: pointer.count / MemoryLayout<(Int16, Float)>.size
@@ -200,7 +200,7 @@ struct LOUDSBuilder {
         for i in 0...value.quotient {
             var value: UInt64 = 0
             for j in 0..<unit {
-                value += (_bools[i*unit + j] ? 1:0) << (unit - j - 1)
+                value += (_bools[i * unit + j] ? 1 : 0) << (unit - j - 1)
             }
             result.append(value)
         }
@@ -222,7 +222,7 @@ struct LOUDSBuilder {
                 let items = entry.utf8.split(separator: UInt8(ascii: "\t"), omittingEmptySubsequences: false).map {String($0)!}
                 assert(items.count == 6)
                 let ruby = String(items[0])
-                let word = items[1].isEmpty ? self.ruby:String(items[1])
+                let word = items[1].isEmpty ? self.ruby : String(items[1])
                 let lcid = Int(items[2]) ?? .zero
                 let rcid = Int(items[3]) ?? lcid
                 let mid = Int(items[4]) ?? .zero
@@ -280,7 +280,7 @@ struct LOUDSBuilder {
             array.append(array.last! + UInt32(value.count))
         }
 
-        let header = Data(bytes: headerArray, count: MemoryLayout<UInt32>.size*headerArray.count)
+        let header = Data(bytes: headerArray, count: MemoryLayout<UInt32>.size * headerArray.count)
         let binary = count + header + body
 
         return binary
@@ -361,7 +361,7 @@ struct LOUDSBuilder {
         let bytes = BoolToUInt64(bits)
 
         do {
-            let binary = Data(bytes: bytes, count: bytes.count*8)
+            let binary = Data(bytes: bytes, count: bytes.count * 8)
             try binary.write(to: loudsURL)
         }
         do {
@@ -370,16 +370,16 @@ struct LOUDSBuilder {
             try binary.write(to: loudscharsURL)
         }
         do {
-            let count = (data.count)/txtFileSplit
+            let count = (data.count) / txtFileSplit
             let indiceses: [Range<Int>] = (0...count).map {
-                let start = $0*txtFileSplit
-                let _end = ($0+1)*txtFileSplit
-                let end = data.count < _end ? data.count:_end
+                let start = $0 * txtFileSplit
+                let _end = ($0 + 1) * txtFileSplit
+                let end = data.count < _end ? data.count : _end
                 return start..<end
             }
 
             for indices in indiceses {
-                let start = indices.startIndex/txtFileSplit
+                let start = indices.startIndex / txtFileSplit
                 let binary = make_loudstxt3(lines: Array(data[indices]))
                 try binary.write(to: loudstxtURL("\(start)"), options: .atomic)
             }

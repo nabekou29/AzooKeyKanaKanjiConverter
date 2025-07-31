@@ -32,19 +32,19 @@ extension KanaKanjiConverter {
     ///   - string: 入力
     private func toSeireki(_ string: String) -> String? {
         let katakanaStringCount = string.count
-        if string == "メイジガンネン"{
+        if string == "メイジガンネン" {
             return "1868年"
         }
-        if string == "タイショウガンネン"{
+        if string == "タイショウガンネン" {
             return "1912年"
         }
-        if string == "ショウワガンネン"{
+        if string == "ショウワガンネン" {
             return "1926年"
         }
-        if string == "ヘイセイガンネン"{
+        if string == "ヘイセイガンネン" {
             return "1989年"
         }
-        if string == "レイワガンネン"{
+        if string == "レイワガンネン" {
             return "2019年"
         }
         var string = string[...]

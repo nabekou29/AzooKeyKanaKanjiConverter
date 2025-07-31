@@ -210,7 +210,7 @@ package struct LOUDS: Sendable {
         var stack: [(nodeIndex: Int, char: UInt8)] = []
 
         func indicesInDepth(depth: Range<Int>) -> [Int] {
-            return self.indices
+            self.indices
                 .lazy
                 .filter { depth.contains($0.depth) }
                 .map { $0.index }

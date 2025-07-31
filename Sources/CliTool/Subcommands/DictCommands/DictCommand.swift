@@ -1,6 +1,6 @@
+import ArgumentParser
 import Foundation
 import KanaKanjiConverterModuleWithDefaultDictionary
-import ArgumentParser
 
 extension Subcommands {
     struct Dict: ParsableCommand {

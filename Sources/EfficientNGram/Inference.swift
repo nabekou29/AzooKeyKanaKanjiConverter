@@ -135,7 +135,7 @@ public struct EfficientNGram {
         } else {
             Array(repeating: self.tokenizer.startTokenID, count: self.n - 1 - ngram.count) + Array(ngram)
         }
-        let u_abx_ab  = self.getValue(from: u_abx, key: ab) ?? 0
+        let u_abx_ab = self.getValue(from: u_abx, key: ab) ?? 0
         let (c_abc_abc, c_abx_ab) = self.bulkGetValueWithSum(from: self.c_abc, prefix: ab)
         var plf_items: [(u_xbc_abc: [UInt32], u_xbx_ab: UInt32, r_xbx_ab: UInt32)] = []
         for i in 1 ..< self.n - 1 {
@@ -162,8 +162,7 @@ package func generateText(
     lmPerson: EfficientNGram,
     tokenizer: ZenzTokenizer,
     maxCount: Int = 100
-) -> String
-{
+) -> String {
     // もともとの文字列を配列化
     var tokens = tokenizer.encode(text: inputText)
     // suffix を事前に取り出す
@@ -213,7 +212,7 @@ public struct EfficientNGram {
     public init(baseFilename: String, n: Int, d: Double, tokenizer: ZenzTokenizer) {}
     public func bulkPredict(_ ngram: some BidirectionalCollection<Int>) -> [Double] {
         // FIXME: avoid hard-coding
-        return [Double].init(repeating: 1/6000, count: 6000)
+        [Double].init(repeating: 1 / 6000, count: 6000)
     }
 }
 
@@ -225,6 +224,6 @@ package func generateText(
     tokenizer: ZenzTokenizer,
     maxCount: Int = 100
 ) -> String {
-    return "[Error] Unsupported"
+    "[Error] Unsupported"
 }
 #endif

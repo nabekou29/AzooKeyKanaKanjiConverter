@@ -44,6 +44,6 @@ public enum CIDData: Sendable {
     }
 
     public static func isJoshi(cid: Int) -> Bool {
-        return 147 <= cid && cid <= 368
+        147 <= cid && cid <= 368
     }
 }

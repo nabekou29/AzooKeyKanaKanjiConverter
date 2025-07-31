@@ -880,8 +880,8 @@ enum Roman2KanaMaps {
         "kr": "から",
         "yr": "よる",
         "tb": "たび",
-        "gt": "ごと",
+        "gt": "ごと"
     ], additionalMapping: [
-        [.piece(.endOfText)]: [],
+        [.piece(.endOfText)]: []
     ])
 }

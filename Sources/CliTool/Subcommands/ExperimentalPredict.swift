@@ -1,7 +1,7 @@
 import Algorithms
-import KanaKanjiConverterModuleWithDefaultDictionary
 import ArgumentParser
 import Foundation
+import KanaKanjiConverterModuleWithDefaultDictionary
 
 extension Subcommands {
     struct ExperimentalPredict: AsyncParsableCommand {

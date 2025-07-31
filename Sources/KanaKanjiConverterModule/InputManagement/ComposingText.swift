@@ -179,7 +179,7 @@ public struct ComposingText: Sendable {
         var lastPrefixIndex = 0
         var lastPrefix = ""
         var converting: [ConvertTargetElement] = []
-        var validCount: Int? = nil
+        var validCount: Int?
 
         for element in input {
             Self.updateConvertTargetElements(currentElements: &converting, newElement: element)

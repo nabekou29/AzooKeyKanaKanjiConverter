@@ -7,9 +7,9 @@
 //
 
 import Algorithms
+import EfficientNGram
 package import Foundation
 import SwiftUtils
-import EfficientNGram
 
 /// かな漢字変換の管理を受け持つクラス
 @MainActor public final class KanaKanjiConverter {
@@ -38,8 +38,8 @@ import EfficientNGram
     private var completedData: Candidate?
     private var lastData: DicdataElement?
     /// Zenzaiのためのzenzモデル
-    private var zenz: Zenz? = nil
-    private var zenzaiCache: Kana2Kanji.ZenzaiCache? = nil
+    private var zenz: Zenz?
+    private var zenzaiCache: Kana2Kanji.ZenzaiCache?
     private var zenzaiPersonalization: (mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode, base: EfficientNGram, personal: EfficientNGram)?
     public private(set) var zenzStatus: String = ""
 
@@ -83,7 +83,7 @@ import EfficientNGram
             }
         }
     }
-    
+
     public func predictNextCharacter(leftSideContext: String, count: Int, options: ConvertRequestOptions) -> [(character: Character, value: Float)] {
         guard let zenz = self.getModel(modelURL: options.zenzaiMode.weightURL) else {
             print("zenz-v2 model unavailable")
@@ -94,7 +94,7 @@ import EfficientNGram
             return []
         }
         let results = zenz.predictNextCharacter(leftSideContext: leftSideContext, count: count)
-        
+
         return results
     }
 
@@ -707,7 +707,6 @@ import EfficientNGram
         let needTypoCorrection = options.needTypoCorrection ?? false
         #endif
 
-
         guard let result = self.convertToLattice(inputData, N_best: options.N_best, zenzaiMode: options.zenzaiMode, needTypoCorrection: needTypoCorrection) else {
             return ConversionResult(mainResults: [], firstClauseResults: [])
         }
@@ -760,7 +759,7 @@ import EfficientNGram
 
         // 残りの半分。ただしzeroHintResultsが足りない場合は全部で10個になるようにする。
         let predictionsCount = max((10 - results.count) / 2, 10 - results.count - zeroHintResults.count)
-        let predictions =  self.getUniquePostCompositionPredictionCandidate(predictionResults, seenCandidates: seenCandidates).min(count: predictionsCount, sortedBy: {$0.value > $1.value})
+        let predictions = self.getUniquePostCompositionPredictionCandidate(predictionResults, seenCandidates: seenCandidates).min(count: predictionsCount, sortedBy: {$0.value > $1.value})
         results.append(contentsOf: predictions)
         seenCandidates.formUnion(predictions.map {$0.text})
 

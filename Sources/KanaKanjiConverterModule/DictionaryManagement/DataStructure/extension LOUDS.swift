@@ -23,13 +23,13 @@ extension LOUDS {
 
     private static func getLOUDSURL(_ identifier: String, option: ConvertRequestOptions) -> (chars: URL, louds: URL) {
 
-        if identifier == "user"{
+        if identifier == "user" {
             return (
                 option.sharedContainerURL.appendingPathComponent("user.loudschars2", isDirectory: false),
                 option.sharedContainerURL.appendingPathComponent("user.louds", isDirectory: false)
             )
         }
-        if identifier == "memory"{
+        if identifier == "memory" {
             return (
                 option.memoryDirectoryURL.appendingPathComponent("memory.loudschars2", isDirectory: false),
                 option.memoryDirectoryURL.appendingPathComponent("memory.louds", isDirectory: false)
@@ -106,7 +106,7 @@ extension LOUDS {
 
     static func getDataForLoudstxt3(_ identifier: String, indices: [Int], cache: Data? = nil, option: ConvertRequestOptions) -> [DicdataElement] {
         let binary: Data
-        
+
         if let cache {
             binary = cache
         } else {

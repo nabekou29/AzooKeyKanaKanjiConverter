@@ -137,23 +137,23 @@ extension DicdataStore {
         var chars = input.makeIterator()
         var tokens: [JapaneseNumber] = []
         func judge(char: Character) {
-            if char == "イ"{
-                if let char = chars.next(), char == "チ" || char == "ッ"{
+            if char == "イ" {
+                if let char = chars.next(), char == "チ" || char == "ッ" {
                     tokens.append(.いち)
                 } else {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "オ"{
-                if let char = chars.next(), char == "ク"{
+            } else if char == "オ" {
+                if let char = chars.next(), char == "ク" {
                     tokens.append(.おく)
                 } else {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "キ"{
-                if let char = chars.next(), char == "ュ"{
-                    if let char = chars.next(), char == "ウ"{
+            } else if char == "キ" {
+                if let char = chars.next(), char == "ュ" {
+                    if let char = chars.next(), char == "ウ" {
                         tokens.append(.きゅう)
                     } else {
                         tokens.append(.エラー)
@@ -163,20 +163,20 @@ extension DicdataStore {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "ク"{
+            } else if char == "ク" {
                 tokens.append(.きゅう)
-            } else if char == "ゴ"{
+            } else if char == "ゴ" {
                 tokens.append(.ご)
-            } else if char == "サ"{
-                if let char = chars.next(), char == "ン"{
+            } else if char == "サ" {
+                if let char = chars.next(), char == "ン" {
                     tokens.append(.さん)
                 } else {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "シ"{
+            } else if char == "シ" {
                 if let char = chars.next() {
-                    if char == "チ"{
+                    if char == "チ" {
                         tokens.append(.なな)
                     } else {
                         tokens.append(.よん)
@@ -185,9 +185,9 @@ extension DicdataStore {
                 } else {
                     tokens.append(.よん)
                 }
-            } else if char == "ジ"{
-                if let char = chars.next(), char == "ュ"{
-                    if let char = chars.next(), char == "ウ" || char == "ッ"{
+            } else if char == "ジ" {
+                if let char = chars.next(), char == "ュ" {
+                    if let char = chars.next(), char == "ウ" || char == "ッ" {
                         tokens.append(.じゅう)
                     } else {
                         tokens.append(.エラー)
@@ -197,18 +197,18 @@ extension DicdataStore {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "セ"{
-                if let char = chars.next(), char == "ン"{
+            } else if char == "セ" {
+                if let char = chars.next(), char == "ン" {
                     tokens.append(.せん)
                 } else {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "ゼ"{
+            } else if char == "ゼ" {
                 if let char = chars.next() {
-                    if char == "ロ"{
+                    if char == "ロ" {
                         tokens.append(.れい)
-                    } else if char == "ン"{
+                    } else if char == "ン" {
                         tokens.append(.せん)
                     } else {
                         tokens.append(.エラー)
@@ -218,9 +218,9 @@ extension DicdataStore {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "チ"{
-                if let char = chars.next(), char == "ョ"{
-                    if let char = chars.next(), char == "ウ"{
+            } else if char == "チ" {
+                if let char = chars.next(), char == "ョ" {
+                    if let char = chars.next(), char == "ウ" {
                         tokens.append(.ちょう)
                     } else {
                         tokens.append(.エラー)
@@ -230,25 +230,25 @@ extension DicdataStore {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "ナ"{
-                if let char = chars.next(), char == "ナ"{
+            } else if char == "ナ" {
+                if let char = chars.next(), char == "ナ" {
                     tokens.append(.なな)
                 } else {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "ニ"{
+            } else if char == "ニ" {
                 tokens.append(.に)
-            } else if char == "ハ"{
-                if let char = chars.next(), char == "チ" || char == "ッ"{
+            } else if char == "ハ" {
+                if let char = chars.next(), char == "チ" || char == "ッ" {
                     tokens.append(.はち)
                 } else {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "ヒ"{
-                if let char = chars.next(), char == "ャ"{
-                    if let char = chars.next(), char == "ク"{
+            } else if char == "ヒ" {
+                if let char = chars.next(), char == "ャ" {
+                    if let char = chars.next(), char == "ク" {
                         tokens.append(.ひゃく)
                     } else {
                         tokens.append(.エラー)
@@ -258,9 +258,9 @@ extension DicdataStore {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "ビ"{
-                if let char = chars.next(), char == "ャ"{
-                    if let char = chars.next(), char == "ク"{
+            } else if char == "ビ" {
+                if let char = chars.next(), char == "ャ" {
+                    if let char = chars.next(), char == "ク" {
                         tokens.append(.ひゃく)
                     } else {
                         tokens.append(.エラー)
@@ -270,9 +270,9 @@ extension DicdataStore {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "ピ"{
-                if let char = chars.next(), char == "ャ"{
-                    if let char = chars.next(), char == "ク"{
+            } else if char == "ピ" {
+                if let char = chars.next(), char == "ャ" {
+                    if let char = chars.next(), char == "ク" {
                         tokens.append(.ひゃく)
                     } else {
                         tokens.append(.エラー)
@@ -282,11 +282,11 @@ extension DicdataStore {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "マ"{
+            } else if char == "マ" {
                 if let char = chars.next() {
-                    if char == "ン"{
+                    if char == "ン" {
                         tokens.append(.まん)
-                    } else if char == "ル"{
+                    } else if char == "ル" {
                         tokens.append(.れい)
                     } else {
                         tokens.append(.エラー)
@@ -296,22 +296,22 @@ extension DicdataStore {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "ヨ"{
-                if let char = chars.next(), char == "ン"{
+            } else if char == "ヨ" {
+                if let char = chars.next(), char == "ン" {
                     tokens.append(.よん)
                 } else {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "レ"{
-                if let char = chars.next(), char == "イ"{
+            } else if char == "レ" {
+                if let char = chars.next(), char == "イ" {
                     tokens.append(.れい)
                 } else {
                     tokens.append(.エラー)
                     return
                 }
-            } else if char == "ロ"{
-                if let char = chars.next(), char == "ク" || char == "ッ"{
+            } else if char == "ロ" {
+                if let char = chars.next(), char == "ク" || char == "ッ" {
                     tokens.append(.ろく)
                 } else {
                     tokens.append(.エラー)

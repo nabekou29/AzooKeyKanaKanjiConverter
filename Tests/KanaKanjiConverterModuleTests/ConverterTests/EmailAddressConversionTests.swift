@@ -1,5 +1,5 @@
-import XCTest
 @testable import KanaKanjiConverterModule
+import XCTest
 
 final class EmailAddressConversionTests: XCTestCase {
     func makeDirectInput(direct input: String) -> ComposingText {

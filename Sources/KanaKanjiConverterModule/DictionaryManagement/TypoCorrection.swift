@@ -91,7 +91,7 @@ struct TypoCorrectionGenerator: Sendable {
 
     /// `target`で始まる場合は到達不可能であることを知らせる
     mutating func setUnreachablePath(target: some Collection<Character>) {
-        self.stack = self.stack.filter { (convertTargetElements, count, penalty) in
+        self.stack = self.stack.filter { (convertTargetElements, _, _) in
             var stablePrefix: [Character] = []
             loop: for item in convertTargetElements {
                 switch item.inputStyle {
@@ -128,7 +128,7 @@ struct TypoCorrectionGenerator: Sendable {
 
     mutating func next() -> ([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))? {
         while let (convertTargetElements, count, penalty) = self.stack.popLast() {
-            var result: ([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))? = nil
+            var result: ([Character], (endIndex: Lattice.LatticeIndex, penalty: PValue))?
             if self.range.rightIndexRange.contains(count + self.range.leftIndex - 1) {
                 let originalConvertTarget = convertTargetElements.reduce(into: []) { $0 += $1.string.map { $0.toKatakana() } }
                 if self.range.leftIndex + count < self.inputs.endIndex {

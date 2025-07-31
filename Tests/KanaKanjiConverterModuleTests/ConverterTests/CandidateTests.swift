@@ -1,12 +1,12 @@
 //
 //  CandidateTests.swift
-//  
+//
 //
 //  Created by miwa on 2023/08/16.
 //
 
-import XCTest
 @testable import KanaKanjiConverterModule
+import XCTest
 
 final class CandidateTests: XCTestCase {
     // テンプレートのパース
