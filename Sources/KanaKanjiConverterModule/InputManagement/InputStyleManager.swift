@@ -45,7 +45,7 @@ final class InputStyleManager {
                     result.append(.piece(.endOfText))
                     i = str.index(after: end)
                     continue
-                case "any-0x00":
+                case "any character":
                     result.append(.any1)
                     i = str.index(after: end)
                     continue
@@ -75,7 +75,7 @@ final class InputStyleManager {
                let end = str[i...].firstIndex(of: "}") {
                 let token = String(str[str.index(after: i)..<end])
                 switch token {
-                case "any-0x00":
+                case "any character":
                     result.append(.any1)
                     i = str.index(after: end)
                     continue
