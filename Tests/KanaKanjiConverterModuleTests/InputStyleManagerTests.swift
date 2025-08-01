@@ -29,7 +29,7 @@ final class InputStyleManagerTests: XCTestCase {
     func testCustomTableLoadingWithSpecialTokens() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("custom_special.tsv")
         let lines = [
-            "n{any-0x00}\tん{any-0x00}",
+            "n{any character}\tん{any character}",
             "n{composition-separator}\tん",
             "{lbracket}{rbracket}\t{}"
         ].joined(separator: "\n")
