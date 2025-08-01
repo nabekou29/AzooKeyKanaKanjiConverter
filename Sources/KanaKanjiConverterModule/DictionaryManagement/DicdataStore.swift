@@ -645,7 +645,7 @@ public final class DicdataStore {
     /// - note
     ///     - 入力全体をカタカナとかひらがなに変換するやつは、Converter側でやっているので注意。
     func getWiseDicdata(convertTarget: String, inputData: ComposingText, surfaceRange: Range<Int>) -> [DicdataElement] {
-        print(#function, convertTarget, inputData, surfaceRange)
+        debug(#function, convertTarget, inputData, surfaceRange)
         var result: [DicdataElement] = []
         result.append(contentsOf: self.getJapaneseNumberDicdata(head: convertTarget))
         if inputData.convertTarget.prefix(surfaceRange.lowerBound).last?.isNumber != true,
