@@ -34,7 +34,7 @@ n{any character}\tん{any character}
 # {any character}は他の具体的な指定がある場合無視される。以下の指定がある場合、`na`の入力では「な」が入力される
 na\tな
 # 入力末尾には`{composition-separator}`が入力される。そこで「s」で入力が終わって変換キーが押されたら「す」に置き換えるには、以下のように書ける。
-n{composition-separator}\tん
+s{composition-separator}\tす
 ```
 
 ## 注意
