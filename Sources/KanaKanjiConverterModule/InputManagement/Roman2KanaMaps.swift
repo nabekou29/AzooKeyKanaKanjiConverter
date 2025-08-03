@@ -306,8 +306,8 @@ enum Roman2KanaMaps {
 
     /// Mapping including special end-of-text rules.
     static let defaultRomanToKanaPieceMap = Self.constructPieceMap(defaultRomanToKanaMap, additionalMapping: [
-        [.piece(.endOfText)]: [],
-        [.piece(.character("n")), .piece(.endOfText)]: [.character("ん")],
+        [.piece(.compositionSeparator)]: [],
+        [.piece(.character("n")), .piece(.compositionSeparator)]: [.character("ん")],
         [.piece(.character("n")), .any1]: [.character("ん"), .any1]
     ])
 
@@ -882,6 +882,6 @@ enum Roman2KanaMaps {
         "tb": "たび",
         "gt": "ごと"
     ], additionalMapping: [
-        [.piece(.endOfText)]: []
+        [.piece(.compositionSeparator)]: []
     ])
 }
