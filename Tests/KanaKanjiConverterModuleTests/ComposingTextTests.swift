@@ -253,4 +253,31 @@ final class ComposingTextTests: XCTestCase {
         XCTAssertEqual(c.convertTarget, "あ")
         XCTAssertEqual(c.input, [.init(character: "a", inputStyle: .roman2kana)])
     }
+
+    func testPrefixCompleteWithNInput() throws {
+        var c = ComposingText()
+        c.insertAtCursorPosition("d", inputStyle: .roman2kana)
+        c.insertAtCursorPosition("a", inputStyle: .roman2kana)
+        c.insertAtCursorPosition("n", inputStyle: .roman2kana)
+        c.insertAtCursorPosition("b", inputStyle: .roman2kana)
+        c.insertAtCursorPosition("a", inputStyle: .roman2kana)
+        c.insertAtCursorPosition("s", inputStyle: .roman2kana)
+        c.insertAtCursorPosition("u", inputStyle: .roman2kana)
+        XCTAssertEqual(c.convertTarget, "だんばす")
+        c.prefixComplete(composingCount: .surfaceCount(2))
+        XCTAssertEqual(c.convertTarget, "ばす")
+        XCTAssertEqual(c.input[0], .init(piece: .character("ば"), inputStyle: .frozen))
+    }
+
+    func testPrefixCompleteWithAZIK() throws {
+        var c = ComposingText()
+        c.insertAtCursorPosition("s", inputStyle: .mapped(id: .defaultAZIK))
+        c.insertAtCursorPosition("z", inputStyle: .mapped(id: .defaultAZIK))
+        c.insertAtCursorPosition("z", inputStyle: .mapped(id: .defaultAZIK))
+        c.insertAtCursorPosition("z", inputStyle: .mapped(id: .defaultAZIK))
+        XCTAssertEqual(c.convertTarget, "さんざん")
+        c.prefixComplete(composingCount: .surfaceCount(3))
+        XCTAssertEqual(c.convertTarget, "ん")
+        XCTAssertEqual(c.input[0], .init(piece: .character("ん"), inputStyle: .frozen))
+    }
 }

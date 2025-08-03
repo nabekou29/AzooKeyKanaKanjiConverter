@@ -72,7 +72,7 @@ public struct ComposingText: Sendable {
     /// この状態では`input`に対応するカーソル位置が存在しない。
     /// この場合、`input`を`[き, ょ, u]`と置き換えた上で、`き|`と考えて、`1`を返す。
     private mutating func forceGetInputCursorPosition(target: some StringProtocol) -> Int {
-        debug("ComposingText forceGetInputCursorPosition", self, target)
+        debug(#function, self, target)
         if target.isEmpty {
             return 0
         }
@@ -196,7 +196,8 @@ public struct ComposingText: Sendable {
             // この場合、inputの変換が必要になる。
             // 例えばcovnertTargetが「あき|ょ」で、`[a, k, y, o]`まで見て「あきょ」になってしまった場合、「あき」がprefixとなる。
             // この場合、lastPrefix=1なので、1番目から現在までの入力をひらがな(suffix)で置き換える
-            else if converted.hasPrefix(target) {
+            // ただし「danbo」などのケースでは、途中状態で`だんb`が生じても1つ目の条件を満たす。このまま処理が進むことを防ぐため、全体のprefixになる条件が追加されている。
+            else if converted.hasPrefix(target) && self.convertTarget.hasPrefix(converted) {
                 // lastPrefixIndex: 「あ」までなので1
                 // count: 「あきょ」までなので4
                 // replaceCount: 3
