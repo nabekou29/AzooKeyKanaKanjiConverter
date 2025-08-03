@@ -38,7 +38,7 @@ final class InputStyleManagerTests: XCTestCase {
         // n<any> -> ん<any>
         XCTAssertEqual(table.toHiragana(currentText: ["n"], added: .character("a")), Array("んa"))
         // n followed by end-of-text -> ん
-        XCTAssertEqual(table.toHiragana(currentText: ["n"], added: .endOfText), Array("ん"))
+        XCTAssertEqual(table.toHiragana(currentText: ["n"], added: .compositionSeparator), Array("ん"))
         // "{" then "}" -> "{}"
         XCTAssertEqual(table.toHiragana(currentText: ["{"], added: .character("}")), Array("{}"))
     }

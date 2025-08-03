@@ -42,7 +42,7 @@ final class InputStyleManager {
                 let token = String(str[str.index(after: i)..<end])
                 switch token {
                 case "composition-separator":
-                    result.append(.piece(.endOfText))
+                    result.append(.piece(.compositionSeparator))
                     i = str.index(after: end)
                     continue
                 case "any character":

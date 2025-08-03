@@ -42,7 +42,7 @@ private indirect enum TrieNode {
                     // it as an invalid match.
                     switch state.resolvedAny1 {
                     case .character(let c): c
-                    case .endOfText, nil: nil
+                    case .compositionSeparator, nil: nil
                     }
                 }
             }
@@ -196,7 +196,7 @@ struct InputTable: Sendable {
         switch added {
         case .character(let ch):
             return currentText + [ch]
-        case .endOfText:
+        case .compositionSeparator:
             return currentText
         }
     }

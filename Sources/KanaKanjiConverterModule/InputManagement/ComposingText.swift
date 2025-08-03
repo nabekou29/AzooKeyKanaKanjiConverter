@@ -454,12 +454,12 @@ extension ComposingText {
                 return
             }
             updateConvertTarget(&currentElements[currentElements.endIndex - 1].string, inputStyle: newElement.inputStyle, newCharacter: ch)
-        case .endOfText:
+        case .compositionSeparator:
             guard let lastIndex = currentElements.indices.last,
                   currentElements[lastIndex].inputStyle == newElement.inputStyle else {
                 return
             }
-            updateConvertTarget(&currentElements[lastIndex].string, inputStyle: newElement.inputStyle, piece: .endOfText)
+            updateConvertTarget(&currentElements[lastIndex].string, inputStyle: newElement.inputStyle, piece: .compositionSeparator)
         }
     }
 
@@ -489,14 +489,14 @@ extension ComposingText {
         switch piece {
         case .character(let ch):
             return updateConvertTarget(current: current, inputStyle: inputStyle, newCharacter: ch)
-        case .endOfText:
+        case .compositionSeparator:
             switch inputStyle {
             case .direct:
                 return current
             case .roman2kana:
-                return InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: current, added: .endOfText)
+                return InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: current, added: .compositionSeparator)
             case .mapped(let id):
-                return InputStyleManager.shared.table(for: id).toHiragana(currentText: current, added: .endOfText)
+                return InputStyleManager.shared.table(for: id).toHiragana(currentText: current, added: .compositionSeparator)
             }
         }
     }
@@ -505,14 +505,14 @@ extension ComposingText {
         switch piece {
         case .character(let ch):
             updateConvertTarget(&convertTarget, inputStyle: inputStyle, newCharacter: ch)
-        case .endOfText:
+        case .compositionSeparator:
             switch inputStyle {
             case .direct:
                 break
             case .roman2kana:
-                convertTarget = InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: convertTarget, added: .endOfText)
+                convertTarget = InputStyleManager.shared.table(for: .defaultRomanToKana).toHiragana(currentText: convertTarget, added: .compositionSeparator)
             case .mapped(let id):
-                convertTarget = InputStyleManager.shared.table(for: id).toHiragana(currentText: convertTarget, added: .endOfText)
+                convertTarget = InputStyleManager.shared.table(for: id).toHiragana(currentText: convertTarget, added: .compositionSeparator)
             }
         }
     }
