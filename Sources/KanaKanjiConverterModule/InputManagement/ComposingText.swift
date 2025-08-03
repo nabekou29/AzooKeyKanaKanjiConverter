@@ -207,7 +207,7 @@ public struct ComposingText: Sendable {
                 // lastPrefixIndexから現在のカウントまでをReplace
                 self.input.removeSubrange(count - replaceCount ..< count)
                 // suffix1文字ずつを入力に追加する
-                // この結果として生じる文字列については、元の入力スタイルを維持する
+                // この結果として生じる文字列については、`frozen`で処理する
                 self.input.insert(contentsOf: suffix.map {InputElement(piece: .character($0), inputStyle: .frozen)}, at: count - replaceCount)
 
                 count -= replaceCount
