@@ -75,6 +75,7 @@ final class ZenzContext {
     private var context: OpaquePointer
     private var vocab: OpaquePointer
     private var prevInput: [llama_token] = []
+    private var prevPrompt: [llama_token] = []
 
     private let n_len: Int32 = 512
 
@@ -135,12 +136,10 @@ final class ZenzContext {
         }
         self.context = context
         self.prevInput = []
+        self.prevPrompt = []
     }
 
-    private func get_logits(
-        tokens: [llama_token],
-        logits_start_index: Int = 0
-    ) -> (logits: UnsafeMutablePointer<Float>?, prefixCacheCount: Int)? {
+    private func get_logits(tokens: [llama_token], logits_start_index: Int = 0) -> UnsafeMutablePointer<Float>? {
         // Manage KV cache: remove entries that differ from previous input
         let prefixCacheCount: Int
         do {
@@ -170,13 +169,12 @@ final class ZenzContext {
         }
         // update cached input for next call (for KV cache management)
         self.prevInput = tokens
-        return (llama_get_logits(context), prefixCacheCount)
+        return llama_get_logits(context)
     }
 
     func evaluate(text: String, ignorePrompt: String = "") -> Float {
         let tokens_list = self.tokenize(text: text, add_bos: true, add_eos: true)
-        guard let (logits, prefixCacheCount) = self.get_logits(tokens: tokens_list),
-              let logits else {
+        guard let logits = self.get_logits(tokens: tokens_list) else {
             debug("logits unavailable")
             return .nan
         }
@@ -229,8 +227,7 @@ final class ZenzContext {
         let eos_token = llama_vocab_eos(vocab)
         while prompt_tokens.count - initial_count < maxCount {
             let startOffset = prompt_tokens.count - 1
-            guard let (logits, prefixCacheCount) = self.get_logits(tokens: prompt_tokens, logits_start_index: startOffset),
-                  let logits else {
+            guard let logits = self.get_logits(tokens: prompt_tokens, logits_start_index: startOffset) else {
                 debug("logits unavailable")
                 return ""
             }
@@ -275,8 +272,7 @@ final class ZenzContext {
         let prompt_tokens = self.tokenize(text: "\u{EE00}。\u{EE02}\(leftSideContext)", add_bos: false)
         let startOffset = prompt_tokens.count - 1
 
-        guard let (logits, prefixCacheCount) = self.get_logits(tokens: prompt_tokens, logits_start_index: startOffset),
-              let logits else {
+        guard let logits = self.get_logits(tokens: prompt_tokens, logits_start_index: startOffset) else {
             debug("logits unavailable")
             return []
         }
@@ -318,6 +314,7 @@ final class ZenzContext {
         input: String,
         candidate: Candidate,
         requestRichCandidates: Bool,
+        prefixConstraint: Kana2Kanji.PrefixConstraint,
         personalizationMode: (mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode, base: EfficientNGram, personal: EfficientNGram)?,
         versionDependentConfig: ConvertRequestOptions.ZenzaiVersionDependentMode
     ) -> CandidateEvaluationResult {
@@ -407,11 +404,35 @@ final class ZenzContext {
         prompt = self.preprocessText(text: prompt)
         // Therefore, tokens = prompt_tokens + candidate_tokens is an appropriate operation.
         let prompt_tokens = self.tokenize(text: prompt, add_bos: true, add_eos: false)
+        defer {
+            self.prevPrompt = prompt_tokens
+        }
+
         let candidate_tokens = self.tokenize(text: self.preprocessText(text: candidate.text), add_bos: false, add_eos: false)
+        // prefixConstraintをすでに満たしているトークンを調査する
+        let addressed_tokens: [llama_token]
+        if self.prevPrompt == prompt_tokens, !requestRichCandidates {
+            var string = ""
+            for character in candidate.text {
+                let newString = string + String(character)
+                if prefixConstraint.constraint.hasPrefix(newString.utf8) {
+                    string = newString
+                } else {
+                    break
+                }
+            }
+            // addressedTokensについてはそのまま扱えばよい
+            addressed_tokens = self.tokenize(text: self.preprocessText(text: string), add_bos: false, add_eos: false)
+        } else {
+            // rich candidatesのため、logit全体を得る必要がある
+            addressed_tokens = []
+        }
+
         let tokens = prompt_tokens + candidate_tokens
-        let startOffset = prompt_tokens.count - 1
-        guard let (logits, prefixCacheCount) = self.get_logits(tokens: tokens, logits_start_index: startOffset),
-              let logits else {
+
+        // すでにprefixConstraintを満たしている部分については、計算をしない
+        let startOffset = prompt_tokens.count - 1 + addressed_tokens.count
+        guard let logits = self.get_logits(tokens: tokens, logits_start_index: startOffset) else {
             debug("logits unavailable")
             return .error
         }
@@ -435,7 +456,7 @@ final class ZenzContext {
         }
 
         var altTokens = FixedSizeHeap<AlternativeHighProbToken>(size: requestRichCandidates ? 5 : 0)
-        for (i, token_id) in tokens.indexed().dropFirst(prompt_tokens.count) {
+        for (i, token_id) in tokens.indexed().dropFirst(startOffset + 1) {
             // それぞれのトークンが、一つ前の予測において最も確率の高いトークンであるかをチェックする
             // softmaxはmaxなので、単にlogitsの中で最も大きいものを選べば良い
             // 一方実用的にはlog_probも得ておきたい。このため、ここでは明示的にsoftmaxも計算している
