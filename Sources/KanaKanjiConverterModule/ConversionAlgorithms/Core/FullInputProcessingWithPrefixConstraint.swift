@@ -3,15 +3,6 @@ import Foundation
 import SwiftUtils
 
 extension Kana2Kanji {
-    // Streaming comparison between candidate bytes (prev chain + appended words)
-    // and the constraint bytes without building concatenated arrays.
-    private enum PrefixRelation {
-        case mismatch
-        case equal
-        case candidateIsPrefixOfConstraint
-        case constraintIsPrefixOfCandidate
-    }
-
     // Compute matched bytes with constraint and total candidate bytes for (prev-chain + currentWord)
     private func computeMatchedAndTotalLength(prev: (any RegisteredNodeProtocol)?, currentWord: String, constraintBytes: [UInt8]) -> (matched: Int, total: Int) {
         // collect words from prev chain in forward order
