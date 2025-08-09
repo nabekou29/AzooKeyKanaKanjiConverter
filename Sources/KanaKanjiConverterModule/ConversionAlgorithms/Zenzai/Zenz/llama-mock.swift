@@ -51,6 +51,7 @@ package struct llama_batch {
 
 }
 package func llama_batch_init(_ n_tokens: Int, _ embd: Int, _ n_seq_max: Int) -> llama_batch { unimplemented() }
+package func llama_batch_free(_ batch: llama_batch) {}
 
 package func llama_n_ctx(_ ctx: llama_context) -> Int { unimplemented() }
 package func llama_vocab_n_tokens(_ vocab: llama_vocab) -> Int { unimplemented() }

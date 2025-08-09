@@ -143,6 +143,7 @@ final class ZenzContext {
             llama_kv_cache_seq_rm(context, 0, llama_pos(commonTokens.count), -1)
         }
         var batch = llama_batch_init(512, 0, 1)
+        defer { llama_batch_free(batch) }
         let n_ctx = llama_n_ctx(context)
         let n_kv_req = tokens.count + (Int(n_len) - tokens.count)
         if n_kv_req > n_ctx {
