@@ -33,6 +33,7 @@ import SwiftUtils
         convertTarget: String,
         candidates: [Candidate],
         requestRichCandidates: Bool,
+        prefixConstraint: Kana2Kanji.PrefixConstraint,
         personalizationMode: (mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode, base: EfficientNGram, personal: EfficientNGram)?,
         versionDependentConfig: ConvertRequestOptions.ZenzaiVersionDependentMode
     ) -> ZenzContext.CandidateEvaluationResult {
@@ -44,6 +45,7 @@ import SwiftUtils
                 input: convertTarget.toKatakana(),
                 candidate: candidate,
                 requestRichCandidates: requestRichCandidates,
+                prefixConstraint: prefixConstraint,
                 personalizationMode: personalizationMode,
                 versionDependentConfig: versionDependentConfig
             )

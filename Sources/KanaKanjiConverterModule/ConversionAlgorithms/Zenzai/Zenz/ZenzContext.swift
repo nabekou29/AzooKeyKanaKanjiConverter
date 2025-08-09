@@ -75,6 +75,7 @@ final class ZenzContext {
     private var context: OpaquePointer
     private var vocab: OpaquePointer
     private var prevInput: [llama_token] = []
+    private var prevPrompt: [llama_token] = []
 
     private let n_len: Int32 = 512
 
@@ -134,21 +135,31 @@ final class ZenzContext {
             throw ZenzError.couldNotLoadContext
         }
         self.context = context
+        self.prevInput = []
+        self.prevPrompt = []
     }
 
     private func get_logits(tokens: [llama_token], logits_start_index: Int = 0) -> UnsafeMutablePointer<Float>? {
-        // manage kv_cache
+        // Manage KV cache: remove entries that differ from previous input
+        let prefixCacheCount: Int
         do {
+            let pos_max = llama_kv_cache_seq_pos_max(self.context, 0)
+            debug("pos max:", pos_max, "prevInput count:", self.prevInput.count, "tokens count:", tokens.count)
             let commonTokens = self.prevInput.commonPrefix(with: tokens)
-            llama_kv_cache_seq_rm(context, 0, llama_pos(commonTokens.count), -1)
+            // Remove KV cache from position commonTokens.count onwards to recompute divergent part
+            // removed range: [llama_pos(commonTokens.count), inf)
+            prefixCacheCount = min(commonTokens.count, logits_start_index)
+            llama_kv_cache_seq_rm(context, -1, llama_pos(prefixCacheCount), -1)
+            debug("new pos max:", llama_kv_cache_seq_pos_max(self.context, 0), "commonTokens:", commonTokens.count)
         }
         var batch = llama_batch_init(512, 0, 1)
+        defer { llama_batch_free(batch) }
         let n_ctx = llama_n_ctx(context)
         let n_kv_req = tokens.count + (Int(n_len) - tokens.count)
         if n_kv_req > n_ctx {
             debug("error: n_kv_req > n_ctx, the required KV cache size is not big enough")
         }
-        for i in tokens.indices {
+        for i in tokens.indices.dropFirst(prefixCacheCount) {
             llama_batch_add(&batch, tokens[i], Int32(i), [0], logits: logits_start_index <= i)
         }
         // 評価
@@ -156,6 +167,8 @@ final class ZenzContext {
             debug("llama_decode() failed")
             return nil
         }
+        // update cached input for next call (for KV cache management)
+        self.prevInput = tokens
         return llama_get_logits(context)
     }
 
@@ -301,6 +314,7 @@ final class ZenzContext {
         input: String,
         candidate: Candidate,
         requestRichCandidates: Bool,
+        prefixConstraint: Kana2Kanji.PrefixConstraint,
         personalizationMode: (mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode, base: EfficientNGram, personal: EfficientNGram)?,
         versionDependentConfig: ConvertRequestOptions.ZenzaiVersionDependentMode
     ) -> CandidateEvaluationResult {
@@ -390,11 +404,34 @@ final class ZenzContext {
         prompt = self.preprocessText(text: prompt)
         // Therefore, tokens = prompt_tokens + candidate_tokens is an appropriate operation.
         let prompt_tokens = self.tokenize(text: prompt, add_bos: true, add_eos: false)
+        defer {
+            self.prevPrompt = prompt_tokens
+        }
+
         let candidate_tokens = self.tokenize(text: self.preprocessText(text: candidate.text), add_bos: false, add_eos: false)
+        // prefixConstraintをすでに満たしているトークンを調査する
+        let addressed_tokens: [llama_token]
+        if self.prevPrompt == prompt_tokens, !requestRichCandidates {
+            var string = ""
+            for character in candidate.text {
+                let newString = string + String(character)
+                if prefixConstraint.constraint.hasPrefix(newString.utf8) {
+                    string = newString
+                } else {
+                    break
+                }
+            }
+            // addressedTokensについてはそのまま扱えばよい
+            addressed_tokens = self.tokenize(text: self.preprocessText(text: string), add_bos: false, add_eos: false)
+        } else {
+            // rich candidatesのため、logit全体を得る必要がある
+            addressed_tokens = []
+        }
+
         let tokens = prompt_tokens + candidate_tokens
-        let startOffset = prompt_tokens.count - 1
-        let pos_max = llama_kv_cache_seq_pos_max(self.context, 0)
-        debug("pos max:", pos_max)
+
+        // すでにprefixConstraintを満たしている部分については、計算をしない
+        let startOffset = prompt_tokens.count - 1 + addressed_tokens.count
         guard let logits = self.get_logits(tokens: tokens, logits_start_index: startOffset) else {
             debug("logits unavailable")
             return .error
@@ -419,7 +456,7 @@ final class ZenzContext {
         }
 
         var altTokens = FixedSizeHeap<AlternativeHighProbToken>(size: requestRichCandidates ? 5 : 0)
-        for (i, token_id) in tokens.indexed().dropFirst(prompt_tokens.count) {
+        for (i, token_id) in tokens.indexed().dropFirst(startOffset + 1) {
             // それぞれのトークンが、一つ前の予測において最も確率の高いトークンであるかをチェックする
             // softmaxはmaxなので、単にlogitsの中で最も大きいものを選べば良い
             // 一方実用的にはlog_probも得ておきたい。このため、ここでは明示的にsoftmaxも計算している

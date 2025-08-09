@@ -117,6 +117,7 @@ extension Kana2Kanji {
                     convertTarget: inputData.convertTarget,
                     candidates: [candidate],
                     requestRichCandidates: requestRichCandidates,
+                    prefixConstraint: constraint,
                     personalizationMode: personalizationMode,
                     versionDependentConfig: versionDependentConfig
                 )
