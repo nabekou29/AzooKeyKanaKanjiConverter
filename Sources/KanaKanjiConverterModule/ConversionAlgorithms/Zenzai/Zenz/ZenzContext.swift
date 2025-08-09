@@ -164,7 +164,7 @@ final class ZenzContext {
         }
         // 評価
         if llama_decode(context, batch) != 0 {
-            print("llama_decode() failed")
+            debug("llama_decode() failed")
             return nil
         }
         // update cached input for next call (for KV cache management)
