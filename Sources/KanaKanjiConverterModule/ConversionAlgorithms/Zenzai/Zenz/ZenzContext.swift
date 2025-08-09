@@ -134,13 +134,24 @@ final class ZenzContext {
             throw ZenzError.couldNotLoadContext
         }
         self.context = context
+        self.prevInput = []
     }
 
-    private func get_logits(tokens: [llama_token], logits_start_index: Int = 0) -> UnsafeMutablePointer<Float>? {
-        // manage kv_cache
+    private func get_logits(
+        tokens: [llama_token],
+        logits_start_index: Int = 0
+    ) -> (logits: UnsafeMutablePointer<Float>?, prefixCacheCount: Int)? {
+        // Manage KV cache: remove entries that differ from previous input
+        let prefixCacheCount: Int
         do {
+            let pos_max = llama_kv_cache_seq_pos_max(self.context, 0)
+            debug("pos max:", pos_max, "prevInput count:", self.prevInput.count, "tokens count:", tokens.count)
             let commonTokens = self.prevInput.commonPrefix(with: tokens)
-            llama_kv_cache_seq_rm(context, 0, llama_pos(commonTokens.count), -1)
+            // Remove KV cache from position commonTokens.count onwards to recompute divergent part
+            // removed range: [llama_pos(commonTokens.count), inf)
+            prefixCacheCount = min(commonTokens.count, logits_start_index)
+            llama_kv_cache_seq_rm(context, -1, llama_pos(prefixCacheCount), -1)
+            debug("new pos max:", llama_kv_cache_seq_pos_max(self.context, 0), "commonTokens:", commonTokens.count)
         }
         var batch = llama_batch_init(512, 0, 1)
         defer { llama_batch_free(batch) }
@@ -149,20 +160,23 @@ final class ZenzContext {
         if n_kv_req > n_ctx {
             debug("error: n_kv_req > n_ctx, the required KV cache size is not big enough")
         }
-        for i in tokens.indices {
+        for i in tokens.indices.dropFirst(prefixCacheCount) {
             llama_batch_add(&batch, tokens[i], Int32(i), [0], logits: logits_start_index <= i)
         }
         // 評価
         if llama_decode(context, batch) != 0 {
-            debug("llama_decode() failed")
+            print("llama_decode() failed")
             return nil
         }
-        return llama_get_logits(context)
+        // update cached input for next call (for KV cache management)
+        self.prevInput = tokens
+        return (llama_get_logits(context), prefixCacheCount)
     }
 
     func evaluate(text: String, ignorePrompt: String = "") -> Float {
         let tokens_list = self.tokenize(text: text, add_bos: true, add_eos: true)
-        guard let logits = self.get_logits(tokens: tokens_list) else {
+        guard let (logits, prefixCacheCount) = self.get_logits(tokens: tokens_list),
+              let logits else {
             debug("logits unavailable")
             return .nan
         }
@@ -215,7 +229,8 @@ final class ZenzContext {
         let eos_token = llama_vocab_eos(vocab)
         while prompt_tokens.count - initial_count < maxCount {
             let startOffset = prompt_tokens.count - 1
-            guard let logits = self.get_logits(tokens: prompt_tokens, logits_start_index: startOffset) else {
+            guard let (logits, prefixCacheCount) = self.get_logits(tokens: prompt_tokens, logits_start_index: startOffset),
+                  let logits else {
                 debug("logits unavailable")
                 return ""
             }
@@ -260,7 +275,8 @@ final class ZenzContext {
         let prompt_tokens = self.tokenize(text: "\u{EE00}。\u{EE02}\(leftSideContext)", add_bos: false)
         let startOffset = prompt_tokens.count - 1
 
-        guard let logits = self.get_logits(tokens: prompt_tokens, logits_start_index: startOffset) else {
+        guard let (logits, prefixCacheCount) = self.get_logits(tokens: prompt_tokens, logits_start_index: startOffset),
+              let logits else {
             debug("logits unavailable")
             return []
         }
@@ -394,9 +410,8 @@ final class ZenzContext {
         let candidate_tokens = self.tokenize(text: self.preprocessText(text: candidate.text), add_bos: false, add_eos: false)
         let tokens = prompt_tokens + candidate_tokens
         let startOffset = prompt_tokens.count - 1
-        let pos_max = llama_kv_cache_seq_pos_max(self.context, 0)
-        debug("pos max:", pos_max)
-        guard let logits = self.get_logits(tokens: tokens, logits_start_index: startOffset) else {
+        guard let (logits, prefixCacheCount) = self.get_logits(tokens: tokens, logits_start_index: startOffset),
+              let logits else {
             debug("logits unavailable")
             return .error
         }
