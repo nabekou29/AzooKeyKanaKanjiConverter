@@ -83,29 +83,35 @@ extension Kana2Kanji {
         let surfaceCount = inputData.convertTarget.count
         let indexMap = LatticeDualIndexMap(inputData)
         let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
-        let rawNodes = latticeIndices.map { index in
-            let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
-                (iIndex, nil)
-            } else {
-                nil
+        let lattice: Lattice
+        if let cachedLattice = cachedLattice {
+            cachedLattice.resetNodeStates()
+            lattice = cachedLattice
+        } else {
+            let rawNodes = latticeIndices.map { index in
+                let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
+                    (iIndex, nil)
+                } else {
+                    nil
+                }
+                let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
+                    (sIndex, nil)
+                } else {
+                    nil
+                }
+                return dicdataStore.lookupDicdata(
+                    composingText: inputData,
+                    inputRange: inputRange,
+                    surfaceRange: surfaceRange,
+                    needTypoCorrection: false
+                )
             }
-            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
-                (sIndex, nil)
-            } else {
-                nil
-            }
-            return dicdataStore.lookupDicdata(
-                composingText: inputData,
-                inputRange: inputRange,
-                surfaceRange: surfaceRange,
-                needTypoCorrection: false
+            lattice = Lattice(
+                inputCount: inputCount,
+                surfaceCount: surfaceCount,
+                rawNodes: rawNodes
             )
         }
-        let lattice: Lattice = Lattice(
-            inputCount: inputCount,
-            surfaceCount: surfaceCount,
-            rawNodes: rawNodes
-        )
         // 「i文字目から始まるnodes」に対して
         for (isHead, nodeArray) in lattice.indexedNodes(indices: latticeIndices) {
             // それぞれのnodeに対して

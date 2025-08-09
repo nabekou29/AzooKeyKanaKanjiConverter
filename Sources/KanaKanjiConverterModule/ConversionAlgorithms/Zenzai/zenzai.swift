@@ -80,7 +80,7 @@ extension Kana2Kanji {
                 self.kana2lattice_all(inputData, N_best: 2, needTypoCorrection: false)
             } else {
                 // 制約がついている場合は高速になるので、N=3としている
-                self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: constraint)
+                self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: constraint, cachedLattice: lattice.isEmpty ? nil : lattice)
             }
             if lattice.isEmpty {
                 // 初回のみ

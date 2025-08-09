@@ -158,6 +158,28 @@ struct Lattice: Sequence {
         }
     }
 
+    func resetNodeStates() {
+        // 探索で変化した状態をすべて削除する
+        self.inputIndexedNodes.forEach { nodes in
+            nodes.forEach {
+                $0.prevs.removeAll()
+                $0.values.removeAll()
+                if $0.range.startIndex.isZero {
+                    $0.prevs.append(.BOSNode())
+                }
+            }
+        }
+        self.surfaceIndexedNodes.forEach { nodes in
+            nodes.forEach {
+                $0.prevs.removeAll()
+                $0.values.removeAll()
+                if $0.range.startIndex.isZero {
+                    $0.prevs.append(.BOSNode())
+                }
+            }
+        }
+    }
+
     subscript(index index: LatticeDualIndexMap.DualIndex) -> LatticeNodeArray {
         get {
             let iNodes: [LatticeNode] = if let iIndex = index.inputIndex { self.inputIndexedNodes[iIndex] } else { [] }
