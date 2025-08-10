@@ -55,7 +55,7 @@ extension Kana2Kanji {
         }
     }
 
-    struct PrefixConstraint: Equatable, Hashable, CustomStringConvertible {
+    struct PrefixConstraint: Sendable, Equatable, Hashable, CustomStringConvertible {
         init(_ constraint: [UInt8], hasEOS: Bool = false) {
             self.constraint = constraint
             self.hasEOS = hasEOS
@@ -175,7 +175,8 @@ extension Kana2Kanji {
                                 insertedCandidates.insert(mostLiklyCandidate, at: 1)
                             } else if alternativeConstraint.probabilityRatio > 0.5 {
                                 // 十分に高い確率の場合、変換器を実際に呼び出して候補を作ってもらう
-                                let draftResult = self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: PrefixConstraint(alternativeConstraint.prefixConstraint))
+                                lattice.resetNodeStates()
+                                let draftResult = self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: PrefixConstraint(alternativeConstraint.prefixConstraint), preprocessedLattice: lattice)
                                 let candidates = draftResult.result.getCandidateData().map(self.processClauseCandidate)
                                 let best: (Int, Candidate)? = candidates.enumerated().reduce(into: (Int, Candidate)?.none) { best, pair in
                                     if let (_, c) = best, pair.1.value > c.value {
