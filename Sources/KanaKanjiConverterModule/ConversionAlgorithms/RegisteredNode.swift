@@ -1,37 +1,47 @@
-//
-//  RegisteredNode.swift
-//  Keyboard
-//
-//  Created by ensan on 2020/09/16.
-//  Copyright © 2020 ensan. All rights reserved.
-//
-
 import Foundation
 
-/// `struct`の`RegisteredNode`を再帰的に所持できるようにするため、Existential Typeで抽象化する。
-/// - Note: `indirect enum`との比較はまだやっていない。
-protocol RegisteredNodeProtocol {
-    var data: DicdataElement {get}
-    var prev: (any RegisteredNodeProtocol)? {get}
-    var totalValue: PValue {get}
-    var range: Lattice.LatticeRange {get}
-}
+/// `indirect enum`を用いて再帰的なノード構造を実現
+indirect enum RegisteredNode {
+    case node(data: DicdataElement, prev: RegisteredNode?, totalValue: PValue, range: Lattice.LatticeRange)
 
-struct RegisteredNode: RegisteredNodeProtocol {
     /// このノードが保持する辞書データ
-    let data: DicdataElement
+    var data: DicdataElement {
+        _read {
+            switch self {
+            case .node(let data, _, _, _):
+                yield data
+            }
+        }
+    }
+
     /// 1つ前のノードのデータ
-    let prev: (any RegisteredNodeProtocol)?
+    var prev: RegisteredNode? {
+        _read {
+            switch self {
+            case .node(_, let prev, _, _):
+                yield prev
+            }
+        }
+    }
+
     /// 始点からこのノードまでのコスト
-    let totalValue: PValue
+    var totalValue: PValue {
+        switch self {
+        case .node(_, _, let totalValue, _):
+            return totalValue
+        }
+    }
+
     /// `composingText`の`input`で対応する範囲
-    let range: Lattice.LatticeRange
+    var range: Lattice.LatticeRange {
+        switch self {
+        case .node(_, _, _, let range):
+            return range
+        }
+    }
 
     init(data: DicdataElement, registered: RegisteredNode?, totalValue: PValue, range: Lattice.LatticeRange) {
-        self.data = data
-        self.prev = registered
-        self.totalValue = totalValue
-        self.range = range
+        self = .node(data: data, prev: registered, totalValue: totalValue, range: range)
     }
 
     /// 始点ノードを生成する関数
@@ -52,7 +62,7 @@ struct RegisteredNode: RegisteredNodeProtocol {
     }
 }
 
-extension RegisteredNodeProtocol {
+extension RegisteredNode {
     /// 再帰的にノードを遡り、`CandidateData`を構築する関数
     /// - Returns: 文節単位の区切り情報を持った変換候補データ
     func getCandidateData() -> CandidateData {

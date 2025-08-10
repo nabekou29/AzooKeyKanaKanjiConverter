@@ -4,7 +4,7 @@ import SwiftUtils
 
 extension Kana2Kanji {
     // Compute matched bytes with constraint and total candidate bytes for (prev-chain + currentWord)
-    private func computeMatchedAndTotalLength(prev: (any RegisteredNodeProtocol)?, currentWord: String, constraintBytes: [UInt8]) -> (matched: Int, total: Int) {
+    private func computeMatchedAndTotalLength(prev: RegisteredNode?, currentWord: String, constraintBytes: [UInt8]) -> (matched: Int, total: Int) {
         // collect words from prev chain in forward order
         var words: [String] = []
         var p = prev
