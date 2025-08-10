@@ -27,36 +27,41 @@ extension Kana2Kanji {
     /// (3)(1)のregisterされた結果をresultノードに追加していく。この際EOSとの連接計算を行っておく。
     ///
     /// (4)ノードをアップデートした上で返却する。
-    func kana2lattice_all(_ inputData: ComposingText, N_best: Int, needTypoCorrection: Bool) -> (result: LatticeNode, lattice: Lattice) {
+    func kana2lattice_all(_ inputData: ComposingText, N_best: Int, needTypoCorrection: Bool, preprocessedLattice: Lattice? = nil) -> (result: LatticeNode, lattice: Lattice) {
         debug("新規に計算を行います。inputされた文字列は\(inputData.input.count)文字分の\(inputData.convertTarget)")
         let result: LatticeNode = LatticeNode.EOSNode
         let inputCount: Int = inputData.input.count
         let surfaceCount = inputData.convertTarget.count
         let indexMap = LatticeDualIndexMap(inputData)
         let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
-        let rawNodes = latticeIndices.map { index in
-            let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
-                (iIndex, nil)
-            } else {
-                nil
+        let lattice: Lattice
+        if let preprocessedLattice = preprocessedLattice {
+            lattice = preprocessedLattice
+        } else {
+            let rawNodes = latticeIndices.map { index in
+                let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
+                    (iIndex, nil)
+                } else {
+                    nil
+                }
+                let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
+                    (sIndex, nil)
+                } else {
+                    nil
+                }
+                return dicdataStore.lookupDicdata(
+                    composingText: inputData,
+                    inputRange: inputRange,
+                    surfaceRange: surfaceRange,
+                    needTypoCorrection: needTypoCorrection
+                )
             }
-            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
-                (sIndex, nil)
-            } else {
-                nil
-            }
-            return dicdataStore.lookupDicdata(
-                composingText: inputData,
-                inputRange: inputRange,
-                surfaceRange: surfaceRange,
-                needTypoCorrection: needTypoCorrection
+            lattice = Lattice(
+                inputCount: inputCount,
+                surfaceCount: surfaceCount,
+                rawNodes: rawNodes
             )
         }
-        let lattice: Lattice = Lattice(
-            inputCount: inputCount,
-            surfaceCount: surfaceCount,
-            rawNodes: rawNodes
-        )
         // 「i文字目から始まるnodes」に対して
         for (isHead, nodeArray) in lattice.indexedNodes(indices: latticeIndices) {
             // それぞれのnodeに対して

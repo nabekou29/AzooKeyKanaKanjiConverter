@@ -4,16 +4,18 @@ import Foundation
 import SwiftUtils
 
 extension Kana2Kanji {
-    struct ZenzaiCache: Sendable {
-        init(_ inputData: ComposingText, constraint: PrefixConstraint, satisfyingCandidate: Candidate?) {
+    struct ZenzaiCache {
+        init(_ inputData: ComposingText, constraint: PrefixConstraint, satisfyingCandidate: Candidate?, lattice: Lattice? = nil) {
             self.inputData = inputData
             self.prefixConstraint = constraint
             self.satisfyingCandidate = satisfyingCandidate
+            self.cachedLattice = lattice
         }
 
         private var prefixConstraint: PrefixConstraint
         private var satisfyingCandidate: Candidate?
         private var inputData: ComposingText
+        private var cachedLattice: Lattice?
 
         func getNewConstraint(for newInputData: ComposingText) -> PrefixConstraint {
             if let satisfyingCandidate {
@@ -27,14 +29,33 @@ extension Kana2Kanji {
                 }
                 return PrefixConstraint(constraint)
             } else if newInputData.convertTarget.hasPrefix(inputData.convertTarget) {
-                return self.prefixConstraint
+                // hasEOSの場合は落とすために改めて作り直す
+                return PrefixConstraint(self.prefixConstraint.constraint)
             } else {
                 return PrefixConstraint([])
             }
         }
+
+        func getPreprocessedLattice(for newInputData: ComposingText, kanaKanji: Kana2Kanji) -> Lattice? {
+            guard let cachedLattice else { return nil }
+
+            // 同じComposingTextなら既存のlatticeをそのまま返す
+            if newInputData.input == inputData.input && newInputData.convertTarget == inputData.convertTarget {
+                cachedLattice.resetNodeStates()
+                return cachedLattice
+            }
+
+            // 逐次入力の場合は差分更新でlatticeを構築
+            return kanaKanji.buildLatticeWithIncrementalCache(
+                inputData: newInputData,
+                inputCount: newInputData.input.count,
+                surfaceCount: newInputData.convertTarget.count,
+                incrementalCacheInfo: (inputData: inputData, lattice: cachedLattice)
+            )
+        }
     }
 
-    struct PrefixConstraint: Sendable, Equatable, Hashable, CustomStringConvertible {
+    struct PrefixConstraint: Equatable, Hashable, CustomStringConvertible {
         init(_ constraint: [UInt8], hasEOS: Bool = false) {
             self.constraint = constraint
             self.hasEOS = hasEOS
@@ -74,13 +95,23 @@ extension Kana2Kanji {
         var inferenceLimit = inferenceLimit
         while true {
             let start = Date()
-            let draftResult = if constraint.isEmpty {
+            let preprocessedLattice: Lattice?
+            if !lattice.isEmpty {
+                // 今回の`all_zenzai`の呼び出し内部で使われているキャッシュ（lattice）が存在する場合はそちらを優先する
+                lattice.resetNodeStates()
+                preprocessedLattice = lattice
+            } else {
+                // latticeがまだemptyの場合、zenzaiCache側に存在するキャッシュの活用を試みる
+                preprocessedLattice = zenzaiCache?.getPreprocessedLattice(for: inputData, kanaKanji: self)
+            }
+            let draftResult: (result: LatticeNode, lattice: Lattice)
+            if constraint.isEmpty {
                 // 全部を変換する場合はN=2の変換を行う
                 // 実験の結果、ここは2-bestを取ると平均的な速度が最良になることがわかったので、そうしている。
-                self.kana2lattice_all(inputData, N_best: 2, needTypoCorrection: false)
+                draftResult = self.kana2lattice_all(inputData, N_best: 2, needTypoCorrection: false, preprocessedLattice: preprocessedLattice)
             } else {
                 // 制約がついている場合は高速になるので、N=3としている
-                self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: constraint, cachedLattice: lattice.isEmpty ? nil : lattice)
+                draftResult = self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: constraint, preprocessedLattice: preprocessedLattice)
             }
             if lattice.isEmpty {
                 // 初回のみ
@@ -100,7 +131,7 @@ extension Kana2Kanji {
                 debug("best was not found!")
                 // Emptyの場合
                 // 制約が満たせない場合は無視する
-                return (eosNode, lattice, ZenzaiCache(inputData, constraint: PrefixConstraint([]), satisfyingCandidate: nil))
+                return (eosNode, lattice, ZenzaiCache(inputData, constraint: PrefixConstraint([]), satisfyingCandidate: nil, lattice: lattice))
             }
 
             debug("Constrained draft modeling", -start.timeIntervalSinceNow)
@@ -111,7 +142,7 @@ extension Kana2Kanji {
                 if inferenceLimit == 0 {
                     debug("inference limit! \(candidate.text) is used for excuse")
                     // When inference occurs more than maximum times, then just return result at this point
-                    return (eosNode, lattice, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: candidate))
+                    return (eosNode, lattice, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: candidate, lattice: lattice))
                 }
                 let reviewResult = zenz.candidateEvaluate(
                     convertTarget: inputData.convertTarget,
@@ -144,9 +175,9 @@ extension Kana2Kanji {
                                 insertedCandidates.insert(mostLiklyCandidate, at: 1)
                             } else if alternativeConstraint.probabilityRatio > 0.5 {
                                 // 十分に高い確率の場合、変換器を実際に呼び出して候補を作ってもらう
-                                let draftResult = self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: PrefixConstraint(alternativeConstraint.prefixConstraint), cachedLattice: lattice)
+                                let draftResult = self.kana2lattice_all_with_prefix_constraint(inputData, N_best: 3, constraint: PrefixConstraint(alternativeConstraint.prefixConstraint))
                                 let candidates = draftResult.result.getCandidateData().map(self.processClauseCandidate)
-                                let best: (Int, Candidate)? = candidates.enumerated().reduce(into: nil) { best, pair in
+                                let best: (Int, Candidate)? = candidates.enumerated().reduce(into: (Int, Candidate)?.none) { best, pair in
                                     if let (_, c) = best, pair.1.value > c.value {
                                         best = pair
                                     } else if best == nil {
@@ -160,9 +191,9 @@ extension Kana2Kanji {
                         }
                     }
                     if satisfied {
-                        return (eosNode, lattice, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: candidate))
+                        return (eosNode, lattice, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: candidate, lattice: lattice))
                     } else {
-                        return (eosNode, lattice, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: nil))
+                        return (eosNode, lattice, ZenzaiCache(inputData, constraint: constraint, satisfyingCandidate: nil, lattice: lattice))
                     }
                 case .continue:
                     break reviewLoop

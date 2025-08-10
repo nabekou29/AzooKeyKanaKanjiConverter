@@ -76,7 +76,7 @@ extension Kana2Kanji {
     /// (3)(1)のregisterされた結果をresultノードに追加していく。この際EOSとの連接計算を行っておく。
     ///
     /// (4)ノードをアップデートした上で返却する。
-    func kana2lattice_all_with_prefix_constraint(_ inputData: ComposingText, N_best: Int, constraint: PrefixConstraint, cachedLattice: Lattice? = nil) -> (result: LatticeNode, lattice: Lattice) {
+    func kana2lattice_all_with_prefix_constraint(_ inputData: ComposingText, N_best: Int, constraint: PrefixConstraint, preprocessedLattice: Lattice? = nil) -> (result: LatticeNode, lattice: Lattice) {
         debug("新規に計算を行います。inputされた文字列は\(inputData.input.count)文字分の\(inputData.convertTarget)。制約は\(constraint)")
         let result: LatticeNode = LatticeNode.EOSNode
         let inputCount: Int = inputData.input.count
@@ -84,9 +84,8 @@ extension Kana2Kanji {
         let indexMap = LatticeDualIndexMap(inputData)
         let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
         let lattice: Lattice
-        if let cachedLattice = cachedLattice {
-            cachedLattice.resetNodeStates()
-            lattice = cachedLattice
+        if let preprocessedLattice = preprocessedLattice {
+            lattice = preprocessedLattice
         } else {
             let rawNodes = latticeIndices.map { index in
                 let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
@@ -216,6 +215,125 @@ extension Kana2Kanji {
             }
         }
         return (result: result, lattice: lattice)
+    }
+
+    /// 逐次入力の差分更新を活用してLatticeを構築
+    func buildLatticeWithIncrementalCache(
+        inputData: ComposingText,
+        inputCount: Int,
+        surfaceCount: Int,
+        incrementalCacheInfo: (inputData: ComposingText, lattice: Lattice)?
+    ) -> Lattice {
+        let indexMap = LatticeDualIndexMap(inputData)
+        let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
+        guard let incrementalCacheInfo else {
+            // キャッシュがない場合は通常の辞書引き
+            let rawNodes = latticeIndices.map { index in
+                let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
+                    (iIndex, nil)
+                } else {
+                    nil
+                }
+                let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
+                    (sIndex, nil)
+                } else {
+                    nil
+                }
+                return dicdataStore.lookupDicdata(
+                    composingText: inputData,
+                    inputRange: inputRange,
+                    surfaceRange: surfaceRange,
+                    needTypoCorrection: false
+                )
+            }
+            return Lattice(
+                inputCount: inputCount,
+                surfaceCount: surfaceCount,
+                rawNodes: rawNodes
+            )
+        }
+
+        // 差分を計算
+        let oldInput = incrementalCacheInfo.inputData.input
+        let newInput = inputData.input
+        let oldSurface = incrementalCacheInfo.inputData.convertTarget
+        let newSurface = inputData.convertTarget
+
+        // 共通プレフィックスを計算
+        let commonInputCount = zip(oldInput, newInput).prefix { $0 == $1 }.count
+        let commonSurfaceCount = zip(oldSurface, newSurface).prefix { $0 == $1 }.count
+
+        // 逐次入力でない場合（中間の文字が変わった場合）は通常の処理
+        if commonInputCount != min(oldInput.count, newInput.count) ||
+            commonSurfaceCount != min(oldSurface.count, newSurface.count) {
+            let rawNodes = latticeIndices.map { index in
+                let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex {
+                    (iIndex, nil)
+                } else {
+                    nil
+                }
+                let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex {
+                    (sIndex, nil)
+                } else {
+                    nil
+                }
+                return dicdataStore.lookupDicdata(
+                    composingText: inputData,
+                    inputRange: inputRange,
+                    surfaceRange: surfaceRange,
+                    needTypoCorrection: false
+                )
+            }
+            return Lattice(
+                inputCount: inputCount,
+                surfaceCount: surfaceCount,
+                rawNodes: rawNodes
+            )
+        }
+
+        // 逐次入力の場合：既存Latticeから共通部分を再利用し、新しい部分のみ辞書引き
+        let cachedLattice = incrementalCacheInfo.lattice
+
+        // 共通部分のLatticeを取得（SuffixReplacementProcessing.swiftのprefixメソッドを想定）
+        var newLattice = cachedLattice.prefix(inputCount: commonInputCount, surfaceCount: commonSurfaceCount)
+        newLattice.resetNodeStates()
+
+        // 新規部分に関わる辞書引き（既存部分から新規部分にまたがる単語も含む）
+        let additionalRawNodes = latticeIndices.map { index in
+            let inputRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let iIndex = index.inputIndex, max(commonInputCount, iIndex) < inputCount {
+                (iIndex, max(commonInputCount, iIndex) ..< inputCount)
+            } else {
+                nil
+            }
+            let surfaceRange: (startIndex: Int, endIndexRange: Range<Int>?)? = if let sIndex = index.surfaceIndex, max(commonSurfaceCount, sIndex) < surfaceCount {
+                (sIndex, max(commonSurfaceCount, sIndex) ..< surfaceCount)
+            } else {
+                nil
+            }
+
+            // 新規部分に関わる場合のみ辞書引き
+            if inputRange != nil || surfaceRange != nil {
+                return dicdataStore.lookupDicdata(
+                    composingText: inputData,
+                    inputRange: inputRange,
+                    surfaceRange: surfaceRange,
+                    needTypoCorrection: false
+                )
+            } else {
+                // 完全に既存部分のみの場合は空配列
+                return []
+            }
+        }
+
+        // 追加部分をマージ
+        let additionalLattice = Lattice(
+            inputCount: inputCount,
+            surfaceCount: surfaceCount,
+            rawNodes: additionalRawNodes
+        )
+
+        newLattice.merge(additionalLattice)
+        return newLattice
     }
 
 }
