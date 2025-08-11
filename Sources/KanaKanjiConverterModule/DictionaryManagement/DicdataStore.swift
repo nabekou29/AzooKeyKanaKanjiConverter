@@ -254,7 +254,18 @@ public final class DicdataStore {
             }
 
             mutating func setUnreachablePath<C: Collection<Character>>(target: C) where C.Indices == Range<Int> {
-                if self.surface[self.range.leftIndex...].hasPrefix(target) {
+                // Compare manually to avoid generic hasPrefix overhead
+                let suffix = self.surface[self.range.leftIndex...]
+                var it = target.makeIterator()
+                var idx = suffix.startIndex
+                var matched = 0
+                while let t = it.next() {
+                    guard idx != suffix.endIndex else { break }
+                    if suffix[idx] != t { return }
+                    matched += 1
+                    idx = suffix.index(after: idx)
+                }
+                if matched == target.count {
                     // new upper boundを計算
                     let currentLowerBound = self.range.rightIndexRange.lowerBound
                     let currentUpperBound = self.range.rightIndexRange.upperBound

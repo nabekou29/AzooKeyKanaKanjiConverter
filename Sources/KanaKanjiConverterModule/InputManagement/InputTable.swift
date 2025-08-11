@@ -118,9 +118,12 @@ struct InputTable: Sendable {
             root.add(reversedKey: key.reversed().map { $0 }, output: value)
         }
         self.trieRoot = root
+        self.maxUnstableSuffixLength = self.unstableSuffixes.map { $0.count }.max() ?? 0
     }
 
     let unstableSuffixes: Set<[Character]>
+    // Fast bound to avoid scanning entire set when checking suffixes
+    let maxUnstableSuffixLength: Int
     let maxKeyCount: Int
     let possibleNexts: [String: [String]]
 

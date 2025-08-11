@@ -91,38 +91,73 @@ struct TypoCorrectionGenerator: Sendable {
 
     /// `target`で始まる場合は到達不可能であることを知らせる
     mutating func setUnreachablePath(target: some Collection<Character>) {
-        self.stack = self.stack.filter { (convertTargetElements, _, _) in
-            var stablePrefix: [Character] = []
-            loop: for item in convertTargetElements {
+        // Materialize once for random access comparisons
+        let targetArray: [Character] = Array(target)
+        if targetArray.isEmpty { return }
+
+        self.stack.removeAll { (convertTargetElements, _, _) in
+            var matched = 0
+
+            for item in convertTargetElements {
+                // Determine how many characters of `item.string` are stable
+                let s = item.string
+                var stableCount = s.count
                 switch item.inputStyle {
                 case .direct:
-                    stablePrefix.append(contentsOf: item.string)
+                    break
                 case .roman2kana, .mapped:
-                    let table = if case let .mapped(id) = item.inputStyle {
+                    // Use cached table when available to avoid repeated lookups
+                    let table: InputTable = if let cached = item.cachedTable {
+                        cached
+                    } else if case let .mapped(id) = item.inputStyle {
                         InputStyleManager.shared.table(for: id)
                     } else {
                         InputStyleManager.shared.table(for: .defaultRomanToKana)
                     }
-                    var stableIndex = item.string.endIndex
-                    for suffix in table.unstableSuffixes {
-                        if item.string.hasSuffix(suffix) {
-                            stableIndex = min(stableIndex, item.string.endIndex - suffix.count)
+                    if !s.isEmpty && table.maxUnstableSuffixLength > 0 {
+                        let maxLen = min(table.maxUnstableSuffixLength, s.count)
+                        // Find the longest unstable suffix; subtract its length
+                        var remove = 0
+                        var idx = maxLen
+                        while idx >= 1 {
+                            // Construct a tiny suffix array for set membership; lengths are small
+                            let tail = Array(s[(s.count - idx)...])
+                            if table.unstableSuffixes.contains(tail) {
+                                remove = idx
+                                break
+                            }
+                            idx -= 1
+                        }
+                        stableCount -= remove
+                    }
+                }
+
+                if stableCount > 0 {
+                    // Compare only up to remaining target length and stable chars
+                    let need = min(stableCount, targetArray.count - matched)
+                    if need > 0 {
+                        // Fast element-wise compare; bail on first mismatch
+                        for i in 0 ..< need {
+                            if s[i] != targetArray[matched + i] {
+                                // Mismatch before covering target → keep (reachable)
+                                return false
+                            }
+                        }
+                        matched += need
+                        if matched >= targetArray.count {
+                            // Stable part fully covers target prefix → unreachable → remove
+                            return true
                         }
                     }
-                    if stableIndex == item.string.endIndex {
-                        stablePrefix.append(contentsOf: item.string)
-                    } else {
-                        // 全体が安定でない場合は、そこでbreakする
-                        stablePrefix.append(contentsOf: item.string[0 ..< stableIndex])
-                        break loop
-                    }
                 }
-                // 安定なprefixがtargetをprefixに持つ場合、このstack内のアイテムについてもunreachableであることが分かるので、除去する
-                if stablePrefix.hasPrefix(target) {
-                    return false
+
+                // If we encountered an unstable tail (stableCount < s.count), we stop extending here.
+                if stableCount < s.count {
+                    break
                 }
             }
-            return true
+            // Did not fully match target with stable prefix → keep
+            return false
         }
     }
 
