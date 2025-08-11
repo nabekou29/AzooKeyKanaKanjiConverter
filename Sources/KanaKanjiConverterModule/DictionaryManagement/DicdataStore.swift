@@ -254,7 +254,18 @@ public final class DicdataStore {
             }
 
             mutating func setUnreachablePath<C: Collection<Character>>(target: C) where C.Indices == Range<Int> {
-                if self.surface[self.range.leftIndex...].hasPrefix(target) {
+                // Compare manually to avoid generic hasPrefix overhead
+                let suffix = self.surface[self.range.leftIndex...]
+                var it = target.makeIterator()
+                var idx = suffix.startIndex
+                var matched = 0
+                while let t = it.next() {
+                    guard idx != suffix.endIndex else { break }
+                    if suffix[idx] != t { return }
+                    matched += 1
+                    idx = suffix.index(after: idx)
+                }
+                if matched == target.count {
                     // new upper boundを計算
                     let currentLowerBound = self.range.rightIndexRange.lowerBound
                     let currentUpperBound = self.range.rightIndexRange.upperBound
@@ -549,8 +560,8 @@ public final class DicdataStore {
                 segment.append(String(chars[i]))
                 let result = self.getWiseDicdata(
                     convertTarget: segment,
-                    inputData: composingText,
-                    surfaceRange: surfaceProcessRange.leftIndex ..< i + 1
+                    surfaceRange: surfaceProcessRange.leftIndex ..< i + 1,
+                    fullText: chars
                 )
                 for item in result {
                     stringToInfo[Array(item.ruby)] = (.surface(i), 0)
@@ -643,15 +654,20 @@ public final class DicdataStore {
     ///     - convertTarget: カタカナ変換済みの文字列
     /// - note
     ///     - 入力全体をカタカナとかひらがなに変換するやつは、Converter側でやっているので注意。
-    func getWiseDicdata(convertTarget: String, inputData: ComposingText, surfaceRange: Range<Int>) -> [DicdataElement] {
+    func getWiseDicdata(convertTarget: String, surfaceRange: Range<Int>, fullText: [Character]) -> [DicdataElement] {
         var result: [DicdataElement] = []
         result.append(contentsOf: self.getJapaneseNumberDicdata(head: convertTarget))
-        if inputData.convertTarget.prefix(surfaceRange.lowerBound).last?.isNumber != true,
-           inputData.convertTarget.dropFirst(surfaceRange.upperBound).first?.isNumber != true,
-           let number = Int(convertTarget) {
-            result.append(DicdataElement(ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -14))
-            if Double(number) <= 1E12 && -1E12 <= Double(number), let kansuji = self.numberFormatter.string(from: NSNumber(value: number)) {
-                result.append(DicdataElement(word: kansuji, ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -16))
+        // 直前・直後の数値チェックを高速に行う（全文字列から判断）
+        do {
+            let i = surfaceRange.lowerBound - 1
+            let prevIsNumber = i >= 0 && fullText[i].isNumber
+            let j = surfaceRange.upperBound
+            let nextIsNumber = j < fullText.count && fullText[j].isNumber
+            if !(prevIsNumber || nextIsNumber), let number = Int(convertTarget) {
+                result.append(DicdataElement(ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -14))
+                if Double(number) <= 1E12 && -1E12 <= Double(number), let kansuji = self.numberFormatter.string(from: NSNumber(value: number)) {
+                    result.append(DicdataElement(word: kansuji, ruby: convertTarget, cid: CIDData.数.cid, mid: MIDData.小さい数字.mid, value: -16))
+                }
             }
         }
         // convertTargetを英単語として候補に追加する
@@ -691,7 +707,7 @@ public final class DicdataStore {
                 result.append(DicdataElement(word: String(fs), ruby: convertTarget, cid: CIDData.記号.cid, mid: MIDData.一般.mid, value: value))
                 value -= 5.0
             }
-            for group in Self.weakRelatingSymbolGroups where group.contains(hs) {
+            if let group = Self.weakRelatingSymbolLookup[hs] {
                 for symbol in group where symbol != hs {
                     result.append(DicdataElement(word: String(symbol), ruby: convertTarget, cid: CIDData.記号.cid, mid: MIDData.一般.mid, value: value))
                     value -= 5.0
@@ -769,6 +785,15 @@ public final class DicdataStore {
         ["♯", "♭", "♪", "♮", "♫", "♬", "♩", "𝄞", "𝄞"],  // 音符
         ["√", "∛", "∜"]  // 根号
     ]
+
+    // 高速ルックアップ用（記号→同一グループ）
+    private static let weakRelatingSymbolLookup: [Character: [Character]] = {
+        var map: [Character: [Character]] = [:]
+        for group in weakRelatingSymbolGroups {
+            for c in group { map[c] = group }
+        }
+        return map
+    }()
 
     private func loadCCBinary(url: URL) -> [(Int32, Float)] {
         do {

@@ -10,6 +10,32 @@ package import Foundation
 import SwiftUtils
 
 extension LOUDS {
+    // MARK: - Unaligned-safe little-endian readers
+    @inline(__always)
+    private static func byte(_ data: borrowing Data, _ offset: Int) -> UInt8 {
+        data[data.index(data.startIndex, offsetBy: offset)]
+    }
+
+    @inline(__always)
+    private static func readUInt16LE(_ data: borrowing Data, _ offset: Int) -> UInt16 {
+        let b0 = UInt16(byte(data, offset))
+        let b1 = UInt16(byte(data, offset + 1))
+        return b0 | (b1 << 8)
+    }
+
+    @inline(__always)
+    private static func readUInt32LE(_ data: borrowing Data, _ offset: Int) -> UInt32 {
+        let b0 = UInt32(byte(data, offset))
+        let b1 = UInt32(byte(data, offset + 1))
+        let b2 = UInt32(byte(data, offset + 2))
+        let b3 = UInt32(byte(data, offset + 3))
+        return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
+    }
+
+    @inline(__always)
+    private static func readFloat32LE(_ data: borrowing Data, _ offset: Int) -> Float32 {
+        Float32(bitPattern: readUInt32LE(data, offset))
+    }
     private static func loadLOUDSBinary(from url: URL) -> [UInt64]? {
         do {
             let binaryData = try Data(contentsOf: url, options: [.uncached]) // 2度読み込むことはないのでキャッシュ不要
@@ -73,35 +99,45 @@ extension LOUDS {
 
     @inlinable
     static func parseBinary(binary: Data) -> [DicdataElement] {
-        // 最初の2byteがカウント
-        let count = binary[binary.startIndex ..< binary.startIndex + 2].toArray(of: UInt16.self)[0]
-        var index = binary.startIndex + 2
+        // Fast parse without intermediate toArray allocations
+        let count = Int(readUInt16LE(binary, 0))
+        var offset = 2
         var dicdata: [DicdataElement] = []
-        dicdata.reserveCapacity(Int(count))
-        for _ in 0 ..< count {
-            let ids = binary[index ..< index + 6].toArray(of: UInt16.self)
-            let value = binary[index + 6 ..< index + 10].toArray(of: Float32.self)[0]
-            dicdata.append(DicdataElement(word: "", ruby: "", lcid: Int(ids[0]), rcid: Int(ids[1]), mid: Int(ids[2]), value: PValue(value)))
-            index += 10
+        dicdata.reserveCapacity(count)
+        if count > 0 {
+            // Each entry: 2B*3 (UInt16) + 4B (Float32) = 10B
+            for _ in 0 ..< count {
+                let lcid = Int(readUInt16LE(binary, offset + 0))
+                let rcid = Int(readUInt16LE(binary, offset + 2))
+                let mid = Int(readUInt16LE(binary, offset + 4))
+                let value = PValue(readFloat32LE(binary, offset + 6))
+                dicdata.append(DicdataElement(word: "", ruby: "", lcid: lcid, rcid: rcid, mid: mid, value: value))
+                offset += 10
+            }
         }
 
-        let substrings = binary[index...].split(separator: UInt8(ascii: "\t"), omittingEmptySubsequences: false)
-        guard let ruby = String(data: substrings[0], encoding: .utf8) else {
+        let strStart = binary.index(binary.startIndex, offsetBy: offset)
+        let substrings = binary[strStart...].split(separator: UInt8(ascii: "\t"), omittingEmptySubsequences: false)
+        guard let ruby = String(data: substrings.first ?? Data(), encoding: .utf8) else {
             debug("getDataForLoudstxt3: failed to parse", dicdata)
             return []
         }
-        for (index, substring) in zip(dicdata.indices, substrings[1...]) {
+        var i = dicdata.startIndex
+        // Skip the first (ruby) field
+        for substring in substrings.dropFirst() {
+            if i == dicdata.endIndex { break }
             guard let word = String(data: substring, encoding: .utf8) else {
                 debug("getDataForLoudstxt3: failed to parse", ruby)
+                i = dicdata.index(after: i)
                 continue
             }
-            withMutableValue(&dicdata[index]) {
+            withMutableValue(&dicdata[i]) {
                 $0.ruby = ruby
                 $0.word = word.isEmpty ? ruby : word
             }
+            i = dicdata.index(after: i)
         }
         return dicdata
-
     }
 
     static func getDataForLoudstxt3(_ identifier: String, indices: [Int], cache: Data? = nil, option: ConvertRequestOptions) -> [DicdataElement] {
@@ -119,16 +155,20 @@ extension LOUDS {
             }
         }
 
-        let lc = binary[0..<2].toArray(of: UInt16.self)[0]
-        let header_endIndex: UInt32 = 2 + UInt32(lc) * UInt32(MemoryLayout<UInt32>.size)
-        let ui32array = binary[2..<header_endIndex].toArray(of: UInt32.self)
-
-        let result: [DicdataElement] = indices.flatMap {(index: Int) -> [DicdataElement] in
-            let startIndex = Int(ui32array[index])
-            let endIndex = index == (lc - 1) ? binary.endIndex : Int(ui32array[index + 1])
-            return parseBinary(binary: binary[startIndex ..< endIndex])
+        let lc: Int = Int(readUInt16LE(binary, 0))
+        // Header table of UInt32 offsets starts at byte 2
+        var out: [DicdataElement] = []
+        out.reserveCapacity(indices.count * 2) // rough guess
+        for idx in indices {
+            let start = Int(readUInt32LE(binary, 2 + idx * 4))
+            let end: Int = if idx == (lc - 1) {
+                binary.endIndex
+            } else {
+                Int(readUInt32LE(binary, 2 + (idx + 1) * 4))
+            }
+            out.append(contentsOf: parseBinary(binary: binary[start ..< end]))
         }
-        return result
+        return out
     }
 
     /// indexとの対応を維持したバージョン
@@ -147,14 +187,17 @@ extension LOUDS {
             }
         }
 
-        let lc = binary[0..<2].toArray(of: UInt16.self)[0]
-        let header_endIndex: UInt32 = 2 + UInt32(lc) * UInt32(MemoryLayout<UInt32>.size)
-        let ui32array = binary[2..<header_endIndex].toArray(of: UInt32.self)
+        let lc: Int = Int(readUInt16LE(binary, 0))
         var result: [(loudsNodeIndex: Int, dicdata: [DicdataElement])] = []
+        result.reserveCapacity(indices.count)
         for (trueIndex, keyIndex) in indices {
-            let startIndex = Int(ui32array[keyIndex])
-            let endIndex = keyIndex == (lc - 1) ? binary.endIndex : Int(ui32array[keyIndex + 1])
-            result.append((trueIndex, parseBinary(binary: binary[startIndex ..< endIndex])))
+            let start = Int(readUInt32LE(binary, 2 + keyIndex * 4))
+            let end: Int = if keyIndex == (lc - 1) {
+                binary.endIndex
+            } else {
+                Int(readUInt32LE(binary, 2 + (keyIndex + 1) * 4))
+            }
+            result.append((trueIndex, parseBinary(binary: binary[start ..< end])))
         }
         return result
     }
