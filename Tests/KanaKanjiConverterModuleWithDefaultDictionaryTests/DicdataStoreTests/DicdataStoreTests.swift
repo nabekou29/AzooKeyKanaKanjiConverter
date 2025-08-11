@@ -9,6 +9,7 @@
 @testable import KanaKanjiConverterModule
 @testable import KanaKanjiConverterModuleWithDefaultDictionary
 import XCTest
+import SwiftUtils
 
 final class DicdataStoreTests: XCTestCase {
     func sequentialInput(_ composingText: inout ComposingText, sequence: String, inputStyle: KanaKanjiConverterModule.InputStyle) {
@@ -239,7 +240,7 @@ final class DicdataStoreTests: XCTestCase {
         do {
             var c = ComposingText()
             c.insertAtCursorPosition("999999999999", inputStyle: .roman2kana)
-            let result = dicdataStore.getWiseDicdata(convertTarget: c.convertTarget, inputData: c, surfaceRange: 0..<12)
+            let result = dicdataStore.getWiseDicdata(convertTarget: c.convertTarget, surfaceRange: 0..<12, fullText: Array(c.convertTarget.toKatakana()))
             XCTAssertTrue(result.contains(where: {$0.word == "999999999999"}))
             XCTAssertTrue(result.contains(where: {$0.word == "九千九百九十九億九千九百九十九万九千九百九十九"}))
         }

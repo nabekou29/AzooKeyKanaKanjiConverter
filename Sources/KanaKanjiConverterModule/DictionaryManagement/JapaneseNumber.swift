@@ -134,198 +134,207 @@ private enum Number {
 
 extension DicdataStore {
     private func parseLiteral(input: some StringProtocol) -> [JapaneseNumber] {
-        var chars = input.makeIterator()
+        // Fast, allocation-light tokenizer on Unicode scalars
+        let s = String(input)
+        let scalars = s.unicodeScalars
+        var it = scalars.makeIterator()
+        var lookahead: Unicode.Scalar? = it.next()
         var tokens: [JapaneseNumber] = []
-        func judge(char: Character) {
-            if char == "イ" {
-                if let char = chars.next(), char == "チ" || char == "ッ" {
-                    tokens.append(.いち)
+
+        @inline(__always)
+        func nextScalar() -> Unicode.Scalar? {
+            defer {
+                lookahead = it.next()
+            }
+            return lookahead
+        }
+
+        while let u0 = nextScalar() {
+            // Switch on primary scalar
+            switch u0 {
+            case "イ":
+                if let u1 = nextScalar() {
+                    if u1 == "チ" || u1 == "ッ" {
+                        tokens.append(.いち)
+                    } else {
+                        tokens.append(.エラー)
+                        return tokens
+                    }
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "オ" {
-                if let char = chars.next(), char == "ク" {
+            case "オ":
+                if let u1 = nextScalar(), u1 == "ク" {
                     tokens.append(.おく)
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "キ" {
-                if let char = chars.next(), char == "ュ" {
-                    if let char = chars.next(), char == "ウ" {
+            case "キ":
+                if let u1 = nextScalar(), u1 == "ュ" {
+                    if let u2 = nextScalar(), u2 == "ウ" {
                         tokens.append(.きゅう)
                     } else {
                         tokens.append(.エラー)
-                        return
+                        return tokens
                     }
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "ク" {
+            case "ク":
                 tokens.append(.きゅう)
-            } else if char == "ゴ" {
+            case "ゴ":
                 tokens.append(.ご)
-            } else if char == "サ" {
-                if let char = chars.next(), char == "ン" {
+            case "サ":
+                if let u1 = nextScalar(), u1 == "ン" {
                     tokens.append(.さん)
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "シ" {
-                if let char = chars.next() {
-                    if char == "チ" {
+            case "シ":
+                if let u1 = nextScalar() {
+                    if u1 == "チ" {
                         tokens.append(.なな)
                     } else {
                         tokens.append(.よん)
-                        judge(char: char)
+                        // reprocess this lookahead on next loop
+                        lookahead = u1
                     }
                 } else {
                     tokens.append(.よん)
                 }
-            } else if char == "ジ" {
-                if let char = chars.next(), char == "ュ" {
-                    if let char = chars.next(), char == "ウ" || char == "ッ" {
-                        tokens.append(.じゅう)
+            case "ジ":
+                if let u1 = nextScalar(), u1 == "ュ" {
+                    if let u2 = nextScalar() {
+                        if u2 == "ウ" || u2 == "ッ" {
+                            tokens.append(.じゅう)
+                        } else {
+                            tokens.append(.エラー)
+                            return tokens
+                        }
                     } else {
                         tokens.append(.エラー)
-                        return
+                        return tokens
                     }
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "セ" {
-                if let char = chars.next(), char == "ン" {
+            case "セ":
+                if let u1 = nextScalar(), u1 == "ン" {
                     tokens.append(.せん)
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "ゼ" {
-                if let char = chars.next() {
-                    if char == "ロ" {
+            case "ゼ":
+                if let u1 = nextScalar() {
+                    if u1 == "ロ" {
                         tokens.append(.れい)
-                    } else if char == "ン" {
+                    } else if u1 == "ン" {
                         tokens.append(.せん)
                     } else {
                         tokens.append(.エラー)
-                        return
+                        return tokens
                     }
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "チ" {
-                if let char = chars.next(), char == "ョ" {
-                    if let char = chars.next(), char == "ウ" {
+            case "チ":
+                if let u1 = nextScalar(), u1 == "ョ" {
+                    if let u2 = nextScalar(), u2 == "ウ" {
                         tokens.append(.ちょう)
                     } else {
                         tokens.append(.エラー)
-                        return
+                        return tokens
                     }
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "ナ" {
-                if let char = chars.next(), char == "ナ" {
+            case "ナ":
+                if let u1 = nextScalar(), u1 == "ナ" {
                     tokens.append(.なな)
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "ニ" {
+            case "ニ":
                 tokens.append(.に)
-            } else if char == "ハ" {
-                if let char = chars.next(), char == "チ" || char == "ッ" {
-                    tokens.append(.はち)
-                } else {
-                    tokens.append(.エラー)
-                    return
-                }
-            } else if char == "ヒ" {
-                if let char = chars.next(), char == "ャ" {
-                    if let char = chars.next(), char == "ク" {
-                        tokens.append(.ひゃく)
+            case "ハ":
+                if let u1 = nextScalar() {
+                    if u1 == "チ" || u1 == "ッ" {
+                        tokens.append(.はち)
                     } else {
                         tokens.append(.エラー)
-                        return
+                        return tokens
                     }
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "ビ" {
-                if let char = chars.next(), char == "ャ" {
-                    if let char = chars.next(), char == "ク" {
+            case "ヒ", "ビ", "ピ":
+                if let u1 = nextScalar(), u1 == "ャ" {
+                    if let u2 = nextScalar(), u2 == "ク" {
                         tokens.append(.ひゃく)
                     } else {
                         tokens.append(.エラー)
-                        return
+                        return tokens
                     }
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "ピ" {
-                if let char = chars.next(), char == "ャ" {
-                    if let char = chars.next(), char == "ク" {
-                        tokens.append(.ひゃく)
-                    } else {
-                        tokens.append(.エラー)
-                        return
-                    }
-                } else {
-                    tokens.append(.エラー)
-                    return
-                }
-            } else if char == "マ" {
-                if let char = chars.next() {
-                    if char == "ン" {
+            case "マ":
+                if let u1 = nextScalar() {
+                    if u1 == "ン" {
                         tokens.append(.まん)
-                    } else if char == "ル" {
+                    } else if u1 == "ル" {
                         tokens.append(.れい)
                     } else {
                         tokens.append(.エラー)
-                        return
+                        return tokens
                     }
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "ヨ" {
-                if let char = chars.next(), char == "ン" {
+            case "ヨ":
+                if let u1 = nextScalar(), u1 == "ン" {
                     tokens.append(.よん)
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "レ" {
-                if let char = chars.next(), char == "イ" {
+            case "レ":
+                if let u1 = nextScalar(), u1 == "イ" {
                     tokens.append(.れい)
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else if char == "ロ" {
-                if let char = chars.next(), char == "ク" || char == "ッ" {
-                    tokens.append(.ろく)
+            case "ロ":
+                if let u1 = nextScalar() {
+                    if u1 == "ク" || u1 == "ッ" {
+                        tokens.append(.ろく)
+                    } else {
+                        tokens.append(.エラー)
+                        return tokens
+                    }
                 } else {
                     tokens.append(.エラー)
-                    return
+                    return tokens
                 }
-            } else {
+            default:
                 tokens.append(.エラー)
-                return
+                return tokens
             }
+        }
 
-        }
-        while let char = chars.next() {
-            judge(char: char)
-        }
         tokens.append(.おわり)
         return tokens
     }
