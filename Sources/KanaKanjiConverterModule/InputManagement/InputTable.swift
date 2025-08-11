@@ -234,10 +234,11 @@ struct InputTable: Sendable {
         }
     }
 
-    /// In‑place variant: mutates `buffer` and returns (deleted, added) counts.
+    /// In‑place variant: mutates `buffer` and returns deleted count.
     /// Semantics match `toHiragana(currentText:added:)` but avoids new allocations
     /// when possible by editing the tail of `buffer` directly.
-    borrowing func apply(to buffer: inout [Character], added: InputPiece) {
+    @discardableResult
+    borrowing func apply(to buffer: inout [Character], added: InputPiece) -> Int {
         // Greedy match without temporary array allocation.
         let bestMatch = Self.matchGreedy(root: self.trieRoot, buffer: buffer, added: added, maxKeyCount: self.maxKeyCount)
 
@@ -249,7 +250,7 @@ struct InputTable: Sendable {
             if !kana.isEmpty {
                 buffer.append(contentsOf: kana)
             }
-            return
+            return deleteCount
         }
 
         switch added {
@@ -258,5 +259,6 @@ struct InputTable: Sendable {
         case .compositionSeparator:
             break
         }
+        return 0
     }
 }

@@ -66,165 +66,133 @@ public struct ComposingText: Sendable {
         self.convertTarget.prefix(self.convertTargetCursorPosition)
     }
 
-    /// `input`でのカーソル位置を無理やり作り出す関数
-    /// `target`が左側に来るようなカーソルの位置を返す。
-    /// 例えば`input`が`[k, y, o, u]`で`target`が`き|`の場合を考える。
+    /// inputとsurfaceのインデックス対応関係
+    private struct IndexPair {
+        let inputIndex: Int
+        let surfaceIndex: Int
+    }
+
+    /// 独立セグメントの境界にあたるインデックスのリストを作成し、返す
+    /// 独立セグメントとは、編集しても他の部分に影響を与えない部分
+    private func getIndependentSegmentBoundaries() -> [IndexPair] {
+        // 動作例1
+        // input: `k, a, n, s, h, a` (全てroman2kana)
+        // convertTarget: `か ん し| ゃ`
+        // targetSurfaceIndex: 3
+        // 動作
+        // 1. character = "k"
+        //    roman2kana = "k"
+        //    independentSegment = [k]
+        // 2. character = "a"
+        //    roman2kana = "か"
+        //    independentSegment = [ka]
+        //    `a`と`k`がセットになることで`か`が入力されるので、これらのセグメントが統合される
+        // 3. character = "n"
+        //    roman2kana = "かn"
+        //    independentSegment = [ka, n]
+        // 4. character = "s"
+        //    roman2kana = "かんs"
+        //    independentSegment = [ka, ns]
+        //    `ん`は`n`に続いて文字が入力されることで変換されるので、`n`と`s`は互いに独立でない
+        // 5. character = "h"
+        //    roman2kana = "かんsh"
+        //    independentSegment = [ka, ns, h]
+        // 6. character = "a"
+        //    roman2kana = "かんしゃ"
+        //    independentSegment = [ka, nsha]
+        //    `か`と`んしゃ`は、それぞれを編集しても他方に影響を与えるない独立セグメント
+        //    境界のinputとsurfaceのインデックスペアのリスト[{0, 0}, {2(a), 1(か)}, {6(a), 4{ゃ}}] が返される
+
+        var independentSegmentBoundaries = [IndexPair(inputIndex: 0, surfaceIndex: 0)]
+        var converting: [ConvertTargetElement] = []
+        var convertedLength = 0
+
+        for (currentInputIndex, element) in input.enumerated() {
+            // 現在の文字を入力した際に関連(依存)した文字列の長さ
+            let deletedCount = Self.updateConvertTargetElements(currentElements: &converting, newElement: element)
+
+            let previousConvertedLength = convertedLength
+            convertedLength = converting.reduce(0) { $0 + $1.string.count }
+
+            // 今回の文字入力による変換が、前の暫定独立セグメントの文字を含むローマ字テーブルエントリによって行われた場合
+            // 入力は前のセグメントに依存しているので、前のセグメントとの境界を消し、より長い独立セグメントにする
+            while let lastIndependentSegment =  independentSegmentBoundaries.popLast() {
+                // 文字列に影響を与えなかった入力は前のセグメントに統合する
+                if deletedCount == 0 && convertedLength == previousConvertedLength
+                    && lastIndependentSegment.surfaceIndex == previousConvertedLength {
+                    continue
+                }
+                // deletedCount分遡るまでにある境界を消す
+                if lastIndependentSegment.surfaceIndex <= previousConvertedLength - deletedCount {
+                    // deletedCount以上前の文字には依存していないので一度消した境界を戻す
+                    independentSegmentBoundaries.append(lastIndependentSegment)
+                    break
+                }
+            }
+            // 現在の終端をセグメント境界と仮定する
+            independentSegmentBoundaries.append(
+                IndexPair(inputIndex: currentInputIndex + 1, surfaceIndex: convertedLength)
+            )
+        }
+
+        return independentSegmentBoundaries
+    }
+
+    /// `targetSurfaceIndex`に対応するinputの位置を無理やり作り出す関数
+    /// 例えば`input`が`[k, y, o, u]`で`targetSurfaceIndex`が`2`の場合を考える。
     /// この状態では`input`に対応するカーソル位置が存在しない。
     /// この場合、`input`を`[き, ょ, u]`と置き換えた上で、`き|`と考えて、`1`を返す。
-    private mutating func forceGetInputCursorPosition(target: some StringProtocol) -> Int {
-        debug(#function, self, target)
-        if target.isEmpty {
+    private mutating func forceGetInputCursorPosition(targetSurfaceIndex: Int) -> Int {
+        debug(#function, self, targetSurfaceIndex)
+        if targetSurfaceIndex <= 0 {
             return 0
+        } else if targetSurfaceIndex >= self.convertTarget.count {
+            return self.input.count
         }
         // 動作例1
         // input: `k, a, n, s, h, a` (全てroman2kana)
-        // convetTarget: `か ん し| ゃ`
-        // convertTargetCursorPosition: 3
-        // target: かんし
+        // convertTarget: `か ん し| ゃ`
+        // targetSurfaceIndex: 3
         // 動作
-        // 1. character = "k"
-        //    roman2kana = "k"
-        //    count = 1
-        // 2. character = "a"
-        //    roman2kana = "か"
-        //    count = 2
-        //    target.hasPrefix(roman2kana)がtrueなので、lastPrefixIndex = 2, lastPrefix = "か"
-        // 3. character = "n"
-        //    roman2kana = "かn"
-        //    count = 3
-        // 4. character = "s"
-        //    roman2kana = "かんs"
-        //    count = 4
-        // 5. character = "h"
-        //    roman2kana = "かんsh"
-        //    count = 5
-        // 6. character = "a"
-        //    roman2kana = "かんしゃ"
-        //    count = 6
-        //    roman2kana.hasPrefix(target)がtrueなので、変換しすぎているとみなして調整の実行
-        //    replaceCountは6-2 = 4、したがって`n, s, h, a`が消去される
+        //    independentSegment = [{ka, か}, {nsha, んしゃ}]
+        //    `か`,`んしゃ`はそれぞれを編集しても他方に影響を与えず変更できるセグメント
+        //    targetSurfaceIndex = 3なので、3文字めの`し`が含まれる独立セグメント`nsha`をinputから削除
         //    input = [k, a]
-        //    count = 2
-        //    roman2kana.count == 4, lastPrefix.count = 1なので、3文字分のsuffix`ん,し,ゃ`が追加される
+        //    `nsha`がひらがなに変換された`んしゃ`が追加される
         //    input = [k, a, ん, し, ゃ]
-        //    count = 5
-        //    while
-        //       1. roman2kana = かんし
-        //          count = 4
-        //       break
-        // return count = 4
-        //
-        // 動作例2
-        // input: `k, a, n, s, h, a` (全てroman2kana)
-        // convetTarget: `か ん し| ゃ`
-        // convertTargetCursorPosition: 2
-        // target: かん
-        // 動作
-        // 1. character = "k"
-        //    roman2kana = "k"
-        //    count = 1
-        // 2. character = "a"
-        //    roman2kana = "か"
-        //    count = 2
-        //    target.hasPrefix(roman2kana)がtrueなので、lastPrefixIndex = 2, lastPrefix = "か"
-        // 3. character = "n"
-        //    roman2kana = "かn"
-        //    count = 3
-        // 4. character = "s"
-        //    roman2kana = "かんs"
-        //    count = 4
-        //    roman2kana.hasPrefix(target)がtrueなので、変換しすぎているとみなして調整の実行
-        //    replaceCountは4-2 = 2、したがって`n, s`が消去される
-        //    input = [k, a] ... [h, a]
-        //    count = 2
-        //    roman2kana.count == 3, lastPrefix.count = 1なので、2文字分のsuffix`ん,s`が追加される
-        //    input = [k, a, ん, s]
-        //    count = 4
-        //    while
-        //       1. roman2kana = かん
-        //          count = 3
-        //       break
-        // return count = 3
-        //
-        // 動作例3
-        // input: `i, t, t, a` (全てroman2kana)
-        // convetTarget: `い っ| た`
-        // convertTargetCursorPosition: 2
-        // target: いっ
-        // 動作
-        // 1. character = "i"
-        //    roman2kana = "い"
-        //    count = 1
-        //    target.hasPrefix(roman2kana)がtrueなので、lastPrefixIndex = 1, lastPrefix = "い"
-        // 2. character = "t"
-        //    roman2kana = "いt"
-        //    count = 2
-        // 3. character = "t"
-        //    roman2kana = "いっt"
-        //    count = 3
-        //    roman2kana.hasPrefix(target)がtrueなので、変換しすぎているとみなして調整の実行
-        //    replaceCountは3-1 = 2、したがって`t, t`が消去される
-        //    input = [i] ... [a]
-        //    count = 1
-        //    roman2kana.count == 3, lastPrefix.count = 1なので、2文字分のsuffix`っ,t`が追加される
-        //    input = [i, っ, t, a]
-        //    count = 3
-        //    while
-        //       1. roman2kana = いっ
-        //          count = 2
-        //       break
-        // return count = 2
+        //    inputにおける`し`の後にあたるインデックス4が返される
 
-        var count = 0
-        var lastPrefixIndex = 0
-        var lastPrefix = ""
-        var converting: [ConvertTargetElement] = []
-        var validCount: Int?
+        var IndependentSegmentBoundaries = getIndependentSegmentBoundaries()
+        let convertedChars = Array(convertTarget)
 
-        for element in input {
-            Self.updateConvertTargetElements(currentElements: &converting, newElement: element)
-            var converted = converting.reduce(into: "") {$0 += $1.string}
-            count += 1
+        // カーソルが含まれるセグメントの始点と終点
+        var cursorSegmentEnd = IndexPair(inputIndex: self.input.count, surfaceIndex: convertedChars.count)
+        var cursorSegmentStart = IndexPair(inputIndex: 0, surfaceIndex: 0)
 
-            // convertedがtargetと一致するようなcount(validCount)は複数ありえるが、その中で最も大きいものを返す
-            if converted == target {
-                validCount = count
-            } else if let validCount {
-                return validCount
-            }
-            // 一致ではないのにhasPrefixが成立する場合、変換しすぎている
-            // この場合、inputの変換が必要になる。
-            // 例えばcovnertTargetが「あき|ょ」で、`[a, k, y, o]`まで見て「あきょ」になってしまった場合、「あき」がprefixとなる。
-            // この場合、lastPrefix=1なので、1番目から現在までの入力をひらがな(suffix)で置き換える
-            // ただし「danbo」などのケースでは、途中状態で`だんb`が生じても1つ目の条件を満たす。このまま処理が進むことを防ぐため、全体のprefixになる条件が追加されている。
-            else if converted.hasPrefix(target) && self.convertTarget.hasPrefix(converted) {
-                // lastPrefixIndex: 「あ」までなので1
-                // count: 「あきょ」までなので4
-                // replaceCount: 3
-                let replaceCount = count - lastPrefixIndex
-                // suffix: 「あきょ」から「あ」を落とした分なので、「きょ」
-                let suffix = converted.suffix(converted.count - lastPrefix.count)
-                // lastPrefixIndexから現在のカウントまでをReplace
-                self.input.removeSubrange(count - replaceCount ..< count)
-                // suffix1文字ずつを入力に追加する
-                // この結果として生じる文字列については、`frozen`で処理する
-                self.input.insert(contentsOf: suffix.map {InputElement(piece: .character($0), inputStyle: .frozen)}, at: count - replaceCount)
-
-                count -= replaceCount
-                count += suffix.count
-                while converted != target {
-                    _ = converted.popLast()
-                    count -= 1
-                }
+        // カーソルが含まれる独立セグメントを探す
+        while let independentStart = IndependentSegmentBoundaries.popLast() {
+            if independentStart.surfaceIndex == targetSurfaceIndex {
+                // カーソルが独立セグメントの間にあり置換処理が必要ないのでinputIndexをそのまま返す
+                return independentStart.inputIndex
+            } else if independentStart.surfaceIndex < targetSurfaceIndex {
+                // カーソルが含まれるセグメントを特定したらその始点を代入する
+                cursorSegmentStart = independentStart
                 break
             }
-            // prefixになっている場合は更新する
-            else if target.hasPrefix(converted) {
-                lastPrefixIndex = count
-                lastPrefix = converted
-            }
+            // 現在のセグメントの開始は次に処理するセグメントの終端になる
+            cursorSegmentEnd = independentStart
         }
-        return validCount ?? count
+
+        // targetSurfaceIndexが含まれる独立セグメント全体をひらがなで置換する
+        // この結果として生じるひらがなの文字は、`frozen`で処理する
+        let cursorSegmentConvertedChars = Array(convertTarget)[cursorSegmentStart.surfaceIndex..<cursorSegmentEnd.surfaceIndex]
+        let frozenElements = cursorSegmentConvertedChars.map {
+            InputElement(piece: .character($0), inputStyle: .frozen)
+        }
+        self.input.replaceSubrange(cursorSegmentStart.inputIndex..<cursorSegmentEnd.inputIndex, with: frozenElements)
+
+        // targetSurfaceIndexに相当するinputの位置を計算
+        return targetSurfaceIndex - cursorSegmentStart.surfaceIndex + cursorSegmentStart.inputIndex
     }
 
     private func diff(from oldString: some StringProtocol, to newString: String) -> (delete: Int, input: String) {
@@ -240,7 +208,7 @@ public struct ComposingText: Sendable {
         if elements.isEmpty {
             return
         }
-        let inputCursorPosition = self.forceGetInputCursorPosition(target: self.convertTarget.prefix(convertTargetCursorPosition))
+        let inputCursorPosition = self.forceGetInputCursorPosition(targetSurfaceIndex: convertTargetCursorPosition)
         // input, convertTarget, convertTargetCursorPositionの3つを更新する
         // inputを更新
         self.input.insert(contentsOf: elements, at: inputCursorPosition)
@@ -279,11 +247,11 @@ public struct ComposingText: Sendable {
         // input: [k, a, n, s, h, a]
         // count = 1
         // currentPrefix = かんしゃ
-        // これから行く位置
-        //  targetCursorPosition = forceGetInputCursorPosition(かんし) = 4
+        // これから行く位置: 3文字目
+        //  targetCursorPosition = forceGetInputCursorPosition(3) = 4
         //  副作用でinputは[k, a, ん, し, ゃ]
-        // 現在の位置
-        //  inputCursorPosition = forceGetInputCursorPosition(かんしゃ) = 5
+        // 現在の位置: 4文字目
+        //  inputCursorPosition = forceGetInputCursorPosition(4) = 5
         //  副作用でinputは[k, a, ん, し, ゃ]
         // inputを更新する
         //  input =   (input.prefix(targetCursorPosition) = [k, a, ん, し])
@@ -295,25 +263,22 @@ public struct ComposingText: Sendable {
         // input: [k, a, n, s, h, a]
         // count = 2
         // currentPrefix = かんしゃ
-        // これから行く位置
-        //  targetCursorPosition = forceGetInputCursorPosition(かん) = 3
-        //  副作用でinputは[k, a, ん, s, h, a]
-        // 現在の位置
-        //  inputCursorPosition = forceGetInputCursorPosition(かんしゃ) = 6
-        //  副作用でinputは[k, a, ん, s, h, a]
+        // これから行く位置: 2文字目
+        //  targetCursorPosition = forceGetInputCursorPosition(2) = 3
+        //  副作用でinputは[k, a, ん, し, ゃ]
+        // 現在の位置: 4文字目
+        //  inputCursorPosition = forceGetInputCursorPosition(4) = 6
+        //  副作用でinputは[k, a, ん, し, ゃ]
         // inputを更新する
         //  input =   (input.prefix(targetCursorPosition) = [k, a, ん])
         //          + (input.suffix(input.count - inputCursorPosition) = [])
         //        =   [k, a, ん]
 
-        // 今いる位置
-        let currentPrefix = self.convertTargetBeforeCursor
-
         // この2つの値はこの順で計算する。
         // これから行く位置
-        let targetCursorPosition = self.forceGetInputCursorPosition(target: currentPrefix.dropLast(count))
+        let targetCursorPosition = self.forceGetInputCursorPosition(targetSurfaceIndex: self.convertTargetCursorPosition - count)
         // 現在の位置
-        let inputCursorPosition = self.forceGetInputCursorPosition(target: currentPrefix)
+        let inputCursorPosition = self.forceGetInputCursorPosition(targetSurfaceIndex: self.convertTargetCursorPosition)
 
         // inputを更新する
         self.input.removeSubrange(targetCursorPosition ..< inputCursorPosition)
@@ -356,8 +321,7 @@ public struct ComposingText: Sendable {
         case .surfaceCount(let correspondingCount):
             // 先頭correspondingCountを削除する操作に相当する
             // カーソルを移動する
-            let prefix = self.convertTarget.prefix(correspondingCount)
-            let index = self.forceGetInputCursorPosition(target: prefix)
+            let index = self.forceGetInputCursorPosition(targetSurfaceIndex: correspondingCount)
             self.input = Array(self.input[index...])
             self.convertTarget = String(self.convertTarget.dropFirst(correspondingCount))
             self.convertTargetCursorPosition -= correspondingCount
@@ -375,7 +339,7 @@ public struct ComposingText: Sendable {
     /// 現在のカーソル位置までの文字でComposingTextを作成し、返す
     public func prefixToCursorPosition() -> ComposingText {
         var text = self
-        let index = text.forceGetInputCursorPosition(target: text.convertTarget.prefix(text.convertTargetCursorPosition))
+        let index = text.forceGetInputCursorPosition(targetSurfaceIndex: text.convertTargetCursorPosition)
         text.input = Array(text.input.prefix(index))
         text.convertTarget = String(text.convertTarget.prefix(text.convertTargetCursorPosition))
         return text
@@ -390,29 +354,8 @@ public struct ComposingText: Sendable {
         // [き, ょ, う, は, い, い, て, ん, き, だ]
         // i2c: [0: 0, 3: 2(きょ), 4: 3(う), 6: 4(は), 7: 5(い), 8: 6(い), 10: 7(て), 13: 9(んき), 15: 10(だ)]
 
-        var map: [Int: (surfaceIndex: Int, surface: String)] = [0: (0, "")]
-
-        // 逐次更新用のバッファ
-        var convertTargetElements: [ConvertTargetElement] = []
-
-        for (idx, element) in self.input.enumerated() {
-            // 要素を追加して表層文字列を更新
-            Self.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
-            // 表層側の長さを再計算
-            let currentSurface = convertTargetElements.reduce(into: "") { $0 += $1.string }
-            // idx 個の要素を処理し終えた直後（= 次の要素を処理する前）の
-            // カーソル位置は idx + 1
-            map[idx + 1] = (currentSurface.count, currentSurface)
-        }
-        // 最終的なサーフェスと一致したものだけ残す
-        let finalSurface = convertTargetElements.reduce(into: "") { $0 += $1.string }
-        return map
-            .filter {
-                finalSurface.hasPrefix($0.value.surface)
-            }
-            .mapValues {
-                $0.surfaceIndex
-            }
+        let segmentBoundaries = getIndependentSegmentBoundaries()
+        return Dictionary(segmentBoundaries.map { ($0.inputIndex, $0.surfaceIndex) }) { _, second in second }
     }
 
     public mutating func stopComposition() {
@@ -445,7 +388,8 @@ extension ComposingText {
     }
 
     @inline(__always)
-    static func updateConvertTargetElements(currentElements: inout [ConvertTargetElement], newElement: InputElement) {
+    @discardableResult
+    static func updateConvertTargetElements(currentElements: inout [ConvertTargetElement], newElement: InputElement) -> Int {
         switch newElement.piece {
         case .character(let ch):
             if currentElements.isEmpty {
@@ -460,12 +404,12 @@ extension ComposingText {
                 currentElements.append(
                     ConvertTargetElement(string: s, inputStyle: newElement.inputStyle, cachedTable: table)
                 )
-                return
+                return 0
             }
             let lastIndex = currentElements.count - 1
             if currentElements[lastIndex].inputStyle == newElement.inputStyle {
                 let table = currentElements[lastIndex].cachedTable
-                updateConvertTarget(&currentElements[lastIndex].string, cachedTable: table, newCharacter: ch)
+                return updateConvertTarget(&currentElements[lastIndex].string, cachedTable: table, newCharacter: ch)
             } else {
                 let table: InputTable? = {
                     switch newElement.inputStyle {
@@ -478,15 +422,16 @@ extension ComposingText {
                 currentElements.append(
                     ConvertTargetElement(string: s, inputStyle: newElement.inputStyle, cachedTable: table)
                 )
+                return 0
             }
         case .compositionSeparator:
             if currentElements.isEmpty {
-                return
+                return 0
             }
             let lastIndex = currentElements.count - 1
-            guard currentElements[lastIndex].inputStyle == newElement.inputStyle else { return }
+            guard currentElements[lastIndex].inputStyle == newElement.inputStyle else { return 0 }
             let table = currentElements[lastIndex].cachedTable
-            updateConvertTarget(&currentElements[lastIndex].string, cachedTable: table, piece: .compositionSeparator)
+            return updateConvertTarget(&currentElements[lastIndex].string, cachedTable: table, piece: .compositionSeparator)
         }
     }
 
@@ -500,20 +445,25 @@ extension ComposingText {
         }
     }
 
-    static func updateConvertTarget(_ convertTarget: inout [Character], cachedTable: borrowing InputTable?, newCharacter: Character) {
+    ///- Returns: deletedCount
+    @discardableResult
+    static func updateConvertTarget(_ convertTarget: inout [Character], cachedTable: borrowing InputTable?, newCharacter: Character) -> Int {
         if cachedTable != nil {
-            cachedTable!.apply(to: &convertTarget, added: .character(newCharacter))
+            return cachedTable!.apply(to: &convertTarget, added: .character(newCharacter))
         } else {
             convertTarget.append(newCharacter)
+            return 0
         }
     }
 
-    static func updateConvertTarget(_ convertTarget: inout [Character], cachedTable: borrowing InputTable?, piece: InputPiece) {
+    ///- Returns: deletedCount
+    @discardableResult
+    static func updateConvertTarget(_ convertTarget: inout [Character], cachedTable: borrowing InputTable?, piece: InputPiece) -> Int {
         switch piece {
         case .character(let ch):
-            updateConvertTarget(&convertTarget, cachedTable: cachedTable, newCharacter: ch)
+            return updateConvertTarget(&convertTarget, cachedTable: cachedTable, newCharacter: ch)
         case .compositionSeparator:
-            cachedTable?.apply(to: &convertTarget, added: .compositionSeparator)
+            return cachedTable?.apply(to: &convertTarget, added: .compositionSeparator) ?? 0
         }
     }
 }
