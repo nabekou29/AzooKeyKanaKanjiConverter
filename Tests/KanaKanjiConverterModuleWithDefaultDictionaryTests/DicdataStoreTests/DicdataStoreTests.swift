@@ -8,8 +8,8 @@
 
 @testable import KanaKanjiConverterModule
 @testable import KanaKanjiConverterModuleWithDefaultDictionary
-import XCTest
 import SwiftUtils
+import XCTest
 
 final class DicdataStoreTests: XCTestCase {
     func sequentialInput(_ composingText: inout ComposingText, sequence: String, inputStyle: KanaKanjiConverterModule.InputStyle) {
