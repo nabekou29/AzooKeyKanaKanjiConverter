@@ -66,47 +66,70 @@ extension RegisteredNode {
     /// 再帰的にノードを遡り、`CandidateData`を構築する関数
     /// - Returns: 文節単位の区切り情報を持った変換候補データ
     func getCandidateData() -> CandidateData {
-        guard let prev else {
-            let unit = ClauseDataUnit()
-            unit.mid = self.data.mid
-            unit.ranges = [self.range]
-            return CandidateData(clauses: [(clause: unit, value: .zero)], data: [])
+        // 再帰を避けて、prevを起点まで辿ってから前方向に一度だけ処理する
+        // 1) チェーンを収集（BOSまで）しつつ、非空ワード数を数える
+        var chain: [RegisteredNode] = []
+        chain.reserveCapacity(8)
+        var nonEmptyCount = 0
+        var cursor: RegisteredNode? = self
+        while let node = cursor {
+            chain.append(node)
+            if !node.data.word.isEmpty { nonEmptyCount += 1 }
+            cursor = node.prev
         }
-        var lastcandidate = prev.getCandidateData()    // 自分に至るregisterdそれぞれのデータに処理
+        // 逆順にして起点->現在の順番にする
+        chain.reverse()
 
-        if self.data.word.isEmpty {
-            return lastcandidate
-        }
+        // 3) ローカル配列で構築して最後にCandidateDataへ格納
+        let head = chain[0]
+        var clauses: [(clause: ClauseDataUnit, value: PValue)] = []
+        clauses.reserveCapacity(nonEmptyCount + 1)
+        var data: [DicdataElement] = []
+        data.reserveCapacity(nonEmptyCount)
+        var unit = ClauseDataUnit()
+        unit.mid = head.data.mid
+        unit.ranges = [head.range]
+        clauses.append((clause: unit, value: .zero))
+        var lastClause = unit
+        var lastClauseIndex = 0
 
-        guard let lastClause = lastcandidate.lastClause else {
-            return lastcandidate
-        }
-
-        if lastClause.text.isEmpty || !DicdataStore.isClause(prev.data.rcid, self.data.lcid) {
-            // 文節ではないので、最後に追加する。
-            lastClause.text.append(self.data.word)
-            lastClause.ranges.append(self.range)
-            // 最初だった場合を想定している
-            if (lastClause.mid == 500 && self.data.mid != 500) || DicdataStore.includeMMValueCalculation(self.data) {
-                lastClause.mid = self.data.mid
+        // 4) 前方向に一度だけ処理
+        for i in 1 ..< chain.count {
+            let node = chain[i]
+            // もとの実装と同じく、空語はスキップ
+            if node.data.word.isEmpty {
+                continue
             }
-            lastcandidate.clauses[lastcandidate.clauses.count - 1].value = self.totalValue
-            lastcandidate.data.append(self.data)
-            return lastcandidate
-        }
-        // 文節の区切りだった場合
-        else {
-            let unit = ClauseDataUnit()
-            unit.text = self.data.word
-            unit.ranges.append(self.range)
-            if DicdataStore.includeMMValueCalculation(self.data) {
-                unit.mid = self.data.mid
+
+            let prevNode = chain[i - 1]
+            if lastClause.text.isEmpty || !DicdataStore.isClause(prevNode.data.rcid, node.data.lcid) {
+                // 文節継続（structなので配列へ書き戻す）
+                lastClause.text.append(node.data.word)
+                lastClause.ranges.append(node.range)
+                if (lastClause.mid == 500 && node.data.mid != 500) || DicdataStore.includeMMValueCalculation(node.data) {
+                    lastClause.mid = node.data.mid
+                }
+                data.append(node.data)
+                lastClause.dataEndIndex = data.count - 1
+                clauses[lastClauseIndex].clause = lastClause
+                clauses[lastClauseIndex].value = node.totalValue
+            } else {
+                // 文節境界
+                var newUnit = ClauseDataUnit()
+                newUnit.text = node.data.word
+                newUnit.ranges.append(node.range)
+                if DicdataStore.includeMMValueCalculation(node.data) {
+                    newUnit.mid = node.data.mid
+                }
+                lastClause.nextLcid = node.data.lcid
+                clauses[lastClauseIndex].clause = lastClause
+                data.append(node.data)
+                newUnit.dataEndIndex = data.count - 1
+                clauses.append((clause: newUnit, value: node.totalValue))
+                lastClause = newUnit
+                lastClauseIndex = clauses.count - 1
             }
-            // 前の文節の処理
-            lastClause.nextLcid = self.data.lcid
-            lastcandidate.clauses.append((clause: unit, value: self.totalValue))
-            lastcandidate.data.append(self.data)
-            return lastcandidate
         }
+        return CandidateData(clauses: clauses, data: data)
     }
 }

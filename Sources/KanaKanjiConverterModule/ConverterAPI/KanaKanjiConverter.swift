@@ -166,6 +166,8 @@ import SwiftUtils
     private func getUniqueCandidate(_ candidates: some Sequence<Candidate>, seenCandidates: Set<String> = []) -> [Candidate] {
         var result = [Candidate]()
         var textIndex = [String: Int]()
+        result.reserveCapacity(candidates.underestimatedCount)
+        textIndex.reserveCapacity(candidates.underestimatedCount)
         for candidate in candidates where !candidate.text.isEmpty && !seenCandidates.contains(candidate.text) {
             if let index = textIndex[candidate.text] {
                 if result[index].value < candidate.value || result[index].rubyCount < candidate.rubyCount {
@@ -287,13 +289,13 @@ import SwiftUtils
     ///   - sums: 変換対象のデータ。
     /// - Returns:
     ///   予測変換候補
-    private func getPredictionCandidate(_ sums: [(CandidateData, Candidate)], composingText: ComposingText, options: ConvertRequestOptions) -> [Candidate] {
+    private func getPredictionCandidate(_ bestCandidateDataForPrediction: consuming CandidateData, composingText: ComposingText, options: ConvertRequestOptions) -> [Candidate] {
         // 予測変換は次の方針で行う。
         // prepart: 前半文節 lastPart: 最終文節とする。
         // まず、lastPartがnilであるところから始める
 
         var candidates: [Candidate] = []
-        var prepart: CandidateData = sums.max {$0.1.value < $1.1.value}!.0
+        var prepart = consume bestCandidateDataForPrediction
         var lastpart: CandidateData.ClausesUnit?
         var count = 0
         while true {
@@ -306,7 +308,7 @@ import SwiftUtils
             if let oldlastPart = lastpart {
                 // 現在の最終分節をもう1つ取得
                 let lastUnit = prepart.clauses.popLast()!   // prepartをmutatingでlastを取る。
-                let newUnit = lastUnit.clause               // 新しいlastpartとなる部分。
+                var newUnit = lastUnit.clause               // 新しいlastpartとなる部分。
                 newUnit.merge(with: oldlastPart.clause)     // マージする。(最終文節の範囲を広げたことになる)
                 let newValue = lastUnit.value + oldlastPart.value
                 let newlastPart: CandidateData.ClausesUnit = (clause: newUnit, value: newValue)
@@ -455,24 +457,80 @@ import SwiftUtils
     private func processResult(inputData: ComposingText, result: (result: LatticeNode, lattice: Lattice), options: ConvertRequestOptions) -> ConversionResult {
         self.previousInputData = inputData
         self.lattice = result.lattice
+        // 比較的大きい配列（〜1000、2000程度の候補が含まれることがある）
         let clauseResult = result.result.getCandidateData()
         if clauseResult.isEmpty {
             let candidates = self.getUniqueCandidate(self.getAdditionalCandidate(inputData, options: options))
             return ConversionResult(mainResults: candidates, firstClauseResults: candidates)   // アーリーリターン
         }
-        let clauseCandidates: [Candidate] = clauseResult.map {(candidateData: CandidateData) -> Candidate in
-            let first = candidateData.clauses.first!
-            var count = 0
-            do {
-                var str = ""
-                while true {
-                    str += candidateData.data[count].word
-                    if str == first.clause.text {
-                        break
-                    }
-                    count += 1
-                }
+
+        // 予測変換用のベスト候補
+        var bestCandidateDataForPrediction: CandidateData? = nil
+        // 文章全体を変換した場合の候補上位5件を作る（不要なときはlazyで中間配列を避ける）
+        let wholeSentenceUniqueCandidates: [Candidate]
+        if options.requireJapanesePrediction {
+            let clauseResultCandidates = clauseResult.map { self.converter.processClauseCandidate($0) }
+            bestCandidateDataForPrediction = zip(clauseResult, clauseResultCandidates).max {$0.1.value < $1.1.value}!.0
+            wholeSentenceUniqueCandidates = self.getUniqueCandidate(clauseResultCandidates)
+        } else {
+            wholeSentenceUniqueCandidates = self.getUniqueCandidate(clauseResult.lazy.map { self.converter.processClauseCandidate($0) })
+        }
+        if case .完全一致 = options.requestQuery {
+            if options.zenzaiMode.enabled {
+                return ConversionResult(mainResults: wholeSentenceUniqueCandidates, firstClauseResults: [])
+            } else {
+                return ConversionResult(mainResults: wholeSentenceUniqueCandidates.sorted(by: {$0.value > $1.value}), firstClauseResults: [])
             }
+        }
+        // モデル重みを統合
+        let bestFiveSentenceCandidates: [Candidate]
+        if options.zenzaiMode.enabled {
+            // FIXME: もう少し良い方法はありそうだけど、短期的にかなりハックな実装にした
+            // candidateのvalueをZenzaiの出力順に書き換えることで、このあとのrerank処理で騙されてくれるようになっている
+            // より根本的には、`Candidate`にAI評価値をもたせるなどの方法が必要そう
+            var first5 = Array(wholeSentenceUniqueCandidates.prefix(5))
+            let values = first5.map(\.value).sorted(by: >)
+            for (i, v) in zip(first5.indices, values) {
+                first5[i].value = v
+            }
+            bestFiveSentenceCandidates = first5
+        } else {
+            bestFiveSentenceCandidates = wholeSentenceUniqueCandidates.min(count: 5, sortedBy: {$0.value > $1.value})
+        }
+
+        let fullCandidates: [Candidate]
+        do {
+            // 予測変換を最大3件作成する（必要な場合のみsumsを構築）
+            let bestThreePredictionCandidates: [Candidate] = if options.requireJapanesePrediction, let bestCandidateDataForPrediction {
+                self.getUniqueCandidate(
+                    self.getPredictionCandidate(bestCandidateDataForPrediction, composingText: inputData, options: options)
+                ).min(count: 3, sortedBy: {$0.value > $1.value})
+            } else {
+                []
+            }
+            // 英単語の予測変換。appleのapiを使うため、処理が異なる。
+            var foreignCandidates: [Candidate] = []
+
+            if options.requireEnglishPrediction {
+                foreignCandidates.append(contentsOf: self.getForeignPredictionCandidate(inputData: inputData, language: "en-US"))
+            }
+            if options.keyboardLanguage == .el_GR {
+                foreignCandidates.append(contentsOf: self.getForeignPredictionCandidate(inputData: inputData, language: "el"))
+            }
+            // その他のトップレベル変換（先頭に表示されうる変換候補）
+            let topLevelAdditionalCandidates = self.getTopLevelAdditionalCandidate(inputData, options: options)
+            // best8、foreign_candidates、zeroHintPrediction_candidates、toplevel_additional_candidateを混ぜて上位5件を取得する
+            fullCandidates = getUniqueCandidate(
+                bestFiveSentenceCandidates
+                    .chained(consume bestThreePredictionCandidates)
+                    .chained(consume foreignCandidates)
+                    .chained(consume topLevelAdditionalCandidates)
+            ).min(count: 5, sortedBy: {$0.value > $1.value})
+        }
+        // 文節のみ変換するパターン（上位5件）
+        let uniqueFirstClauseCandidates = self.getUniqueCandidate((consume clauseResult).lazy.map {(candidateData: CandidateData) -> Candidate in
+            let first = candidateData.clauses.first!
+            let count = max(0, first.clause.dataEndIndex)
             return Candidate(
                 text: first.clause.text,
                 value: first.value,
@@ -480,97 +538,61 @@ import SwiftUtils
                 lastMid: first.clause.mid,
                 data: Array(candidateData.data[0...count])
             )
-        }
-        let sums: [(CandidateData, Candidate)] = clauseResult.map {($0, converter.processClauseCandidate($0))}
-        // 文章全体を変換した場合の候補上位5件を作る
-        let whole_sentence_unique_candidates = self.getUniqueCandidate(sums.map {$0.1})
-        if case .完全一致 = options.requestQuery {
-            if options.zenzaiMode.enabled {
-                return ConversionResult(mainResults: whole_sentence_unique_candidates, firstClauseResults: [])
-            } else {
-                return ConversionResult(mainResults: whole_sentence_unique_candidates.sorted(by: {$0.value > $1.value}), firstClauseResults: [])
-            }
-        }
-        // モデル重みを統合
-        let sentence_candidates: [Candidate]
-        if options.zenzaiMode.enabled {
-            // FIXME: もう少し良い方法はありそうだけど、短期的にかなりハックな実装にした
-            // candidateのvalueをZenzaiの出力順に書き換えることで、このあとのrerank処理で騙されてくれるようになっている
-            // より根本的には、`Candidate`にAI評価値をもたせるなどの方法が必要そう
-            var first5 = Array(whole_sentence_unique_candidates.prefix(5))
-            let values = first5.map(\.value).sorted(by: >)
-            for (i, v) in zip(first5.indices, values) {
-                first5[i].value = v
-            }
-            sentence_candidates = first5
-        } else {
-            sentence_candidates = whole_sentence_unique_candidates.min(count: 5, sortedBy: {$0.value > $1.value})
-        }
-        // 予測変換を最大3件作成する
-        let prediction_candidates: [Candidate] = options.requireJapanesePrediction ? Array(self.getUniqueCandidate(self.getPredictionCandidate(sums, composingText: inputData, options: options)).min(count: 3, sortedBy: {$0.value > $1.value})) : []
+        })
 
-        // 英単語の予測変換。appleのapiを使うため、処理が異なる。
-        var foreign_candidates: [Candidate] = []
-
-        if options.requireEnglishPrediction {
-            foreign_candidates.append(contentsOf: self.getForeignPredictionCandidate(inputData: inputData, language: "en-US"))
-        }
-        if options.keyboardLanguage == .el_GR {
-            foreign_candidates.append(contentsOf: self.getForeignPredictionCandidate(inputData: inputData, language: "el"))
-        }
-
-        // 文全体変換5件と予測変換3件を混ぜてベスト8を出す
-        let best8 = getUniqueCandidate(sentence_candidates.prefix(5).chained(prediction_candidates)).sorted {$0.value > $1.value}
-        // その他のトップレベル変換（先頭に表示されうる変換候補）
-        let toplevel_additional_candidate = self.getTopLevelAdditionalCandidate(inputData, options: options)
-        // best8、foreign_candidates、zeroHintPrediction_candidates、toplevel_additional_candidateを混ぜて上位5件を取得する
-        let full_candidate = getUniqueCandidate(
-            best8
-                .chained(foreign_candidates)
-                .chained(toplevel_additional_candidate)
-        ).min(count: 5, sortedBy: {$0.value > $1.value})
-        // 重複のない変換候補を作成するための集合
-        var seenCandidate: Set<String> = full_candidate.mapSet {$0.text}
-        // 文節のみ変換するパターン（上位5件）
-        let clause_candidates = self.getUniqueCandidate(clauseCandidates, seenCandidates: seenCandidate).min(count: 5) {
+        var firstClauseResults = uniqueFirstClauseCandidates.min(count: 5) {
             if $0.rubyCount == $1.rubyCount {
                 $0.value > $1.value
             } else {
                 $0.rubyCount > $1.rubyCount
             }
         }
-        seenCandidate.formUnion(clause_candidates.map {$0.text})
-
-        // 最初の辞書データ
-        let dicCandidates: [Candidate] = result.lattice[index: .bothIndex(inputIndex: 0, surfaceIndex: 0)]
-            .map {
-                Candidate(
-                    text: $0.data.word,
-                    value: $0.data.value(),
-                    composingCount: $0.range.count,
-                    lastMid: $0.data.mid,
-                    data: [$0.data]
-                )
+        // 重複のない変換候補を作成するための集合
+        var seenCandidate: Set<String> = fullCandidates.mapSet {$0.text}
+        // 文節のみ変換するパターン（上位5件）
+        let firstClauseCandidates = self.getUniqueCandidate(consume uniqueFirstClauseCandidates, seenCandidates: seenCandidate).min(count: 5) {
+            if $0.rubyCount == $1.rubyCount {
+                $0.value > $1.value
+            } else {
+                $0.rubyCount > $1.rubyCount
             }
-        // その他辞書データに追加する候補
-        let additionalCandidates: [Candidate] = self.getAdditionalCandidate(inputData, options: options)
-
+        }
+        for c in firstClauseCandidates {
+            seenCandidate.insert(c.text)
+        }
         // 文字列の長さごとに並べ、かつその中で評価の高いものから順に並べる。
-        var word_candidates: [Candidate] = self.getUniqueCandidate(dicCandidates.chained(additionalCandidates), seenCandidates: seenCandidate)
-            .sorted {
-                let count0 = $0.rubyCount
-                let count1 = $1.rubyCount
-                return count0 == count1 ? $0.value > $1.value : count0 > count1
+        let wordCandidates: [Candidate]
+        do {
+            // 最初の辞書データ
+            let dicCandidates: [Candidate] = result.lattice[index: .bothIndex(inputIndex: 0, surfaceIndex: 0)]
+                .map {
+                    Candidate(
+                        text: $0.data.word,
+                        value: $0.data.value(),
+                        composingCount: $0.range.count,
+                        lastMid: $0.data.mid,
+                        data: [$0.data]
+                    )
+                }
+            // その他辞書データに追加する候補
+            let additionalCandidates: [Candidate] = self.getAdditionalCandidate(inputData, options: options)
+            var candidates = self.getUniqueCandidate((consume dicCandidates).chained(consume additionalCandidates), seenCandidates: seenCandidate)
+                .sorted {
+                    let count0 = $0.rubyCount
+                    let count1 = $1.rubyCount
+                    return count0 == count1 ? $0.value > $1.value : count0 > count1
+                }
+            for c in candidates {
+                seenCandidate.insert(c.text)
             }
-        seenCandidate.formUnion(word_candidates.map {$0.text})
+            // 賢く変換するパターン（任意件数）
+            let wiseCandidates = self.getUniqueCandidate(self.getSpecialCandidate(inputData, options: options), seenCandidates: seenCandidate)
+            // 途中でwise_candidatesを挟む
+            candidates.insert(contentsOf: consume wiseCandidates, at: min(5, candidates.endIndex))
+            wordCandidates = consume candidates
+        }
 
-        // 賢く変換するパターン（任意件数）
-        let wise_candidates: [Candidate] = self.getUniqueCandidate(self.getSpecialCandidate(inputData, options: options), seenCandidates: seenCandidate)
-        // 途中でwise_candidatesを挟む
-        word_candidates.insert(contentsOf: wise_candidates, at: min(5, word_candidates.endIndex))
-
-        var result = Array(full_candidate)
-
+        var result = consume fullCandidates
         // 3番目までに最低でも1つ、（誤り訂正ではなく）入力に完全一致する候補が入るようにする
         let checkRuby: (Candidate) -> Bool = {$0.data.reduce(into: "") {$0 += $1.ruby} == inputData.convertTarget.toKatakana()}
         if !result.prefix(3).contains(where: checkRuby) {
@@ -578,27 +600,19 @@ import SwiftUtils
                 // 3番目以降にある場合は順位を入れ替える
                 let candidate = result.remove(at: candidateIndex)
                 result.insert(candidate, at: min(result.endIndex, 2))
-            } else if let candidate = sentence_candidates.first(where: checkRuby) {
+            } else if let candidate = bestFiveSentenceCandidates.first(where: checkRuby) {
                 result.insert(candidate, at: min(result.endIndex, 2))
-            } else if let candidate = whole_sentence_unique_candidates.first(where: checkRuby) {
+            } else if let candidate = wholeSentenceUniqueCandidates.first(where: checkRuby) {
                 result.insert(candidate, at: min(result.endIndex, 2))
             }
         }
 
-        result.append(contentsOf: clause_candidates)
-        result.append(contentsOf: word_candidates)
+        result.append(contentsOf: consume firstClauseCandidates)
+        result.append(contentsOf: consume wordCandidates)
 
         result.mutatingForEach { item in
             item.withActions(self.getAppropriateActions(item))
             item.parseTemplate()
-        }
-        // 文節のみ変換するパターン（上位5件）
-        var firstClauseResults = self.getUniqueCandidate(clauseCandidates).min(count: 5) {
-            if $0.rubyCount == $1.rubyCount {
-                $0.value > $1.value
-            } else {
-                $0.rubyCount > $1.rubyCount
-            }
         }
         firstClauseResults.mutatingForEach { item in
             item.withActions(self.getAppropriateActions(item))
@@ -755,13 +769,16 @@ import SwiftUtils
         var seenCandidates: Set<String> = []
 
         results.append(contentsOf: emojiCandidates.suffix(3))
-        seenCandidates.formUnion(emojiCandidates.suffix(3).map {$0.text})
-
+        for c in emojiCandidates.suffix(3) {
+            seenCandidates.insert(c.text)
+        }
         // 残りの半分。ただしzeroHintResultsが足りない場合は全部で10個になるようにする。
         let predictionsCount = max((10 - results.count) / 2, 10 - results.count - zeroHintResults.count)
         let predictions = self.getUniquePostCompositionPredictionCandidate(predictionResults, seenCandidates: seenCandidates).min(count: predictionsCount, sortedBy: {$0.value > $1.value})
         results.append(contentsOf: predictions)
-        seenCandidates.formUnion(predictions.map {$0.text})
+        for c in predictions {
+            seenCandidates.insert(c.text)
+        }
 
         let zeroHints = self.getUniquePostCompositionPredictionCandidate(zeroHintResults, seenCandidates: seenCandidates)
         results.append(contentsOf: zeroHints.min(count: 10 - results.count, sortedBy: {$0.value > $1.value}))

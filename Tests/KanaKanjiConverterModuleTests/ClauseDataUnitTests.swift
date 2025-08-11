@@ -12,13 +12,13 @@ import XCTest
 final class ClauseDataUnitTests: XCTestCase {
     func testMerge() throws {
         do {
-            let unit1 = ClauseDataUnit()
+            var unit1 = ClauseDataUnit()
             unit1.text = "僕が"
             unit1.ranges = [.input(from: 0, to: 3)]
             unit1.mid = 0
             unit1.nextLcid = 0
 
-            let unit2 = ClauseDataUnit()
+            var unit2 = ClauseDataUnit()
             unit2.text = "走る"
             unit2.ranges = [.input(from: 3, to: 6)]
             unit2.mid = 1
@@ -32,13 +32,13 @@ final class ClauseDataUnitTests: XCTestCase {
         }
 
         do {
-            let unit1 = ClauseDataUnit()
+            var unit1 = ClauseDataUnit()
             unit1.text = "君は"
             unit1.ranges = [.input(from: 0, to: 3)]
             unit1.mid = 0
             unit1.nextLcid = 0
 
-            let unit2 = ClauseDataUnit()
+            var unit2 = ClauseDataUnit()
             unit2.text = "笑った"
             unit2.ranges = [.input(from: 3, to: 7)]
             unit2.mid = 3

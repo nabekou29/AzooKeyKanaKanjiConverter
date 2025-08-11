@@ -9,7 +9,7 @@
 import Foundation
 
 /// Data of clause.
-final class ClauseDataUnit {
+struct ClauseDataUnit {
     /// The MID of the clause.
     var mid: Int = MIDData.EOS.mid
     /// The LCID in the next clause.
@@ -18,11 +18,14 @@ final class ClauseDataUnit {
     var text: String = ""
     /// The range of the unit in input text.
     var ranges: [Lattice.LatticeRange] = []
+    /// The last index (inclusive) into CandidateData.data that composes this clause.
+    /// - Note: -1 means unset (no words have been appended yet).
+    var dataEndIndex: Int = -1
 
     /// Merge the given unit to this unit.
     /// - Parameter:
     ///   - unit: The unit to merge.
-    func merge(with unit: ClauseDataUnit) {
+    mutating func merge(with unit: ClauseDataUnit) {
         self.text.append(unit.text)
         self.ranges.append(contentsOf: unit.ranges)
         self.nextLcid = unit.nextLcid

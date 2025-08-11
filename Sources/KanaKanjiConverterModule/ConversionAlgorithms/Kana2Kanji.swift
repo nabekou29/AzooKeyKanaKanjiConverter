@@ -31,7 +31,7 @@ struct Kana2Kanji {
                 mid: data.clause.mid
             )
         }
-        let text = data.clauses.map {$0.clause.text}.joined()
+        let text = data.clauses.reduce(into: "") { $0.append($1.clause.text) }
         let value = data.clauses.last!.value + mmValue.value
         let lastMid = data.clauses.last!.clause.mid
 
