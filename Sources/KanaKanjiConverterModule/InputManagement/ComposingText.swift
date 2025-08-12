@@ -116,7 +116,7 @@ public struct ComposingText: Sendable {
 
             // 今回の文字入力による変換が、前の暫定独立セグメントの文字を含むローマ字テーブルエントリによって行われた場合
             // 入力は前のセグメントに依存しているので、前のセグメントとの境界を消し、より長い独立セグメントにする
-            while let lastIndependentSegment =  independentSegmentBoundaries.popLast() {
+            while let lastIndependentSegment = independentSegmentBoundaries.popLast() {
                 // 文字列に影響を与えなかった入力は前のセグメントに統合する
                 if deletedCount == 0 && convertedLength == previousConvertedLength
                     && lastIndependentSegment.surfaceIndex == previousConvertedLength {
@@ -162,15 +162,13 @@ public struct ComposingText: Sendable {
         //    input = [k, a, ん, し, ゃ]
         //    inputにおける`し`の後にあたるインデックス4が返される
 
-        var IndependentSegmentBoundaries = getIndependentSegmentBoundaries()
-        let convertedChars = Array(convertTarget)
-
+        var independentSegmentBoundaries = getIndependentSegmentBoundaries()
         // カーソルが含まれるセグメントの始点と終点
-        var cursorSegmentEnd = IndexPair(inputIndex: self.input.count, surfaceIndex: convertedChars.count)
+        var cursorSegmentEnd = IndexPair(inputIndex: self.input.count, surfaceIndex: self.convertTarget.count)
         var cursorSegmentStart = IndexPair(inputIndex: 0, surfaceIndex: 0)
 
         // カーソルが含まれる独立セグメントを探す
-        while let independentStart = IndependentSegmentBoundaries.popLast() {
+        while let independentStart = independentSegmentBoundaries.popLast() {
             if independentStart.surfaceIndex == targetSurfaceIndex {
                 // カーソルが独立セグメントの間にあり置換処理が必要ないのでinputIndexをそのまま返す
                 return independentStart.inputIndex
@@ -445,7 +443,7 @@ extension ComposingText {
         }
     }
 
-    ///- Returns: deletedCount
+    /// - Returns: deletedCount
     @discardableResult
     static func updateConvertTarget(_ convertTarget: inout [Character], cachedTable: borrowing InputTable?, newCharacter: Character) -> Int {
         if cachedTable != nil {
@@ -456,7 +454,7 @@ extension ComposingText {
         }
     }
 
-    ///- Returns: deletedCount
+    /// - Returns: deletedCount
     @discardableResult
     static func updateConvertTarget(_ convertTarget: inout [Character], cachedTable: borrowing InputTable?, piece: InputPiece) -> Int {
         switch piece {

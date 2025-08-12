@@ -157,7 +157,7 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(c.input, [
                 ComposingText.InputElement(character: "お", inputStyle: .frozen),
                 ComposingText.InputElement(character: "よ", inputStyle: .frozen),
-                ComposingText.InputElement(character: "う", inputStyle: .frozen),
+                ComposingText.InputElement(character: "う", inputStyle: .frozen)
             ])
             XCTAssertEqual(c.convertTarget, "およう")
             XCTAssertEqual(c.convertTargetCursorPosition, 1)
@@ -172,7 +172,7 @@ final class ComposingTextTests: XCTestCase {
             // 「あ」を消す
             c.deleteForwardFromCursorPosition(count: 1) // え|
             XCTAssertEqual(c.input, [
-                ComposingText.InputElement(character: "e", inputStyle: .mapped(id: .custom(url))),
+                ComposingText.InputElement(character: "e", inputStyle: .mapped(id: .custom(url)))
             ])
             XCTAssertEqual(c.convertTarget, "え")
             XCTAssertEqual(c.convertTargetCursorPosition, 1)
