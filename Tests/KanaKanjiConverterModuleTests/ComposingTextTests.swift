@@ -227,6 +227,19 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(map[14], nil)  // d
             XCTAssertEqual(map[15], 10)   // a
         }
+        // ローマ字 (composing-separatorがあるケース)
+        do {
+            var c = ComposingText()
+            sequentialInput(&c, sequence: "aka", inputStyle: .roman2kana)
+            c.insertAtCursorPosition([.init(piece: .compositionSeparator, inputStyle: .roman2kana)])
+            let map = c.inputIndexToSurfaceIndexMap()
+
+            XCTAssertEqual(map[0], 0)     // ""
+            XCTAssertEqual(map[1], 1)     // a
+            XCTAssertEqual(map[2], nil)   // k
+            XCTAssertEqual(map[3], 2)     // a
+            XCTAssertEqual(map[4], 2)     // {cs}
+        }
         // カスタム (循環を含むケース)
         do {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("custom_indexmap.tsv")
