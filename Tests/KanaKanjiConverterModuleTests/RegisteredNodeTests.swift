@@ -55,13 +55,13 @@ final class RegisteredNodeTests: XCTestCase {
             range: .input(from: 7, to: 9)
         )
         let result = node4.getCandidateData()
-        let clause1 = ClauseDataUnit()
+        var clause1 = ClauseDataUnit()
         clause1.text = "我輩は"
         clause1.nextLcid = CIDData.一般名詞.cid
         clause1.ranges = [.input(from: 0, to: 0), .input(from: 0, to: 4), .input(from: 4, to: 5)] // (0, 0) はBOSのためのダミー
         clause1.mid = 1
 
-        let clause2 = ClauseDataUnit()
+        var clause2 = ClauseDataUnit()
         clause2.text = "猫です"
         clause2.nextLcid = CIDData.EOS.cid
         clause2.ranges = [.input(from: 5, to: 7), .input(from: 7, to: 9)]
