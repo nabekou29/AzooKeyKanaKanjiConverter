@@ -227,7 +227,7 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(map[14], nil)  // d
             XCTAssertEqual(map[15], 10)   // a
         }
-        // ローマ字 (composing-separatorがあるケース)
+        // ローマ字 (composition-separatorがあるケース)
         do {
             var c = ComposingText()
             sequentialInput(&c, sequence: "aka", inputStyle: .roman2kana)
