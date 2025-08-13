@@ -4,6 +4,9 @@ set -euo pipefail
 SKIP_TESTING=false
 GPU_METRICS=true
 AUTO_OPEN=false
+CPU_MODE=false
+# Predeclare as empty array to avoid -u errors on expansion
+GPU_INSTR=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -16,6 +19,9 @@ while [[ $# -gt 0 ]]; do
     --auto-open)
       AUTO_OPEN=true
       ;;
+    --cpu)
+      CPU_MODE=true
+      ;;
     *)
       echo "[error] unknown option: $1" 1>&2
       exit 1
@@ -24,7 +30,12 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-echo "[info] options: skip-testing=$SKIP_TESTING, gpu-metrics=$GPU_METRICS, auto-open=$AUTO_OPEN"
+# Switch to CPU-only trait and metrics if requested
+if [[ "$CPU_MODE" == true ]]; then
+  GPU_METRICS=false
+fi
+
+echo "[info] options: skip-testing=$SKIP_TESTING, gpu-metrics=$GPU_METRICS, auto-open=$AUTO_OPEN, cpu-mode=$CPU_MODE"
 
 if [[ "$GPU_METRICS" == true ]]; then
   GPU_INSTR=(--instrument 'Metal Application')
@@ -40,7 +51,16 @@ TEST_IDS=(
   "KanaKanjiConverterModuleWithDefaultDictionaryTests.ZenzaiTests/testGradualConversion_Roman2Kana"
   "KanaKanjiConverterModuleWithDefaultDictionaryTests.ZenzaiTests/testGradualConversion_AZIK"
 )
+# CPUモードのときはFullConversionのみ実行（xctraceが重たいため）
+if [[ "$CPU_MODE" == true ]]; then
+  TEST_IDS=(
+    "KanaKanjiConverterModuleWithDefaultDictionaryTests.ZenzaiTests/testFullConversion"
+  )
+fi
 TRAIT="Zenzai"
+if [[ "$CPU_MODE" == true ]]; then
+  TRAIT="ZenzaiCPU"
+fi
 
 # /tmp 配下に作業ディレクトリ
 WORKDIR="$(mktemp -d "/tmp/azookey_prof_XXXXXX")"
@@ -103,7 +123,7 @@ for i in "${!TEST_IDS[@]}"; do
   if [[ $i -eq 0 ]]; then
     xcrun xctrace record \
       --template 'Time Profiler' \
-      "${GPU_INSTR[@]}" \
+      ${GPU_INSTR[@]+"${GPU_INSTR[@]}"} \
       --output "$TRACE" \
       --launch -- \
       /usr/bin/env \
@@ -116,7 +136,7 @@ for i in "${!TEST_IDS[@]}"; do
   else
     xcrun xctrace record \
       --template 'Time Profiler' \
-      "${GPU_INSTR[@]}" \
+      ${GPU_INSTR[@]+"${GPU_INSTR[@]}"} \
       --output "$TRACE" \
       --append-run \
       --launch -- \

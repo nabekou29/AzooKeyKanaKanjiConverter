@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: swift build -Xswiftc -strict-concurrency=complete -Xcxx -xobjective-c++ -v
       - name: Run tests
-        run: swift test -c release -Xswiftc -strict-concurrency=complete -Xcxx -xobjective-c++ -v
+        run: swift test -c release -Xswiftc -strict-concurrency=complete -Xcxx -xobjective-c++ -v --traits ZenzaiCPU
   ubuntu-build:
     name: Swift ${{ matrix.swift-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
