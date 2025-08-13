@@ -1,5 +1,5 @@
-#if Zenzai
-// Zenzaiが有効でない場合、llama-mock.swiftの実装が利用可能になる
+#if Zenzai || ZenzaiCPU
+// Zenzai/ZenzaiCPU が有効でない場合、llama-mock.swift の実装が利用される
 import llama
 #endif
 
@@ -106,13 +106,23 @@ final class ZenzContext {
         llama_backend_init()
         var model_params = llama_model_default_params()
         model_params.use_mmap = true
+        #if ZenzaiCPU
+        // CPU 専用: GPU へのオフロードを無効化
+        model_params.n_gpu_layers = 0
+        model_params.split_mode = LLAMA_SPLIT_MODE_NONE
+        #endif
         let model = llama_model_load_from_file(path, model_params)
         guard let model else {
             debug("Could not load model at \(path)")
             throw ZenzError.couldNotLoadModel(path: path)
         }
 
-        let context = llama_init_from_model(model, ctx_params)
+        var params = ctx_params
+        #if ZenzaiCPU
+        // CPU 専用: KV / KQV 等の GPU オフロードを完全に無効化
+        params.offload_kqv = false
+        #endif
+        let context = llama_init_from_model(model, params)
         guard let context else {
             debug("Could not load context!")
             throw ZenzError.couldNotLoadContext
@@ -129,7 +139,11 @@ final class ZenzContext {
 
     func reset_context() throws {
         llama_free(self.context)
-        let context = llama_init_from_model(self.model, Self.ctx_params)
+        var params = Self.ctx_params
+        #if ZenzaiCPU
+        params.offload_kqv = false
+        #endif
+        let context = llama_init_from_model(self.model, params)
         guard let context else {
             debug("Could not load context!")
             throw ZenzError.couldNotLoadContext
