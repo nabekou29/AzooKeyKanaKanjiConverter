@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-15]
+        os: [macos-latest]
         swift-version: ["6.1"]
     steps:
       - uses: ensan-hcl/setup-swift@swift-6.1.0
@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: swift build -Xswiftc -strict-concurrency=complete -Xcxx -xobjective-c++ -v
       - name: Run tests
-        run: swift test -c release -v --traits ZenzaiCPU
+        run: swift test -c release -Xswiftc -strict-concurrency=complete -Xcxx -xobjective-c++ -v
   ubuntu-build:
     name: Swift ${{ matrix.swift-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
