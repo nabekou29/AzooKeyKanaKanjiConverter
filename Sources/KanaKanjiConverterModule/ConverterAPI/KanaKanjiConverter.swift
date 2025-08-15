@@ -8,17 +8,23 @@
 
 import Algorithms
 import EfficientNGram
-package import Foundation
+public import Foundation
 import SwiftUtils
 
 /// かな漢字変換の管理を受け持つクラス
 @MainActor public final class KanaKanjiConverter {
     private let converter: Kana2Kanji
-    public init() {
-        self.converter = .init()
-    }
+
     public init(dicdataStore: DicdataStore) {
         self.converter = .init(dicdataStore: dicdataStore)
+        self.dicdataStoreState = dicdataStore.prepareState()
+    }
+    public convenience init(dictionaryURL: URL, preloadDictionary: Bool = false) {
+        let dicdataStore = DicdataStore(dictionaryURL: dictionaryURL, preloadDictionary: preloadDictionary)
+        self.init(dicdataStore: dicdataStore)
+    }
+    static func withoutDictionary() -> KanaKanjiConverter {
+        KanaKanjiConverter(dictionaryURL: URL(fileURLWithPath: "/dev/null"), preloadDictionary: false)
     }
 
     nonisolated public static let defaultSpecialCandidateProviders: [any SpecialCandidateProvider] = [
@@ -42,6 +48,7 @@ import SwiftUtils
     private var zenzaiCache: Kana2Kanji.ZenzaiCache?
     private var zenzaiPersonalization: (mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode, base: EfficientNGram, personal: EfficientNGram)?
     public private(set) var zenzStatus: String = ""
+    private var dicdataStoreState: DicdataStoreState
 
     /// リセットする関数
     public func stopComposition() {
@@ -100,6 +107,7 @@ import SwiftUtils
 
     /// 入力する言語が分かったらこの関数をなるべく早い段階で呼ぶことで、SpellCheckerの初期化が行われ、変換がスムーズになる
     public func setKeyboardLanguage(_ language: KeyboardLanguage) {
+        self.dicdataStoreState.updateKeyboardLanguage(language)
         if !checkerInitialized[language, default: false] {
             switch language {
             case .en_US:
@@ -118,12 +126,18 @@ import SwiftUtils
         }
     }
 
-    /// 上流の関数から`dicdataStore`で行うべき操作を伝播する関数。
-    /// - Parameters:
-    ///   - data: 行うべき操作。
-    public func sendToDicdataStore(_ data: DicdataStore.Notification) {
-        self.converter.dicdataStore.sendToDicdataStore(data)
+    public func importDynamicUserDictionary(_ dicdata: [DicdataElement]) {
+        self.dicdataStoreState.importDynamicUserDictionary(dicdata)
     }
+
+    public func updateUserDictionaryURL(_ newURL: URL) {
+        self.dicdataStoreState.updateUserDictionaryURL(newURL)
+    }
+
+    public func updateLearningConfig(_ newConfig: LearningConfig) {
+        self.dicdataStoreState.updateLearningConfig(newConfig)
+    }
+
     /// 確定操作後、内部状態のキャッシュを変更する関数。
     /// - Parameters:
     ///   - candidate: 確定された候補。
@@ -134,17 +148,36 @@ import SwiftUtils
     /// 確定操作後、学習メモリをアップデートする関数。
     /// - Parameters:
     ///   - candidate: 確定された候補。
+    /// - Warning:
+    ///   `commitUpdateLearningData`を呼び出すまで永続化されません。
     public func updateLearningData(_ candidate: Candidate) {
-        self.converter.dicdataStore.updateLearningData(candidate, with: self.lastData)
+        self.dicdataStoreState.updateLearningData(candidate, with: self.lastData)
         self.lastData = candidate.data.last
     }
 
     /// 確定操作後、学習メモリをアップデートする関数。
     /// - Parameters:
     ///   - candidate: 確定された候補。
+    /// - Warning:
+    ///   `commitUpdateLearningData`を呼び出すまで永続化されません。
     public func updateLearningData(_ candidate: Candidate, with predictionCandidate: PostCompositionPredictionCandidate) {
-        self.converter.dicdataStore.updateLearningData(candidate, with: predictionCandidate)
+        self.dicdataStoreState.updateLearningData(candidate, with: predictionCandidate)
         self.lastData = predictionCandidate.lastData
+    }
+
+    /// 確定操作後の学習メモリの更新を確定させます。
+    public func commitUpdateLearningData() {
+        self.dicdataStoreState.saveMemory()
+    }
+
+    /// 確定操作後の学習メモリの更新を確定させます。
+    public func forgetMemory(_ candidate: Candidate) {
+        self.dicdataStoreState.forgetMemory(candidate)
+    }
+
+    /// 確定操作後の学習メモリの更新を確定させます。
+    public func resetMemory() {
+        self.dicdataStoreState.resetMemory()
     }
 
     /// 賢い変換候補を生成する関数。
@@ -312,7 +345,7 @@ import SwiftUtils
                 newUnit.merge(with: oldlastPart.clause)     // マージする。(最終文節の範囲を広げたことになる)
                 let newValue = lastUnit.value + oldlastPart.value
                 let newlastPart: CandidateData.ClausesUnit = (clause: newUnit, value: newValue)
-                let predictions = converter.getPredictionCandidates(composingText: composingText, prepart: prepart, lastClause: newlastPart.clause, N_best: 5)
+                let predictions = converter.getPredictionCandidates(composingText: composingText, prepart: prepart, lastClause: newlastPart.clause, N_best: 5, dicdataStoreState: self.dicdataStoreState)
                 lastpart = newlastPart
                 // 結果がemptyでなければ
                 if !predictions.isEmpty {
@@ -323,7 +356,7 @@ import SwiftUtils
                 // 最終分節を取得
                 lastpart = prepart.clauses.popLast()
                 // 予測変換を受け取る
-                let predictions = converter.getPredictionCandidates(composingText: composingText, prepart: prepart, lastClause: lastpart!.clause, N_best: 5)
+                let predictions = converter.getPredictionCandidates(composingText: composingText, prepart: prepart, lastClause: lastpart!.clause, N_best: 5, dicdataStoreState: self.dicdataStoreState)
                 // 結果がemptyでなければ
                 if !predictions.isEmpty {
                     // 結果に追加
@@ -465,7 +498,7 @@ import SwiftUtils
         }
 
         // 予測変換用のベスト候補
-        var bestCandidateDataForPrediction: CandidateData? = nil
+        var bestCandidateDataForPrediction: CandidateData?
         // 文章全体を変換した場合の候補上位5件を作る（不要なときはlazyで中間配列を避ける）
         let wholeSentenceUniqueCandidates: [Candidate]
         if options.requireJapanesePrediction {
@@ -641,7 +674,8 @@ import SwiftUtils
                 inferenceLimit: zenzaiMode.inferenceLimit,
                 requestRichCandidates: zenzaiMode.requestRichCandidates,
                 personalizationMode: self.getZenzaiPersonalization(mode: zenzaiMode.personalizationMode),
-                versionDependentConfig: zenzaiMode.versionDependentMode
+                versionDependentConfig: zenzaiMode.versionDependentMode,
+                dicdataStoreState: self.dicdataStoreState
             )
             self.zenzaiCache = cache
             self.previousInputData = inputData
@@ -650,7 +684,12 @@ import SwiftUtils
 
         guard let previousInputData else {
             debug("\(#function): 新規計算用の関数を呼びますA")
-            let result = converter.kana2lattice_all(inputData, N_best: N_best, needTypoCorrection: needTypoCorrection)
+            let result = converter.kana2lattice_all(
+                inputData,
+                N_best: N_best,
+                needTypoCorrection: needTypoCorrection,
+                dicdataStoreState: self.dicdataStoreState
+            )
             self.previousInputData = inputData
             return result
         }
@@ -679,7 +718,14 @@ import SwiftUtils
         let diff = inputData.differenceSuffix(to: previousInputData)
 
         debug("\(#function): 最後尾文字置換用の関数を呼びます、差分は\(diff)")
-        let result = converter.kana2lattice_changed(inputData, N_best: N_best, counts: diff, previousResult: (inputData: previousInputData, lattice: self.lattice), needTypoCorrection: needTypoCorrection)
+        let result = converter.kana2lattice_changed(
+            inputData,
+            N_best: N_best,
+            counts: diff,
+            previousResult: (inputData: previousInputData, lattice: self.lattice),
+            needTypoCorrection: needTypoCorrection,
+            dicdataStoreState: self.dicdataStoreState
+        )
         self.previousInputData = inputData
         return result
     }
@@ -711,10 +757,10 @@ import SwiftUtils
         if inputData.convertTarget.isEmpty {
             return ConversionResult(mainResults: [], firstClauseResults: [])
         }
-
-        // DicdataStoreにRequestOptionを通知する
-        self.sendToDicdataStore(.setRequestOptions(options))
-
+        if options.shouldResetMemory {
+            self.resetMemory()
+        }
+        self.dicdataStoreState.updateIfRequired(options: options)
         #if os(iOS)
         let needTypoCorrection = options.needTypoCorrection ?? true
         #else
@@ -753,7 +799,11 @@ import SwiftUtils
         }
 
         // 予測変換に基づく候補を列挙
-        let predictionResults = self.converter.getPredictionCandidates(prepart: leftSideCandidate, N_best: 15)
+        let predictionResults = self.converter.getPredictionCandidates(
+            prepart: leftSideCandidate,
+            N_best: 15,
+            dicdataStoreState: self.dicdataStoreState
+        )
         // 絵文字を追加
         let replacer = options.textReplacer
         var emojiCandidates: [PostCompositionPredictionCandidate] = []
