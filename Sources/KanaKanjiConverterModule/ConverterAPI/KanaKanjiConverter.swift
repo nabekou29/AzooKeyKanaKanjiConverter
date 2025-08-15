@@ -171,6 +171,11 @@ import SwiftUtils
     }
 
     /// 確定操作後の学習メモリの更新を確定させます。
+    public func forgetMemory(_ candidate: Candidate) {
+        self.dicdataStoreState.forgetMemory(candidate)
+    }
+
+    /// 確定操作後の学習メモリの更新を確定させます。
     public func resetMemory() {
         self.dicdataStoreState.resetMemory()
     }
