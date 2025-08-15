@@ -37,17 +37,17 @@ extension Subcommands {
 
         mutating func run() async throws {
             let inputItems = try parseInputFile()
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var executionTime: Double = 0
             var resultItems: [EvaluateItem] = []
             for item in inputItems {
                 let start = Date()
                 // セットアップ
-                await converter.sendToDicdataStore(.importDynamicUserDict(
+                await converter.importDynamicUserDictionary(
                     (item.user_dictionary ?? []).map {
                         DicdataElement(word: $0.word, ruby: $0.reading.toKatakana(), cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -10)
                     }
-                ))
+                )
                 // 変換
                 var composingText = ComposingText()
                 composingText.insertAtCursorPosition(item.query, inputStyle: .direct)
@@ -108,13 +108,11 @@ extension Subcommands {
             } else {
                 personalizationMode = nil
             }
-            var option: ConvertRequestOptions = .withDefaultDictionary(
+            var option: ConvertRequestOptions = .init(
                 N_best: self.configNBest,
                 requireJapanesePrediction: false,
                 requireEnglishPrediction: false,
                 keyboardLanguage: .ja_JP,
-                typographyLetterCandidate: false,
-                unicodeCandidate: true,
                 englishCandidateInRoman2KanaInput: true,
                 fullWidthRomanCandidate: false,
                 halfWidthKanaCandidate: false,
@@ -123,6 +121,8 @@ extension Subcommands {
                 shouldResetMemory: false,
                 memoryDirectoryURL: URL(fileURLWithPath: ""),
                 sharedContainerURL: URL(fileURLWithPath: ""),
+                textReplacer: .withDefaultEmojiDictionary(),
+                specialCandidateProviders: KanaKanjiConverter.defaultSpecialCandidateProviders,
                 zenzaiMode: self.zenzWeightPath.isEmpty ? .off : .on(weight: URL(string: self.zenzWeightPath)!, inferenceLimit: self.configZenzaiInferenceLimit, personalizationMode: personalizationMode, versionDependentMode: .v2(.init(leftSideContext: self.configZenzaiIgnoreLeftContext ? nil : leftSideContext))),
                 metadata: .init(versionString: "anco for debugging")
             )

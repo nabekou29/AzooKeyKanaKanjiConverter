@@ -18,14 +18,12 @@ final class ConverterTests: XCTestCase {
     }
 
     func requestOptions(needTypoCorrection: Bool = false) -> ConvertRequestOptions {
-        .withDefaultDictionary(
+        .init(
             N_best: 10,
             needTypoCorrection: needTypoCorrection,
             requireJapanesePrediction: false,
             requireEnglishPrediction: false,
             keyboardLanguage: .ja_JP,
-            typographyLetterCandidate: false,
-            unicodeCandidate: true,
             englishCandidateInRoman2KanaInput: true,
             fullWidthRomanCandidate: false,
             halfWidthKanaCandidate: false,
@@ -34,20 +32,22 @@ final class ConverterTests: XCTestCase {
             shouldResetMemory: false,
             memoryDirectoryURL: URL(fileURLWithPath: ""),
             sharedContainerURL: URL(fileURLWithPath: ""),
+            textReplacer: .empty,
+            specialCandidateProviders: [],
             metadata: nil
         )
     }
 
     func testFullConversion() async throws {
         do {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("あずーきーはしんじだいのきーぼーどあぷりです", inputStyle: .direct)
             let results = await converter.requestCandidates(c, options: requestOptions())
             XCTAssertEqual(results.mainResults.first?.text, "azooKeyは新時代のキーボードアプリです")
         }
         do {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("ようしょうきからてにすすいえいやきゅうしょうりんじけんぽうなどさまざまなすぽーつをけいけんしながらそだちしょうがっこうじだいはろさんぜるすきんこうにたいざいしておりごるふやてにすをならっていた", inputStyle: .direct)
             let results = await converter.requestCandidates(c, options: requestOptions())
@@ -59,14 +59,14 @@ final class ConverterTests: XCTestCase {
     func testRoman2KanaFullConversion() async throws {
         for needTypoCorrection in [true, false] {
             do {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 c.insertAtCursorPosition("azuーkiーhasinjidainokiーboーdoapuridesu", inputStyle: .roman2kana)
                 let results = await converter.requestCandidates(c, options: requestOptions(needTypoCorrection: needTypoCorrection))
                 XCTAssertEqual(results.mainResults.first?.text, "azooKeyは新時代のキーボードアプリです")
             }
             do {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 c.insertAtCursorPosition("youshoukikaratenisusuieiyakyuushourinjikenpounadosamazamanasupoーtuwokeikennsinagarasodatishougakkouzidaiharosanzerusukinkounitaizaisiteorigoruhuyatenisuwonaratteita", inputStyle: .roman2kana)
                 let results = await converter.requestCandidates(c, options: requestOptions(needTypoCorrection: needTypoCorrection))
@@ -78,7 +78,7 @@ final class ConverterTests: XCTestCase {
     func testAzikFullConversion() async throws {
         for needTypoCorrection in [true, false] {
             do {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 // ： -> ー, sk -> しん, dq → だい, kf -> き, ds: です
                 c.insertAtCursorPosition("azu：ki：haskzidqnokf：bo：doapurids", inputStyle: .mapped(id: .defaultAZIK))
@@ -87,7 +87,7 @@ final class ConverterTests: XCTestCase {
                 XCTAssertEqual(results.mainResults.first?.text, "azooKeyは新時代のキーボードアプリです")
             }
             do {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 // yp -> よう, xp -> しょう, kf -> き, kr -> から, kyh -> きゅう, rk -> りん, kd -> けん, pp -> ぽう, ： -> ー, kw -> けい, gr -> がら, ； -> っ, kp -> こう, dq -> だい, sz -> さん, kk -> きん, tq -> たい, zq -> ざい, tw -> てい
                 c.insertAtCursorPosition("ypxpkfkrtenisusuieiyakyhxprkzikdppnadosamazamanasupo：tuwokwkdsinagrsodatixpga；kpzidqharoszzerusukkkpnitqzqsiteorigoruhuyatenisuwonara；twta", inputStyle: .mapped(id: .defaultAZIK))
@@ -101,7 +101,7 @@ final class ConverterTests: XCTestCase {
     // 1文字ずつ変換する
     // memo: 内部実装としては別のモジュールが呼ばれるのだが、それをテストする方法があまりないかもしれない
     func testGradualConversion() async throws {
-        let converter = await KanaKanjiConverter()
+        let converter = await KanaKanjiConverter.withDefaultDictionary()
         var c = ComposingText()
         let text = "ようしょうきからてにすすいえいやきゅうしょうりんじけんぽうなどさまざまなすぽーつをけいけんしながらそだちしょうがっこうじだいはろさんぜるすきんこうにたいざいしておりごるふやてにすをならっていた"
         for char in text {
@@ -116,7 +116,7 @@ final class ConverterTests: XCTestCase {
     // 1文字ずつ変換する
     // memo: 内部実装としては別のモジュールが呼ばれるのだが、それをテストする方法があまりないかもしれない
     func testRoman2KanaGradualConversion() async throws {
-        let converter = await KanaKanjiConverter()
+        let converter = await KanaKanjiConverter.withDefaultDictionary()
         var c = ComposingText()
         let text = "youshoukikaratenisusuieiyakyuushourinjikenpounadosamazamanasupoーtuwokeikennsinagarasodatishougakkouzidaiharosanzerusukinkounitaizaisiteorigoruhuyatenisuwonaratteita"
         // 許容される変換結果
@@ -136,7 +136,7 @@ final class ConverterTests: XCTestCase {
     // 2,3文字ずつ変換する
     // memo: 内部実装としては別のモジュールが呼ばれるのだが、それをテストする方法があまりないかもしれない
     func testSemiGradualConversion() async throws {
-        let converter = await KanaKanjiConverter()
+        let converter = await KanaKanjiConverter.withDefaultDictionary()
         var c = ComposingText()
         let text = "ようしょうきからてにすすいえいやきゅうしょうりんじけんぽうなどさまざまなすぽーつをけいけんしながらそだちしょうがっこうじだいはろさんぜるすきんこうにたいざいしておりごるふやてにすをならっていた"
         var leftIndex = text.startIndex
@@ -156,7 +156,7 @@ final class ConverterTests: XCTestCase {
     }
     // memo: このケースで単漢字変換などの結果が得られない問題があった
     func testKimiAndThenDelete() async throws {
-        let converter = await KanaKanjiConverter()
+        let converter = await KanaKanjiConverter.withDefaultDictionary()
         var c = ComposingText()
         let text = "kimi"
         // 許容される変換結果
@@ -180,7 +180,7 @@ final class ConverterTests: XCTestCase {
 
     // memo: このケースでfatalErrorが発生する不具合が生じることがあった
     func testIttaAndThenDelete() async throws {
-        let converter = await KanaKanjiConverter()
+        let converter = await KanaKanjiConverter.withDefaultDictionary()
         var c = ComposingText()
         let text = "itta"
         // 許容される変換結果
@@ -205,7 +205,7 @@ final class ConverterTests: XCTestCase {
     // 1文字ずつ入力するが、時折削除を行う
     // memo: 内部実装としてはdeleted_last_nのテストを意図している
     func testGradualConversionWithDelete() async throws {
-        let converter = await KanaKanjiConverter()
+        let converter = await KanaKanjiConverter.withDefaultDictionary()
         var c = ComposingText()
         let text = Array("ようしょうきからてにすすいえいやきゅうしょうりんじけんぽうなどさまざまなすぽーつをけいけんしながらそだちしょうがっこうじだいはろさんぜるすきんこうにたいざいしておりごるふやてにすをならっていた")
         let deleteIndices = [1, 4, 8, 10, 15, 18, 20, 21, 23, 25, 26, 28, 29, 33, 34, 37, 39, 40, 42, 44, 45, 49, 51, 54, 58, 60, 62, 64, 67, 69, 70, 75, 80]
@@ -227,7 +227,7 @@ final class ConverterTests: XCTestCase {
     }
 
     func testDeleteConversionPerformance() async throws {
-        let converter = await KanaKanjiConverter()
+        let converter = await KanaKanjiConverter.withDefaultDictionary()
         var c = ComposingText()
         do {
             c.insertAtCursorPosition("ようしょうきからてにすすいえいやきゅうしょうりんじけんぽうなどさまざまなすぽーつをけいけんしながらそだちしょうがっこうじだいはろさんぜるすきんこうにたいざいしておりごるふやてにすをならっていた", inputStyle: .direct)
@@ -243,7 +243,7 @@ final class ConverterTests: XCTestCase {
 
     func testTrailing_N_and_EndOfTextBehavior() async throws {
         do {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("kekkon", inputStyle: .roman2kana)
             c.insertAtCursorPosition([.init(piece: .compositionSeparator, inputStyle: .roman2kana)])
@@ -251,7 +251,7 @@ final class ConverterTests: XCTestCase {
             XCTAssertEqual(results.mainResults.first?.text, "結婚")
         }
         do {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("kekko", inputStyle: .roman2kana)
             _ = await converter.requestCandidates(c, options: requestOptions())
@@ -261,7 +261,7 @@ final class ConverterTests: XCTestCase {
             XCTAssertEqual(results.mainResults.first?.text, "結婚")
         }
         do {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("kekkon", inputStyle: .roman2kana)
             _ = await converter.requestCandidates(c, options: requestOptions())
@@ -270,7 +270,7 @@ final class ConverterTests: XCTestCase {
             XCTAssertEqual(results.mainResults.first?.text, "結婚")
         }
         do {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("aiueo", inputStyle: .roman2kana)
             _ = await converter.requestCandidates(c, options: requestOptions())
@@ -279,7 +279,7 @@ final class ConverterTests: XCTestCase {
             XCTAssertEqual(results.mainResults.first?.text, "あいうえお")
         }
         do {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("an", inputStyle: .roman2kana)
             _ = await converter.requestCandidates(c, options: requestOptions())
@@ -292,7 +292,7 @@ final class ConverterTests: XCTestCase {
             XCTAssertEqual(results.mainResults.first?.text, "安価")
         }
         do {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("shain", inputStyle: .roman2kana)
             _ = await converter.requestCandidates(c, options: requestOptions())
@@ -333,7 +333,7 @@ final class ConverterTests: XCTestCase {
             var options = requestOptions()
             options.requireJapanesePrediction = false
             for (input, expect) in cases {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 sequentialInput(&c, sequence: input, inputStyle: .direct)
                 let results = await converter.requestCandidates(c, options: options)
@@ -341,7 +341,7 @@ final class ConverterTests: XCTestCase {
             }
             // gradual input
             for (input, expect) in cases {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 for char in input {
                     c.insertAtCursorPosition(String(char), inputStyle: .direct)
@@ -364,7 +364,7 @@ final class ConverterTests: XCTestCase {
             var options = requestOptions()
             options.requireJapanesePrediction = false
             for (input, expect) in cases {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 sequentialInput(&c, sequence: input, inputStyle: .roman2kana)
                 let results = await converter.requestCandidates(c, options: options)
@@ -373,7 +373,7 @@ final class ConverterTests: XCTestCase {
 
             // gradual input
             for (input, expect) in cases {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 for char in input {
                     c.insertAtCursorPosition(String(char), inputStyle: .roman2kana)
@@ -396,7 +396,7 @@ final class ConverterTests: XCTestCase {
             var options = requestOptions(needTypoCorrection: true)
             options.requireJapanesePrediction = false
             for (input, expect) in cases {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 sequentialInput(&c, sequence: input, inputStyle: .direct)
                 let results = await converter.requestCandidates(c, options: options)
@@ -404,7 +404,7 @@ final class ConverterTests: XCTestCase {
             }
             // gradual input
             for (input, expect) in cases {
-                let converter = await KanaKanjiConverter()
+                let converter = await KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 for char in input {
                     c.insertAtCursorPosition(String(char), inputStyle: .direct)
@@ -475,7 +475,7 @@ final class ConverterTests: XCTestCase {
 
         var score: Double = 0
         for (input, expect) in cases {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition(input, inputStyle: .direct)
             let results = await converter.requestCandidates(c, options: requestOptions())
@@ -524,7 +524,7 @@ final class ConverterTests: XCTestCase {
 
         var score: Double = 0
         for (input, expect) in cases {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition(input, inputStyle: .direct)
             let results = await converter.requestCandidates(c, options: requestOptions())
@@ -823,7 +823,7 @@ final class ConverterTests: XCTestCase {
 
         var score: Double = 0
         for (input, expect) in cases {
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition(input, inputStyle: .direct)
             var options = requestOptions()
@@ -896,7 +896,7 @@ final class ConverterTests: XCTestCase {
             }
 
             let argument = items[4]
-            let converter = await KanaKanjiConverter()
+            let converter = await KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition(input, inputStyle: .direct)
             var options = requestOptions()
