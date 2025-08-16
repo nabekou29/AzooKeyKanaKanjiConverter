@@ -100,9 +100,7 @@ import SwiftUtils
             print("next character prediction requires zenz-v2 models, not zenz-v1 nor zenz-v3 and later")
             return []
         }
-        let results = zenz.predictNextCharacter(leftSideContext: leftSideContext, count: count)
-
-        return results
+        return zenz.predictNextCharacter(leftSideContext: leftSideContext, count: count)
     }
 
     /// 入力する言語が分かったらこの関数をなるべく早い段階で呼ぶことで、SpellCheckerの初期化が行われ、変換がスムーズになる
@@ -322,7 +320,7 @@ import SwiftUtils
     ///   - sums: 変換対象のデータ。
     /// - Returns:
     ///   予測変換候補
-    private func getPredictionCandidate(_ bestCandidateDataForPrediction: consuming CandidateData, composingText: ComposingText, options: ConvertRequestOptions) -> [Candidate] {
+    private func getPredictionCandidate(_ bestCandidateDataForPrediction: consuming CandidateData, composingText: ComposingText, options _: ConvertRequestOptions) -> [Candidate] {
         // 予測変換は次の方針で行う。
         // prepart: 前半文節 lastPart: 最終文節とする。
         // まず、lastPartがnilであるところから始める
@@ -738,7 +736,6 @@ import SwiftUtils
             return [.moveCursor(-2)]
         }
         return []
-
     }
 
     /// 2つの連続する`Candidate`をマージする

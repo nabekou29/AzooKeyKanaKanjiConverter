@@ -41,7 +41,7 @@ extension Kana2Kanji {
         let indexMap = LatticeDualIndexMap(inputData)
         let latticeIndices = indexMap.indices(inputCount: inputCount, surfaceCount: surfaceCount)
         let lattice: Lattice
-        if let preprocessedLattice = preprocessedLattice {
+        if let preprocessedLattice {
             lattice = preprocessedLattice
         } else {
             let rawNodes = latticeIndices.map { index in

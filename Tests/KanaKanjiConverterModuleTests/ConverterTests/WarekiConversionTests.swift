@@ -89,7 +89,6 @@ final class WarekiConversionTests: XCTestCase {
             let result = await converter.toWarekiCandidates(input)
             XCTAssertTrue(result.isEmpty)
         }
-
     }
 
     func testWareki2Seireki() async throws {
