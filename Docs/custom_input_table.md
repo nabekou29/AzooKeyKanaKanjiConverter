@@ -96,3 +96,37 @@ yrsk\tよろしく
 
 **「出力」と「次の入力」の区別はありません。**
 従って、TSVファイルの各行には2つのエントリのみを追加できます。
+
+## フォーマットチェック API
+
+アプリケーションがカスタム入力テーブルを読み込む際に、基本的なフォーマットエラーを検出するための簡易バリデータを用意しています。
+
+- 関数: `InputStyleManager.checkFormat(content: String) -> FormatReport`
+- 結果: `FormatReport.fullyValid` または `FormatReport.invalidLines([(line: Int, error: FormatError)])`
+
+チェック項目
+- タブ数: 空行とコメント行（先頭が `#`）以外は「タブちょうど1個（キー/値の2フィールド）」
+- 波括弧 `{...}` 内のトークン: 以下以外はエラー
+  - キー側: `composition-separator`, `any character`, `lbracket`, `rbracket`, `shift 0`, `shift _`
+  - 値側: `any character`, `lbracket`, `rbracket`
+  - 未閉鎖/ネスト（`{abc`, `{{x}` など）は `unclosedBrace`。文字として `{`/`}` を使いたい場合は `{lbracket}`/`{rbracket}` を使用してください。
+- `{shift 0}`/`{shift _}` はキー列の末尾のみ許容（途中に現れると `shiftTokenNotAtTail`）
+- 重複定義: 同一キーが2回以上登場した場合はエラー（値が同じでも `duplicateRule`）
+
+使用例
+
+```swift
+let content = """
+ka	か
+{shift 0}	が
+0	お
+"""
+switch InputStyleManager.checkFormat(content: content) {
+case .fullyValid:
+    print("OK")
+case .invalidLines(let issues):
+    for issue in issues {
+        print("Line \(issue.line): \(issue.error)")
+    }
+}
+```
