@@ -660,7 +660,7 @@ public final class DicdataStore {
         convertTarget: String,
         surfaceRange: Range<Int>,
         fullText: [Character],
-        keyboardLanguage _: KeyboardLanguage
+        keyboardLanguage: KeyboardLanguage
     ) -> [DicdataElement] {
         var result: [DicdataElement] = []
         result.append(contentsOf: self.getJapaneseNumberDicdata(head: convertTarget))
@@ -678,7 +678,7 @@ public final class DicdataStore {
             }
         }
         // convertTargetを英単語として候補に追加する
-        if convertTarget.onlyRomanAlphabet {
+        if convertTarget.onlyRomanAlphabet && keyboardLanguage == .en_US {
             result.append(DicdataElement(ruby: convertTarget, cid: CIDData.固有名詞.cid, mid: MIDData.英単語.mid, value: -14))
         }
         // convertTargetが1文字のケースでは、ひらがな・カタカナに変換したものを候補に追加する
