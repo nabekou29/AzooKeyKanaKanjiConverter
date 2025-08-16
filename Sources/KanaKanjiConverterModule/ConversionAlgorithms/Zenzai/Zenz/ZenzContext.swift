@@ -268,8 +268,7 @@ final class ZenzContext {
         // Heapからソートして結果を取り出す
         let cchars: [CChar] = prompt_tokens.dropFirst(initial_count).flatMap(self.token_to_piece)
         let data = Data(cchars.map { UInt8(bitPattern: $0) })
-        let result: String = String(data: data, encoding: .utf8) ?? ""
-        return result
+        return String(data: data, encoding: .utf8) ?? "" as String
     }
 
     func predict_next_character(leftSideContext: String, count: Int) -> [(character: Character, value: Float)] {

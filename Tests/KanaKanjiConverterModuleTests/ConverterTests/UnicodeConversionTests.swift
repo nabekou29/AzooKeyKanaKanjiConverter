@@ -69,5 +69,4 @@ final class UnicodeConversionTests: XCTestCase {
             XCTAssertEqual(result[0].text, "Ɖ")
         }
     }
-
 }

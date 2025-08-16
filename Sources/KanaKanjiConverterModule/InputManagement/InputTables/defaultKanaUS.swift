@@ -112,8 +112,8 @@ extension InputTables {
         "ひ＝": "ぴ",
         "ふ＝": "ぷ",
         "へ＝": "ぺ",
-        "ほ＝": "ぽ",
+        "ほ＝": "ぽ"
     ], additionalMapping: [
-        [.piece(.compositionSeparator)]: [],
+        [.piece(.compositionSeparator)]: []
     ])
 }

@@ -127,5 +127,4 @@ final class LearningMemoryTests: XCTestCase {
         let dicdata2 = dicdataStore.getDicdataFromLoudstxt3(identifier: "memory", indices: indices2, state: state)
         XCTAssertFalse(dicdata2.contains { $0.word == element.word && $0.ruby == element.ruby })
     }
-
 }

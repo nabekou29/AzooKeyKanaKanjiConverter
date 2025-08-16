@@ -322,9 +322,7 @@ struct LongTermLearningMemory {
         }
 
         let header = Data(bytes: headerArray, count: MemoryLayout<UInt32>.size * headerArray.count)
-        let binary = count + header + body
-
-        return binary
+        return count + header + body
     }
 
     enum UpdateError: Error {

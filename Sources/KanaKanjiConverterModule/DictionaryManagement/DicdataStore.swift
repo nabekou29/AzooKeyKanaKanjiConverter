@@ -466,7 +466,6 @@ public final class DicdataStore {
             data.mutatingForEach {
                 $0.metadata = .isLearned
             }
-
         }
         for (key, value) in dict {
             data.append(contentsOf: LOUDS.getDataForLoudstxt3(
@@ -493,7 +492,6 @@ public final class DicdataStore {
         needTypoCorrection: Bool = true,
         state: DicdataStoreState
     ) -> [LatticeNode] {
-
         let inputProcessRange: TypoCorrectionGenerator.ProcessRange?
         if let inputRange {
             let toInputIndexLeft = inputRange.endIndexRange?.startIndex ?? inputRange.startIndex
@@ -576,7 +574,7 @@ public final class DicdataStore {
             }
         }
         let needBOS = inputRange?.startIndex == .zero || surfaceRange?.startIndex == .zero
-        let result: [LatticeNode] = dicdata.compactMap {
+        return dicdata.compactMap {
             guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
                 return nil
             }
@@ -589,8 +587,7 @@ public final class DicdataStore {
                 node.prevs.append(RegisteredNode.BOSNode())
             }
             return node
-        }
-        return result
+        } as [LatticeNode]
     }
 
     func getZeroHintPredictionDicdata(lastRcid: Int) -> [DicdataElement] {
@@ -598,8 +595,7 @@ public final class DicdataStore {
             let csvString = try String(contentsOf: self.dictionaryURL.appendingPathComponent("p/pc_\(lastRcid).csv", isDirectory: false), encoding: .utf8)
             let csvLines = csvString.split(separator: "\n")
             let csvData = csvLines.map {$0.split(separator: ",", omittingEmptySubsequences: false)}
-            let dicdata: [DicdataElement] = csvData.map {self.parseLoudstxt2FormattedEntry(from: $0)}
-            return dicdata
+            return csvData.map {self.parseLoudstxt2FormattedEntry(from: $0)} as [DicdataElement]
         } catch {
             debug("Error: 右品詞ID\(lastRcid)のためのZero Hint Predictionのためのデータの読み込みに失敗しました。このエラーは深刻ですが、テスト時には無視できる場合があります。 Description: \(error.localizedDescription)")
             return []
@@ -664,7 +660,7 @@ public final class DicdataStore {
         convertTarget: String,
         surfaceRange: Range<Int>,
         fullText: [Character],
-        keyboardLanguage: KeyboardLanguage
+        keyboardLanguage _: KeyboardLanguage
     ) -> [DicdataElement] {
         var result: [DicdataElement] = []
         result.append(contentsOf: self.getJapaneseNumberDicdata(head: convertTarget))

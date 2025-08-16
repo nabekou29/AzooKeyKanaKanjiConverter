@@ -132,5 +132,4 @@ extension Kana2Kanji {
         }
         return (result: result, lattice: lattice)
     }
-
 }
