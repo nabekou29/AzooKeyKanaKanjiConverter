@@ -57,6 +57,14 @@ final class InputStyleManager {
                     result.append(.piece(.character("}")))
                     i = str.index(after: end)
                     continue
+                case "shift 0":
+                    result.append(.piece(.key(intention: "0", modifiers: [.shift])))
+                    i = str.index(after: end)
+                    continue
+                case "shift _":
+                    result.append(.piece(.key(intention: "_", modifiers: [.shift])))
+                    i = str.index(after: end)
+                    continue
                 default:
                     break
                 }
