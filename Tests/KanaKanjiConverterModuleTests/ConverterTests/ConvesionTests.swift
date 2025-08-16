@@ -43,5 +43,4 @@ final class ConverterTests: XCTestCase {
             XCTAssertFalse(results.mainResults.contains(where: {$0.text == "\n"}))
         }
     }
-
 }

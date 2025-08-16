@@ -39,8 +39,7 @@ extension LOUDS {
     private static func loadLOUDSBinary(from url: URL) -> [UInt64]? {
         do {
             let binaryData = try Data(contentsOf: url, options: [.uncached]) // 2度読み込むことはないのでキャッシュ不要
-            let ui64array = binaryData.toArray(of: UInt64.self)
-            return ui64array
+            return binaryData.toArray(of: UInt64.self)
         } catch {
             debug(error)
             return nil
@@ -84,8 +83,7 @@ extension LOUDS {
         }
 
         if let bytes = LOUDS.loadLOUDSBinary(from: loudsURL) {
-            let louds = LOUDS(bytes: bytes.map {$0.littleEndian}, nodeIndex2ID: nodeIndex2ID)
-            return louds
+            return LOUDS(bytes: bytes.map {$0.littleEndian}, nodeIndex2ID: nodeIndex2ID)
         }
         return nil
     }

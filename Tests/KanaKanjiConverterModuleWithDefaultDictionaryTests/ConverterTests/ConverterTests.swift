@@ -53,7 +53,6 @@ final class ConverterTests: XCTestCase {
             let results = converter.requestCandidates(c, options: requestOptions())
             XCTAssertEqual(results.mainResults.first?.text, "幼少期からテニス水泳野球少林寺拳法など様々なスポーツを経験しながら育ち小学校時代はロサンゼルス近郊に滞在しておりゴルフやテニスを習っていた")
         }
-
     }
 
     func testRoman2KanaFullConversion() async throws {

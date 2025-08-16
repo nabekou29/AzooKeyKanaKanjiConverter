@@ -127,5 +127,4 @@ extension Kana2Kanji {
         }
         return result
     }
-
 }

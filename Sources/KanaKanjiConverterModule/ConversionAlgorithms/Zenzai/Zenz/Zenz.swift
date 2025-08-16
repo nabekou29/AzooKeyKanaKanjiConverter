@@ -41,7 +41,7 @@ package final class Zenz {
             return .error
         }
         for candidate in candidates {
-            let result = zenzContext.evaluate_candidate(
+            return zenzContext.evaluate_candidate(
                 input: convertTarget.toKatakana(),
                 candidate: candidate,
                 requestRichCandidates: requestRichCandidates,
@@ -49,7 +49,6 @@ package final class Zenz {
                 personalizationMode: personalizationMode,
                 versionDependentConfig: versionDependentConfig
             )
-            return result
         }
         return .error
     }
@@ -58,8 +57,7 @@ package final class Zenz {
         guard let zenzContext else {
             return []
         }
-        let result = zenzContext.predict_next_character(leftSideContext: leftSideContext, count: count)
-        return result
+        return zenzContext.predict_next_character(leftSideContext: leftSideContext, count: count)
     }
 
     package func pureGreedyDecoding(pureInput: String, maxCount: Int = .max) -> String {

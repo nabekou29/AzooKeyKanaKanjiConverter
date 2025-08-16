@@ -300,5 +300,4 @@ extension InputTables {
         [.piece(.character("n")), .piece(.compositionSeparator)]: [.character("ん")],
         [.piece(.character("n")), .any1]: [.character("ん"), .any1]
     ])
-
 }
