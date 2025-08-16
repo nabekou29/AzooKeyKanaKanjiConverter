@@ -75,7 +75,7 @@ extension Kana2Kanji {
     }
 
     /// zenzaiシステムによる完全変換。
-    @MainActor func all_zenzai(
+    func all_zenzai(
         _ inputData: ComposingText,
         zenz: Zenz,
         zenzaiCache: ZenzaiCache?,

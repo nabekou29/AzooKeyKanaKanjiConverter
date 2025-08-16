@@ -40,38 +40,38 @@ final class ZenzaiTests: XCTestCase {
 
     func testFullConversion() async throws {
         do {
-            let converter = await KanaKanjiConverter.withDefaultDictionary()
+            let converter = KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("はがいたいのでしかいにみてもらった", inputStyle: .direct)
-            let results = await converter.requestCandidates(c, options: requestOptions())
+            let results = converter.requestCandidates(c, options: requestOptions())
             XCTAssertEqual(results.mainResults.first?.text, "歯が痛いので歯科医に診てもらった")
         }
         do {
-            let converter = await KanaKanjiConverter.withDefaultDictionary()
+            let converter = KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("おんしゃをだいいちにしぼうしています", inputStyle: .direct)
-            let results = await converter.requestCandidates(c, options: requestOptions())
+            let results = converter.requestCandidates(c, options: requestOptions())
             XCTAssertEqual(results.mainResults.first?.text, "御社を第一に志望しています")
         }
         do {
-            let converter = await KanaKanjiConverter.withDefaultDictionary()
+            let converter = KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("おんしゃをだいいちにしぼうしています", inputStyle: .direct)
-            let results = await converter.requestCandidates(c, options: requestOptions())
+            let results = converter.requestCandidates(c, options: requestOptions())
             XCTAssertEqual(results.mainResults.first?.text, "御社を第一に志望しています")
         }
         do {
-            let converter = await KanaKanjiConverter.withDefaultDictionary()
+            let converter = KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("ふくをきて、きをきって、うみにきた", inputStyle: .direct)
-            let results = await converter.requestCandidates(c, options: requestOptions())
+            let results = converter.requestCandidates(c, options: requestOptions())
             XCTAssertEqual(results.mainResults.first?.text, "服を着て、木を切って、海に来た")
         }
         do {
-            let converter = await KanaKanjiConverter.withDefaultDictionary()
+            let converter = KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
             c.insertAtCursorPosition("このぶんしょうはかんじへんかんがせいかくということでわだいのにほんごにゅうりょくしすてむをつかってうちこんでいます", inputStyle: .direct)
-            let results = await converter.requestCandidates(c, options: requestOptions())
+            let results = converter.requestCandidates(c, options: requestOptions())
             XCTAssertEqual(results.mainResults.first?.text, "この文章は漢字変換が正確ということで話題の日本語入力システムを使って打ち込んでいます")
         }
     }

@@ -12,7 +12,7 @@ public import Foundation
 import SwiftUtils
 
 /// かな漢字変換の管理を受け持つクラス
-@MainActor public final class KanaKanjiConverter {
+public final class KanaKanjiConverter {
     private let converter: Kana2Kanji
 
     public init(dicdataStore: DicdataStore) {
@@ -35,7 +35,7 @@ import SwiftUtils
         TimeExpressionSpecialCandidateProvider(),
         CommaSeparatedNumberSpecialCandidateProvider()
     ]
-    @MainActor private var checker = SpellChecker()
+    private var checker = SpellChecker()
     private var checkerInitialized: [KeyboardLanguage: Bool] = [.none: true, .ja_JP: true]
 
     // 前回の変換や確定の情報を取っておく部分。
@@ -109,15 +109,11 @@ import SwiftUtils
         if !checkerInitialized[language, default: false] {
             switch language {
             case .en_US:
-                Task { @MainActor in
-                    _ = self.checker.completions(forPartialWordRange: NSRange(location: 0, length: 1), in: "a", language: "en-US")
-                    self.checkerInitialized[language] = true
-                }
+                _ = self.checker.completions(forPartialWordRange: NSRange(location: 0, length: 1), in: "a", language: "en-US")
+                self.checkerInitialized[language] = true
             case .el_GR:
-                Task { @MainActor in
-                    _ = self.checker.completions(forPartialWordRange: NSRange(location: 0, length: 1), in: "a", language: "el-GR")
-                    self.checkerInitialized[language] = true
-                }
+                _ = self.checker.completions(forPartialWordRange: NSRange(location: 0, length: 1), in: "a", language: "el-GR")
+                self.checkerInitialized[language] = true
             case .none, .ja_JP:
                 checkerInitialized[language] = true
             }

@@ -2,7 +2,7 @@ import EfficientNGram
 package import Foundation
 import SwiftUtils
 
-@MainActor package final class Zenz {
+package final class Zenz {
     package var resourceURL: URL
     private var zenzContext: ZenzContext?
     init(resourceURL: URL) throws {

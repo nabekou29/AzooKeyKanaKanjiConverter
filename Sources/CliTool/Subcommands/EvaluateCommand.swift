@@ -37,13 +37,13 @@ extension Subcommands {
 
         mutating func run() async throws {
             let inputItems = try parseInputFile()
-            let converter = await KanaKanjiConverter.withDefaultDictionary()
+            let converter = KanaKanjiConverter.withDefaultDictionary()
             var executionTime: Double = 0
             var resultItems: [EvaluateItem] = []
             for item in inputItems {
                 let start = Date()
                 // セットアップ
-                await converter.importDynamicUserDictionary(
+                converter.importDynamicUserDictionary(
                     (item.user_dictionary ?? []).map {
                         DicdataElement(word: $0.word, ruby: $0.reading.toKatakana(), cid: CIDData.固有名詞.cid, mid: MIDData.一般.mid, value: -10)
                     }
@@ -52,7 +52,7 @@ extension Subcommands {
                 var composingText = ComposingText()
                 composingText.insertAtCursorPosition(item.query, inputStyle: .direct)
                 let requestOptions = self.requestOptions(leftSideContext: item.left_context)
-                let result = await converter.requestCandidates(composingText, options: requestOptions)
+                let result = converter.requestCandidates(composingText, options: requestOptions)
                 let mainResults = result.mainResults.filter {
                     $0.data.reduce(into: "", {$0.append(contentsOf: $1.ruby)}) == item.query.toKatakana()
                 }
@@ -68,7 +68,7 @@ extension Subcommands {
                 )
                 executionTime += Date().timeIntervalSince(start)
                 // Explictly reset state
-                await converter.stopComposition()
+                converter.stopComposition()
             }
             var result = EvaluateResult(n_best: self.configNBest, execution_time: executionTime, items: resultItems)
             if stable {
