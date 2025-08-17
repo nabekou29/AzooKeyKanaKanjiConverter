@@ -140,24 +140,26 @@ public final class DicdataStore {
             return self.loudses[query]
         }
         if query == "user" {
-            if let cached = state.userDictionaryLOUDS {
-                return cached
+            if state.userDictionaryHasLoaded {
+                return state.userDictionaryLOUDS
             } else if let userDictionaryURL = state.userDictionaryURL,
                       let louds = LOUDS.loadUserDictionary(userDictionaryURL: userDictionaryURL) {
-                state.userDictionaryLOUDS = louds
+                state.updateUserDictionaryLOUDS(louds)
                 return louds
             } else {
+                state.updateUserDictionaryLOUDS(nil)
                 debug("Error: ユーザ辞書のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
             }
         }
         if query == "memory" {
-            if let cached = state.memoryLOUDS {
-                return cached
+            if state.memoryHasLoaded {
+                return state.memoryLOUDS
             } else if let memoryURL = state.memoryURL,
                       let louds = LOUDS.loadMemory(memoryURL: memoryURL) {
-                state.memoryLOUDS = louds
+                state.updateMemoryLOUDS(louds)
                 return louds
             } else {
+                state.updateMemoryLOUDS(nil)
                 debug("Error: ユーザ辞書のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
             }
         }
@@ -178,23 +180,7 @@ public final class DicdataStore {
             "|": "[7C]"
         ][query, default: query]
 
-        if identifier == "user", let userDictionaryURL = state.userDictionaryURL {
-            if let louds = LOUDS.loadUserDictionary(userDictionaryURL: userDictionaryURL) {
-                self.loudses[query] = louds
-                return louds
-            } else {
-                debug("Error: IDが「\(identifier) (query: \(query))」のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
-                return nil
-            }
-        } else if identifier == "memory", let memoryURL = state.memoryURL {
-            if let louds = LOUDS.loadMemory(memoryURL: memoryURL) {
-                self.loudses[query] = louds
-                return louds
-            } else {
-                debug("Error: IDが「\(identifier) (query: \(query))」のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
-                return nil
-            }
-        } else if let louds = LOUDS.load(identifier, dictionaryURL: self.dictionaryURL) {
+        if let louds = LOUDS.load(identifier, dictionaryURL: self.dictionaryURL) {
             self.loudses[query] = louds
             self.importedLoudses.insert(query)
             return louds

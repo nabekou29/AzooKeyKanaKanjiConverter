@@ -67,8 +67,8 @@ extension LOUDS {
 
     package static func loadUserDictionary(userDictionaryURL: URL) -> LOUDS? {
         let (charsURL, loudsURL) = (
-            userDictionaryURL.appendingPathComponent("user.loudschars2", isDirectory: false),
-            userDictionaryURL.appendingPathComponent("user.louds", isDirectory: false)
+            userDictionaryURL.appending(path: "user.loudschars2", directoryHint: .notDirectory),
+            userDictionaryURL.appending(path: "user.louds", directoryHint: .notDirectory)
         )
         return load(charsURL: charsURL, loudsURL: loudsURL)
     }
