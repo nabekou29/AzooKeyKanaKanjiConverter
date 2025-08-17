@@ -9,12 +9,16 @@ struct TypoCorrectionGenerator: Sendable {
         let count = self.range.rightIndexRange.endIndex - range.leftIndex
         self.count = count
         self.nodes = (0..<count).map {(i: Int) in
-            Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
-                let j = i + k
-                if count <= j {
-                    return []
+            if needTypoCorrection {
+                Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
+                    let j = i + k
+                    if count <= j {
+                        return []
+                    }
+                    return Self.getTypo(inputs[range.leftIndex + i ... range.leftIndex + j])
                 }
-                return Self.getTypo(inputs[range.leftIndex + i ... range.leftIndex + j], frozen: !needTypoCorrection)
+            } else {
+                [TypoCandidate(inputElements: [inputs[range.leftIndex + i]], weight: 0)]
             }
         }
         // 深さ優先で列挙する
@@ -238,10 +242,16 @@ struct TypoCorrectionGenerator: Sendable {
         case other
     }
 
-    fileprivate static func getTypo(_ elements: some Collection<ComposingText.InputElement>, frozen: Bool = false) -> [TypoCandidate] {
-        let key = elements.reduce(into: "") {
-            if case let .character(c) = $1.piece {
+    private static func getTypo(_ elements: some Collection<ComposingText.InputElement>) -> [TypoCandidate] {
+        guard !elements.isEmpty else {
+            return []
+        }
+        lazy var key = elements.reduce(into: "") {
+            switch $1.piece {
+            case let .character(c), .key(intention: let c?, modifiers: _):
                 $0.append(c.toKatakana())
+            case _:
+                break
             }
         }
 
@@ -259,30 +269,24 @@ struct TypoCorrectionGenerator: Sendable {
         }
         switch inputStylesType {
         case .onlyDirect:
-            let dictionary: [String: [TypoCandidate]] = frozen ? [:] : Self.directPossibleTypo
-            if key.count > 1 {
-                return dictionary[key, default: []]
-            } else if key.count == 1 {
+            let dictionary: [String: [TypoCandidate]] = Self.directPossibleTypo
+            if key.count == 1 {
                 var result = dictionary[key, default: []]
                 // そのまま
-                result.append(TypoCandidate(inputElements: key.map { ComposingText.InputElement(piece: .character($0), inputStyle: .direct) }, weight: 0))
+                result.append(TypoCandidate(inputElements: Array(elements), weight: 0))
                 return result
             } else {
-                return []
+                return dictionary[key, default: []]
             }
         case .onlyRoman2KanaCompatible:
-            let dictionary: [String: [TypoCandidate]] = frozen ? [:] : Self.roman2KanaPossibleTypo
-            if key.count > 1 {
-                return dictionary[key, default: []]
-            } else if key.count == 1 {
+            let dictionary: [String: [TypoCandidate]] = Self.roman2KanaPossibleTypo
+            if key.count == 1 {
                 var result = dictionary[key, default: []]
                 // そのまま
-                result.append(
-                    TypoCandidate(inputElements: key.map { ComposingText.InputElement(piece: .character($0), inputStyle: .roman2kana) }, weight: 0)
-                )
+                result.append(TypoCandidate(inputElements: Array(elements), weight: 0))
                 return result
             } else {
-                return []
+                return dictionary[key, default: []]
             }
         case .none, .other:
             // `.mapped`や、混ざっているケースでここに到達する
