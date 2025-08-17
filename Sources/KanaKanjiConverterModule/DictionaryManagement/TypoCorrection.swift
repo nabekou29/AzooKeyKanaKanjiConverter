@@ -1,24 +1,20 @@
 import SwiftUtils
 
 struct TypoCorrectionGenerator: Sendable {
-    init(inputs: [ComposingText.InputElement], range: ProcessRange, needTypoCorrection: Bool) {
-        self.maxPenalty = needTypoCorrection ? 3.5 * 3 : 0
+    init(inputs: [ComposingText.InputElement], range: ProcessRange) {
+        self.maxPenalty = 3.5 * 3
         self.inputs = inputs
         self.range = range
 
         let count = self.range.rightIndexRange.endIndex - range.leftIndex
         self.count = count
         self.nodes = (0..<count).map {(i: Int) in
-            if needTypoCorrection {
-                Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
-                    let j = i + k
-                    if count <= j {
-                        return []
-                    }
-                    return Self.getTypo(inputs[range.leftIndex + i ... range.leftIndex + j])
+            Self.lengths.flatMap {(k: Int) -> [TypoCandidate] in
+                let j = i + k
+                if count <= j {
+                    return []
                 }
-            } else {
-                [TypoCandidate(inputElements: [inputs[range.leftIndex + i]], weight: 0)]
+                return Self.getTypo(inputs[range.leftIndex + i ... range.leftIndex + j])
             }
         }
         // 深さ優先で列挙する
@@ -210,7 +206,7 @@ struct TypoCorrectionGenerator: Sendable {
                 stack.append((convertTargetElements, count + 1, penalty))
             } else {
                 // ノード数は高々1, 2なので、for loopを回す方が効率が良い
-                for node in self.nodes[count] where count + node.inputElements.count > self.nodes.endIndex {
+                for node in self.nodes[count] where count + node.inputElements.count <= self.nodes.endIndex {
                     var convertTargetElements = convertTargetElements
                     for element in node.inputElements {
                         ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
@@ -268,7 +264,7 @@ struct TypoCorrectionGenerator: Sendable {
             if key.count == 1 {
                 var result = dictionary[key, default: []]
                 // そのまま
-                result.append(TypoCandidate(inputElements: Array(elements), weight: 0))
+                result.append(TypoCandidate(inputElements: key.map {.init(character: $0, inputStyle: .direct)}, weight: 0))
                 return result
             } else {
                 return dictionary[key, default: []]
@@ -278,7 +274,7 @@ struct TypoCorrectionGenerator: Sendable {
             if key.count == 1 {
                 var result = dictionary[key, default: []]
                 // そのまま
-                result.append(TypoCandidate(inputElements: Array(elements), weight: 0))
+                result.append(TypoCandidate(inputElements: key.map {.init(character: $0, inputStyle: .roman2kana)}, weight: 0))
                 return result
             } else {
                 return dictionary[key, default: []]
