@@ -231,6 +231,13 @@ struct TypoCorrectionGenerator: Sendable {
         return nil
     }
 
+    private enum InputStylesType {
+        case none
+        case onlyDirect
+        case onlyRoman2KanaCompatible
+        case other
+    }
+
     fileprivate static func getTypo(_ elements: some Collection<ComposingText.InputElement>, frozen: Bool = false) -> [TypoCandidate] {
         let key = elements.reduce(into: "") {
             if case let .character(c) = $1.piece {
@@ -238,7 +245,20 @@ struct TypoCorrectionGenerator: Sendable {
             }
         }
 
-        if (elements.allSatisfy {$0.inputStyle == .direct}) {
+        let inputStylesType = elements.reduce(InputStylesType.none) { (result, element) in
+            switch (result, element.inputStyle) {
+            case (.other, _): .other
+            case (.onlyDirect, .direct): .onlyDirect
+            case (.onlyDirect, _): .other
+            case (.onlyRoman2KanaCompatible, .roman2kana), (.onlyRoman2KanaCompatible, .mapped(id: .defaultRomanToKana)): .onlyRoman2KanaCompatible
+            case (.onlyRoman2KanaCompatible, _): .other
+            case (.none, .direct): .onlyDirect
+            case (.none, .roman2kana), (.none, .mapped(id: .defaultRomanToKana)): .onlyRoman2KanaCompatible
+            case (.none, _): .other
+            }
+        }
+        switch inputStylesType {
+        case .onlyDirect:
             let dictionary: [String: [TypoCandidate]] = frozen ? [:] : Self.directPossibleTypo
             if key.count > 1 {
                 return dictionary[key, default: []]
@@ -247,9 +267,10 @@ struct TypoCorrectionGenerator: Sendable {
                 // そのまま
                 result.append(TypoCandidate(inputElements: key.map { ComposingText.InputElement(piece: .character($0), inputStyle: .direct) }, weight: 0))
                 return result
+            } else {
+                return []
             }
-        }
-        if (elements.allSatisfy {$0.inputStyle == .roman2kana || $0.inputStyle == .mapped(id: .defaultRomanToKana)}) {
+        case .onlyRoman2KanaCompatible:
             let dictionary: [String: [TypoCandidate]] = frozen ? [:] : Self.roman2KanaPossibleTypo
             if key.count > 1 {
                 return dictionary[key, default: []]
@@ -260,15 +281,18 @@ struct TypoCorrectionGenerator: Sendable {
                     TypoCandidate(inputElements: key.map { ComposingText.InputElement(piece: .character($0), inputStyle: .roman2kana) }, weight: 0)
                 )
                 return result
+            } else {
+                return []
             }
-        }
-        // `.mapped`や、混ざっているケースでここに到達する
-        return if elements.count == 1 {
-            [
-                TypoCandidate(inputElements: [elements.first!], weight: 0)
-            ]
-        } else {
-            []
+        case .none, .other:
+            // `.mapped`や、混ざっているケースでここに到達する
+            return if elements.count == 1 {
+                [
+                    TypoCandidate(inputElements: [elements.first!], weight: 0)
+                ]
+            } else {
+                []
+            }
         }
     }
 
