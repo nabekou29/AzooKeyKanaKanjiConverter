@@ -300,7 +300,7 @@ public final class DicdataStore {
         if let inputProcessRange, needTypoCorrection {
             let typoCorrectionGenerator = TypoCorrectionGenerator(
                 inputs: composingText.input,
-                range: inputProcessRange,
+                range: inputProcessRange
             )
             generator.register(typoCorrectionGenerator)
         }
