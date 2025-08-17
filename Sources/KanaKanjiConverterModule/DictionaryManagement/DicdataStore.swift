@@ -513,8 +513,41 @@ public final class DicdataStore {
             debug(#function, "either of inputProcessRange and surfaceProcessRange must not be nil")
             return []
         }
+
+        var latticeNodes: [LatticeNode] = []
+        let needBOS = inputRange?.startIndex == .zero || surfaceRange?.startIndex == .zero
+        func appendNode(_ element: consuming DicdataElement, endIndex: Lattice.LatticeIndex) {
+            let range: Lattice.LatticeRange = switch endIndex {
+            case .input(let endIndex): .input(from: (inputRange?.startIndex)!, to: endIndex + 1)
+            case .surface(let endIndex): .surface(from: (surfaceRange?.startIndex)!, to: endIndex + 1)
+            }
+            let node = LatticeNode(data: element, range: range)
+            if needBOS {
+                node.prevs.append(RegisteredNode.BOSNode())
+            }
+            latticeNodes.append(node)
+        }
+
+        func penaltizedElementIfFeasible(
+            _ element: consuming DicdataElement,
+            rubyCount: Int,
+            penalty: PValue
+        ) -> DicdataElement? {
+            if penalty.isZero {
+                return element
+            }
+            let ratio = Self.penaltyRatio[element.lcid]
+            let pUnit: PValue = Self.getPenalty(data: element) / 2   // 負の値
+            let adjust = pUnit * penalty * ratio
+            if self.shouldBeRemoved(value: element.value() + adjust, wordCount: rubyCount) {
+                return nil
+            } else {
+                return element
+            }
+        }
+
         // MARK: 誤り訂正の対象を列挙する。非常に重い処理。
-        var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(
+        let (stringToInfo, indices, additionalDicdata) = self.movingTowardPrefixSearch(
             composingText: composingText,
             inputProcessRange: inputProcessRange,
             surfaceProcessRange: surfaceProcessRange,
@@ -522,23 +555,31 @@ public final class DicdataStore {
             needTypoCorrection: needTypoCorrection,
             state: state
         )
-        // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
-        for (identifier, value) in indices {
-            let result: [DicdataElement] = self.getDicdataFromLoudstxt3(identifier: identifier, indices: value, state: state).compactMap { (data) -> DicdataElement? in
-                let rubyArray = Array(data.ruby)
-                let penalty = stringToInfo[rubyArray]?.penalty ?? 0
-                if penalty.isZero {
-                    return data
-                }
-                let ratio = Self.penaltyRatio[data.lcid]
-                let pUnit: PValue = Self.getPenalty(data: data) / 2   // 負の値
-                let adjust = pUnit * penalty * ratio
-                if self.shouldBeRemoved(value: data.value() + adjust, wordCount: rubyArray.count) {
-                    return nil
-                }
-                return data.adjustedData(adjust)
+
+        latticeNodes.reserveCapacity(latticeNodes.count + additionalDicdata.count)
+        for element in consume additionalDicdata {
+            let rubyArray = Array(element.ruby)
+            guard let info = stringToInfo[rubyArray] else {
+                continue
             }
-            dicdata.append(contentsOf: result)
+            if let element = penaltizedElementIfFeasible(consume element, rubyCount: rubyArray.count, penalty: info.penalty) {
+                appendNode(element, endIndex: info.endIndex)
+            }
+        }
+
+        // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
+        for (identifier, value) in consume indices {
+            let items = self.getDicdataFromLoudstxt3(identifier: identifier, indices: value, state: state)
+            latticeNodes.reserveCapacity(latticeNodes.count + items.count)
+            for element in consume items {
+                let rubyArray = Array(element.ruby)
+                guard let info = stringToInfo[rubyArray] else {
+                    continue
+                }
+                if let element = penaltizedElementIfFeasible(consume element, rubyCount: rubyArray.count, penalty: info.penalty) {
+                    appendNode(element, endIndex: info.endIndex)
+                }
+            }
         }
 
         // 機械的に一部のデータを生成する
@@ -553,27 +594,12 @@ public final class DicdataStore {
                     fullText: chars,
                     keyboardLanguage: state.keyboardLanguage
                 )
-                for item in result {
-                    stringToInfo[Array(item.ruby)] = (.surface(i), 0)
+                for element in result {
+                    appendNode(element, endIndex: .surface(i))
                 }
-                dicdata.append(contentsOf: result)
             }
         }
-        let needBOS = inputRange?.startIndex == .zero || surfaceRange?.startIndex == .zero
-        return dicdata.compactMap {
-            guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
-                return nil
-            }
-            let range: Lattice.LatticeRange = switch endIndex {
-            case .input(let endIndex): .input(from: (inputRange?.startIndex)!, to: endIndex + 1)
-            case .surface(let endIndex): .surface(from: (surfaceRange?.startIndex)!, to: endIndex + 1)
-            }
-            let node = LatticeNode(data: $0, range: range)
-            if needBOS {
-                node.prevs.append(RegisteredNode.BOSNode())
-            }
-            return node
-        } as [LatticeNode]
+        return latticeNodes
     }
 
     func getZeroHintPredictionDicdata(lastRcid: Int) -> [DicdataElement] {
