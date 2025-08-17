@@ -130,7 +130,13 @@ final class DicdataStoreTests: XCTestCase {
         for (key, word) in mustWords {
             var c = ComposingText()
             c.insertAtCursorPosition(key, inputStyle: .direct)
-            let result = dicdataStore.lookupDicdata(composingText: c, inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex), needTypoCorrection: false, state: dicdataStore.prepareState())
+            let result = dicdataStore.lookupDicdata(
+                composingText: c,
+                inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex),
+                surfaceRange: (0, c.convertTarget.count - 1 ..< c.convertTarget.count),
+                needTypoCorrection: false,
+                state: dicdataStore.prepareState()
+            )
             // 冗長な書き方だが、こうすることで「どの項目でエラーが発生したのか」がはっきりするため、こう書いている。
             XCTAssertEqual(result.first(where: {$0.data.word == word})?.data.word, word)
         }
@@ -151,7 +157,13 @@ final class DicdataStoreTests: XCTestCase {
         for (key, word) in mustWords {
             var c = ComposingText()
             c.insertAtCursorPosition(key, inputStyle: .direct)
-            let result = dicdataStore.lookupDicdata(composingText: c, inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex), needTypoCorrection: false, state: dicdataStore.prepareState())
+            let result = dicdataStore.lookupDicdata(
+                composingText: c,
+                inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex),
+                surfaceRange: (0, c.convertTarget.count - 1 ..< c.convertTarget.count),
+                needTypoCorrection: false,
+                state: dicdataStore.prepareState()
+            )
             XCTAssertNil(result.first(where: {$0.data.word == word && $0.data.ruby == key}))
         }
     }
@@ -171,7 +183,13 @@ final class DicdataStoreTests: XCTestCase {
         for (key, word) in mustWords {
             var c = ComposingText()
             c.insertAtCursorPosition(key, inputStyle: .direct)
-            let result = dicdataStore.lookupDicdata(composingText: c, inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex), needTypoCorrection: true, state: dicdataStore.prepareState())
+            let result = dicdataStore.lookupDicdata(
+                composingText: c,
+                inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex),
+                surfaceRange: (0, c.convertTarget.count - 1 ..< c.convertTarget.count),
+                needTypoCorrection: true,
+                state: dicdataStore.prepareState()
+            )
             XCTAssertEqual(result.first(where: {$0.data.word == word})?.data.word, word)
         }
     }
@@ -186,7 +204,13 @@ final class DicdataStoreTests: XCTestCase {
         for (key, word) in mustWords {
             var c = ComposingText()
             c.insertAtCursorPosition(key, inputStyle: .roman2kana)
-            let result = dicdataStore.lookupDicdata(composingText: c, inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex), needTypoCorrection: true, state: dicdataStore.prepareState())
+            let result = dicdataStore.lookupDicdata(
+                composingText: c,
+                inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex),
+                surfaceRange: (0, c.convertTarget.count - 1 ..< c.convertTarget.count),
+                needTypoCorrection: true,
+                state: dicdataStore.prepareState()
+            )
             XCTAssertEqual(result.first(where: {$0.data.word == word})?.data.word, word)
         }
     }
@@ -278,7 +302,13 @@ final class DicdataStoreTests: XCTestCase {
         do {
             var c = ComposingText()
             c.insertAtCursorPosition("テストタンゴ", inputStyle: .direct)
-            let result = dicdataStore.lookupDicdata(composingText: c, inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex), needTypoCorrection: false, state: state)
+            let result = dicdataStore.lookupDicdata(
+                composingText: c,
+                inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex),
+                surfaceRange: (0, c.convertTarget.count - 1 ..< c.convertTarget.count),
+                needTypoCorrection: false,
+                state: state
+            )
             XCTAssertTrue(result.contains(where: {$0.data.word == "テスト単語"}))
         }
 
@@ -286,7 +316,13 @@ final class DicdataStoreTests: XCTestCase {
         do {
             var c = ComposingText()
             c.insertAtCursorPosition("ドウテキジショ", inputStyle: .direct)
-            let result = dicdataStore.lookupDicdata(composingText: c, inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex), needTypoCorrection: false, state: state)
+            let result = dicdataStore.lookupDicdata(
+                composingText: c,
+                inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex),
+                surfaceRange: (0, c.convertTarget.count - 1 ..< c.convertTarget.count),
+                needTypoCorrection: false,
+                state: state
+            )
             XCTAssertTrue(result.contains(where: {$0.data.word == "動的辞書"}))
         }
 
@@ -327,7 +363,13 @@ final class DicdataStoreTests: XCTestCase {
         do {
             var c = ComposingText()
             c.insertAtCursorPosition("トクシュヨミ", inputStyle: .direct)
-            let result = dicdataStore.lookupDicdata(composingText: c, inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex), needTypoCorrection: false, state: state)
+            let result = dicdataStore.lookupDicdata(
+                composingText: c,
+                inputRange: (0, c.input.endIndex - 1 ..< c.input.endIndex),
+                surfaceRange: (0, c.convertTarget.count - 1 ..< c.convertTarget.count),
+                needTypoCorrection: false,
+                state: state
+            )
             let dynamicUserDictResult = result.first(where: {$0.data.word == "特殊読み"})
             XCTAssertNotNil(dynamicUserDictResult)
             XCTAssertEqual(dynamicUserDictResult?.data.metadata, .isFromUserDictionary)

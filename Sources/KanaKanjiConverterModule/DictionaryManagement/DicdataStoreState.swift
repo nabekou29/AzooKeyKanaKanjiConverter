@@ -15,13 +15,17 @@ package final class DicdataStoreState {
         self.learningMemoryManager.config.memoryURL
     }
 
-    var userDictionaryLOUDS: LOUDS?
-    var memoryLOUDS: LOUDS?
+    private(set) var userDictionaryHasLoaded: Bool = false
+    private(set) var userDictionaryLOUDS: LOUDS?
+
+    private(set) var memoryHasLoaded: Bool = false
+    private(set) var memoryLOUDS: LOUDS?
 
     func updateUserDictionaryURL(_ newURL: URL) {
         if self.userDictionaryURL != newURL {
             self.userDictionaryURL = newURL
             self.userDictionaryLOUDS = nil
+            self.userDictionaryHasLoaded = false
         }
     }
 
@@ -33,9 +37,19 @@ package final class DicdataStoreState {
         if self.learningMemoryManager.config != newConfig {
             let updated = self.learningMemoryManager.updateConfig(newConfig)
             if updated {
-                self.memoryLOUDS = nil
+                self.resetMemoryLOUDSCache()
             }
         }
+    }
+
+    func updateMemoryLOUDS(_ newLOUDS: LOUDS?) {
+        self.memoryLOUDS = newLOUDS
+        self.memoryHasLoaded = true
+    }
+
+    func updateUserDictionaryLOUDS(_ newLOUDS: LOUDS?) {
+        self.userDictionaryLOUDS = newLOUDS
+        self.userDictionaryHasLoaded = true
     }
 
     @available(*, deprecated, message: "This API is deprecated. Directly update the state instead.")
@@ -55,19 +69,24 @@ package final class DicdataStoreState {
         }
     }
 
+    private func resetMemoryLOUDSCache() {
+        self.memoryLOUDS = nil
+        self.memoryHasLoaded = false
+    }
+
     func saveMemory() {
         self.learningMemoryManager.save()
-        self.memoryLOUDS = nil
+        self.resetMemoryLOUDSCache()
     }
 
     func resetMemory() {
         self.learningMemoryManager.resetMemory()
-        self.memoryLOUDS = nil
+        self.resetMemoryLOUDSCache()
     }
 
     func forgetMemory(_ candidate: Candidate) {
         self.learningMemoryManager.forgetMemory(data: candidate.data)
-        self.memoryLOUDS = nil
+        self.resetMemoryLOUDSCache()
     }
 
     // 学習を反映する

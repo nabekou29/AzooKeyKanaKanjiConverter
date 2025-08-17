@@ -140,24 +140,26 @@ public final class DicdataStore {
             return self.loudses[query]
         }
         if query == "user" {
-            if let cached = state.userDictionaryLOUDS {
-                return cached
+            if state.userDictionaryHasLoaded {
+                return state.userDictionaryLOUDS
             } else if let userDictionaryURL = state.userDictionaryURL,
                       let louds = LOUDS.loadUserDictionary(userDictionaryURL: userDictionaryURL) {
-                state.userDictionaryLOUDS = louds
+                state.updateUserDictionaryLOUDS(louds)
                 return louds
             } else {
+                state.updateUserDictionaryLOUDS(nil)
                 debug("Error: ユーザ辞書のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
             }
         }
         if query == "memory" {
-            if let cached = state.memoryLOUDS {
-                return cached
+            if state.memoryHasLoaded {
+                return state.memoryLOUDS
             } else if let memoryURL = state.memoryURL,
                       let louds = LOUDS.loadMemory(memoryURL: memoryURL) {
-                state.memoryLOUDS = louds
+                state.updateMemoryLOUDS(louds)
                 return louds
             } else {
+                state.updateMemoryLOUDS(nil)
                 debug("Error: ユーザ辞書のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
             }
         }
@@ -178,23 +180,7 @@ public final class DicdataStore {
             "|": "[7C]"
         ][query, default: query]
 
-        if identifier == "user", let userDictionaryURL = state.userDictionaryURL {
-            if let louds = LOUDS.loadUserDictionary(userDictionaryURL: userDictionaryURL) {
-                self.loudses[query] = louds
-                return louds
-            } else {
-                debug("Error: IDが「\(identifier) (query: \(query))」のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
-                return nil
-            }
-        } else if identifier == "memory", let memoryURL = state.memoryURL {
-            if let louds = LOUDS.loadMemory(memoryURL: memoryURL) {
-                self.loudses[query] = louds
-                return louds
-            } else {
-                debug("Error: IDが「\(identifier) (query: \(query))」のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
-                return nil
-            }
-        } else if let louds = LOUDS.load(identifier, dictionaryURL: self.dictionaryURL) {
+        if let louds = LOUDS.load(identifier, dictionaryURL: self.dictionaryURL) {
             self.loudses[query] = louds
             self.importedLoudses.insert(query)
             return louds
@@ -310,11 +296,11 @@ public final class DicdataStore {
             )
             generator.register(surfaceGenerator)
         }
-        if let inputProcessRange {
+        // Register TypoCorrectionGenerator only when typo correction is enabled
+        if let inputProcessRange, needTypoCorrection {
             let typoCorrectionGenerator = TypoCorrectionGenerator(
                 inputs: composingText.input,
-                range: inputProcessRange,
-                needTypoCorrection: needTypoCorrection
+                range: inputProcessRange
             )
             generator.register(typoCorrectionGenerator)
         }
@@ -527,8 +513,41 @@ public final class DicdataStore {
             debug(#function, "either of inputProcessRange and surfaceProcessRange must not be nil")
             return []
         }
+
+        var latticeNodes: [LatticeNode] = []
+        let needBOS = inputRange?.startIndex == .zero || surfaceRange?.startIndex == .zero
+        func appendNode(_ element: consuming DicdataElement, endIndex: Lattice.LatticeIndex) {
+            let range: Lattice.LatticeRange = switch endIndex {
+            case .input(let endIndex): .input(from: (inputRange?.startIndex)!, to: endIndex + 1)
+            case .surface(let endIndex): .surface(from: (surfaceRange?.startIndex)!, to: endIndex + 1)
+            }
+            let node = LatticeNode(data: element, range: range)
+            if needBOS {
+                node.prevs.append(RegisteredNode.BOSNode())
+            }
+            latticeNodes.append(node)
+        }
+
+        func penaltizedElementIfFeasible(
+            _ element: consuming DicdataElement,
+            rubyCount: Int,
+            penalty: PValue
+        ) -> DicdataElement? {
+            if penalty.isZero {
+                return element
+            }
+            let ratio = Self.penaltyRatio[element.lcid]
+            let pUnit: PValue = Self.getPenalty(data: element) / 2   // 負の値
+            let adjust = pUnit * penalty * ratio
+            if self.shouldBeRemoved(value: element.value() + adjust, wordCount: rubyCount) {
+                return nil
+            } else {
+                return element
+            }
+        }
+
         // MARK: 誤り訂正の対象を列挙する。非常に重い処理。
-        var (stringToInfo, indices, dicdata) = self.movingTowardPrefixSearch(
+        let (stringToInfo, indices, additionalDicdata) = self.movingTowardPrefixSearch(
             composingText: composingText,
             inputProcessRange: inputProcessRange,
             surfaceProcessRange: surfaceProcessRange,
@@ -536,23 +555,31 @@ public final class DicdataStore {
             needTypoCorrection: needTypoCorrection,
             state: state
         )
-        // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
-        for (identifier, value) in indices {
-            let result: [DicdataElement] = self.getDicdataFromLoudstxt3(identifier: identifier, indices: value, state: state).compactMap { (data) -> DicdataElement? in
-                let rubyArray = Array(data.ruby)
-                let penalty = stringToInfo[rubyArray]?.penalty ?? 0
-                if penalty.isZero {
-                    return data
-                }
-                let ratio = Self.penaltyRatio[data.lcid]
-                let pUnit: PValue = Self.getPenalty(data: data) / 2   // 負の値
-                let adjust = pUnit * penalty * ratio
-                if self.shouldBeRemoved(value: data.value() + adjust, wordCount: rubyArray.count) {
-                    return nil
-                }
-                return data.adjustedData(adjust)
+
+        latticeNodes.reserveCapacity(latticeNodes.count + additionalDicdata.count)
+        for element in consume additionalDicdata {
+            let rubyArray = Array(element.ruby)
+            guard let info = stringToInfo[rubyArray] else {
+                continue
             }
-            dicdata.append(contentsOf: result)
+            if let element = penaltizedElementIfFeasible(consume element, rubyCount: rubyArray.count, penalty: info.penalty) {
+                appendNode(element, endIndex: info.endIndex)
+            }
+        }
+
+        // MARK: 検索によって得たindicesから辞書データを実際に取り出していく
+        for (identifier, value) in consume indices {
+            let items = self.getDicdataFromLoudstxt3(identifier: identifier, indices: value, state: state)
+            latticeNodes.reserveCapacity(latticeNodes.count + items.count)
+            for element in consume items {
+                let rubyArray = Array(element.ruby)
+                guard let info = stringToInfo[rubyArray] else {
+                    continue
+                }
+                if let element = penaltizedElementIfFeasible(consume element, rubyCount: rubyArray.count, penalty: info.penalty) {
+                    appendNode(element, endIndex: info.endIndex)
+                }
+            }
         }
 
         // 機械的に一部のデータを生成する
@@ -567,27 +594,12 @@ public final class DicdataStore {
                     fullText: chars,
                     keyboardLanguage: state.keyboardLanguage
                 )
-                for item in result {
-                    stringToInfo[Array(item.ruby)] = (.surface(i), 0)
+                for element in result {
+                    appendNode(element, endIndex: .surface(i))
                 }
-                dicdata.append(contentsOf: result)
             }
         }
-        let needBOS = inputRange?.startIndex == .zero || surfaceRange?.startIndex == .zero
-        return dicdata.compactMap {
-            guard let endIndex = stringToInfo[Array($0.ruby)]?.endIndex else {
-                return nil
-            }
-            let range: Lattice.LatticeRange = switch endIndex {
-            case .input(let endIndex): .input(from: (inputRange?.startIndex)!, to: endIndex + 1)
-            case .surface(let endIndex): .surface(from: (surfaceRange?.startIndex)!, to: endIndex + 1)
-            }
-            let node = LatticeNode(data: $0, range: range)
-            if needBOS {
-                node.prevs.append(RegisteredNode.BOSNode())
-            }
-            return node
-        } as [LatticeNode]
+        return latticeNodes
     }
 
     func getZeroHintPredictionDicdata(lastRcid: Int) -> [DicdataElement] {
