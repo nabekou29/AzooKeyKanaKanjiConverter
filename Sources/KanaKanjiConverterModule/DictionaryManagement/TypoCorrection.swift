@@ -190,42 +190,37 @@ struct TypoCorrectionGenerator: Sendable {
             }
             // 訂正数上限(3個)
             if penalty >= maxPenalty {
-                var convertTargetElements = convertTargetElements
-                let correct = [inputs[self.range.leftIndex + count]].map { element in
-                    let char: Character
-                    if case let .character(c) = element.piece {
-                        char = c.toKatakana()
-                    } else {
-                        return element
-                    }
-                    return ComposingText.InputElement(piece: .character(char), inputStyle: element.inputStyle)
+                let element = inputs[self.range.leftIndex + count]
+                let correct = switch element.piece {
+                case let .character(c), let .key(intention: c?, modifiers: _):
+                    ComposingText.InputElement(piece: .character(c.toKatakana()), inputStyle: element.inputStyle)
+                case _:
+                    element
                 }
-                if count + correct.count > self.nodes.endIndex {
+                // +1 for `correct`
+                if count + 1 > self.nodes.endIndex {
                     if let result {
                         return result
                     } else {
                         continue
                     }
                 }
-                for element in correct {
-                    ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
-                }
-                stack.append((convertTargetElements, count + correct.count, penalty))
+                var convertTargetElements = convertTargetElements
+                ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: correct)
+                stack.append((convertTargetElements, count + 1, penalty))
             } else {
-                stack.append(contentsOf: self.nodes[count].compactMap {
-                    if count + $0.inputElements.count > self.nodes.endIndex {
-                        return nil
-                    }
+                // ノード数は高々1, 2なので、for loopを回す方が効率が良い
+                for node in self.nodes[count] where count + node.inputElements.count > self.nodes.endIndex {
                     var convertTargetElements = convertTargetElements
-                    for element in $0.inputElements {
+                    for element in node.inputElements {
                         ComposingText.updateConvertTargetElements(currentElements: &convertTargetElements, newElement: element)
                     }
-                    return (
+                    stack.append((
                         convertTargetElements: convertTargetElements,
-                        count: count + $0.inputElements.count,
-                        penalty: penalty + $0.weight
-                    )
-                })
+                        count: count + node.inputElements.count,
+                        penalty: penalty + node.weight
+                    ))
+                }
             }
             // このループで出力すべきものがある場合は出力する（yield）
             if let result {
