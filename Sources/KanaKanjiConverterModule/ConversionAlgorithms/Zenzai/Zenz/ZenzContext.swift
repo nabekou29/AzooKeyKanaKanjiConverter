@@ -374,13 +374,13 @@ final class ZenzContext {
         case .v1: ""
         case .v2(let mode):
             if let leftSideContext = mode.leftSideContext {
-                String(leftSideContext.suffix(40))
+                String(leftSideContext.suffix(mode.maxLeftSideContextLength ?? 40))
             } else {
                 ""
             }
         case .v3(let mode):
             if let leftSideContext = mode.leftSideContext {
-                String(leftSideContext.suffix(40))
+                String(leftSideContext.suffix(mode.maxLeftSideContextLength ?? 40))
             } else {
                 ""
             }

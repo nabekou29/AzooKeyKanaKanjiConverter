@@ -124,24 +124,35 @@ public struct ConvertRequestOptions: Sendable {
     }
 
     public struct ZenzaiV2DependentMode: Sendable, Equatable, Hashable {
-        public init(profile: String? = nil, leftSideContext: String? = nil) {
+        public init(profile: String? = nil, leftSideContext: String? = nil, maxLeftSideContextLength: Int? = nil) {
             self.profile = profile
             self.leftSideContext = leftSideContext
+            self.maxLeftSideContextLength = maxLeftSideContextLength
         }
 
         /// プロフィールコンテクストを設定した場合、プロフィールを反映したプロンプトが自動的に付与されます。プロフィールは10〜20文字程度の長さにとどめることを推奨します。
         public var profile: String?
         /// 左側の文字列を文脈として与えます。
         public var leftSideContext: String?
+        /// 文脈の最大長を制約します
+        public var maxLeftSideContextLength: Int?
     }
 
     public struct ZenzaiV3DependentMode: Sendable, Equatable, Hashable {
-        public init(profile: String? = nil, topic: String? = nil, style: String? = nil, preference: String? = nil, leftSideContext: String? = nil) {
+        public init(
+            profile: String? = nil,
+            topic: String? = nil,
+            style: String? = nil,
+            preference: String? = nil,
+            leftSideContext: String? = nil,
+            maxLeftSideContextLength: Int? = nil
+        ) {
             self.profile = profile
             self.topic = topic
             self.style = style
             self.preference = preference
             self.leftSideContext = leftSideContext
+            self.maxLeftSideContextLength = maxLeftSideContextLength
         }
 
         /// プロフィールコンテクストを設定した場合、プロフィールを反映したプロンプトが自動的に付与されます。プロフィールは10〜20文字程度の長さにとどめることを推奨します。
@@ -154,6 +165,8 @@ public struct ConvertRequestOptions: Sendable {
         public var preference: String?
         /// 左側の文字列を文脈として与えます。
         public var leftSideContext: String?
+        /// 文脈の最大長を制約します
+        public var maxLeftSideContextLength: Int?
     }
 
     public enum ZenzVersion: Sendable, Equatable, Hashable {
