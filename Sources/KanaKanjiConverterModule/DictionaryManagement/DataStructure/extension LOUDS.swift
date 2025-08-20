@@ -149,27 +149,6 @@ extension LOUDS {
                 }
             }
         }
-
-//        let substrings = binary[strStart...].split(separator: UInt8(ascii: "\t"), omittingEmptySubsequences: false)
-//        guard let rubySubstring = substrings.first else {
-//            debug("getDataForLoudstxt3: failed to parse", dicdata)
-//            return []
-//        }
-//        // use init(decoding:as:) for avoiding validation
-//        let ruby = String(decoding: rubySubstring, as: UTF8.self)
-//        var i = dicdata.startIndex
-//        // Skip the first (ruby) field
-//        for substring in substrings.dropFirst() {
-//            if i == dicdata.endIndex {
-//                break
-//            }
-//            let word = String(decoding: substring, as: UTF8.self)
-//            withMutableValue(&dicdata[i]) {
-//                $0.ruby = ruby
-//                $0.word = word.isEmpty ? ruby : word
-//            }
-//            i = dicdata.index(after: i)
-//        }
         return dicdata
     }
 
