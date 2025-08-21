@@ -837,6 +837,12 @@ public final class DicdataStore {
     private func loadCCLine(_ former: Int) {
         let url = self.dictionaryURL.appending(path: "cb/\(former).binary", directoryHint: .notDirectory)
         let values = self.loadCCBinary(url: url)
+        defer {
+            self.ccParsed[former] = true
+        }
+        guard !values.isEmpty else {
+            return
+        }
         let (firstKey, firstValue) = values[0]
         assert(firstKey == -1)
         var line = [PValue](repeating: PValue(firstValue), count: self.cidCount)
@@ -844,7 +850,6 @@ public final class DicdataStore {
             line[Int(k)] = PValue(v)
         }
         self.ccLines[former] = consume line
-        self.ccParsed[former] = true
     }
 
     /// class idから連接確率を得る関数
