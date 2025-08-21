@@ -35,7 +35,7 @@ final class Roman2KanaTests: XCTestCase {
     }
 
     func testAny1Cases() throws {
-        let table = InputTable(pieceHiraganaChanges: [
+        let table = InputTable(baseMapping: [
             [.any1, .any1]: [.character("😄")],
             [.piece(.character("s")), .piece(.character("s"))]: [.character("ß")],
             [.piece(.character("a")), .piece(.character("z")), .piece(.character("z"))]: [.character("Q")],
@@ -60,5 +60,24 @@ final class Roman2KanaTests: XCTestCase {
         XCTAssertEqual(table.applied(currentText: Array(""), added: .character("q")), Array("た"))
         XCTAssertEqual(table.applied(currentText: Array("た"), added: .character("＠")), Array("だ"))
         XCTAssertEqual(table.applied(currentText: Array(""), added: .key(intention: "0", modifiers: [.shift])), Array("を"))
+    }
+
+    func testTableMerge() throws {
+        let table1 = InputTable(baseMapping: [
+            [.piece(.character("k")), .piece(.character("a"))]: [.character("か")],
+            [.piece(.character("s")), .piece(.character("a"))]: [.character("さ")],
+            [.piece(.character("t")), .piece(.character("a"))]: [.character("た")],
+        ])
+        let table2 = InputTable(baseMapping: [
+            [.piece(.character("s")), .piece(.character("a"))]: [.character("し")],
+            [.piece(.character("t")), .piece(.character("a"))]: [.character("ち")],
+        ])
+        let table3 = InputTable(baseMapping: [
+            [.piece(.character("t")), .piece(.character("a"))]: [.character("つ")],
+        ])
+        let table = InputTable(tables: [table1, table2, table3], order: .lastInputWins)
+        XCTAssertEqual(table.applied(currentText: Array("k"), added: .character("a")), Array("か"))
+        XCTAssertEqual(table.applied(currentText: Array("s"), added: .character("a")), Array("し"))
+        XCTAssertEqual(table.applied(currentText: Array("t"), added: .character("a")), Array("つ"))
     }
 }

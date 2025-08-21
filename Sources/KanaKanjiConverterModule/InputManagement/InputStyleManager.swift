@@ -7,17 +7,12 @@ public final class InputStyleManager {
     private var tables: [InputTableID: InputTable] = [:]
 
     private init() {
-        // デフォルトのテーブルは最初から追加しておく
-        let defaultRomanToKana = InputTable(pieceHiraganaChanges: InputTables.defaultRomanToKanaPieceMap)
-        let defaultAZIK = InputTable(pieceHiraganaChanges: InputTables.defaultAzikPieceMap)
-        let defaultKanaJIS = InputTable(pieceHiraganaChanges: InputTables.defaultKanaJISPieceMap)
-        let defaultKanaUS = InputTable(pieceHiraganaChanges: InputTables.defaultKanaUSPieceMap)
         self.tables = [
             .empty: .empty,
-            .defaultRomanToKana: defaultRomanToKana,
-            .defaultAZIK: defaultAZIK,
-            .defaultKanaJIS: defaultKanaJIS,
-            .defaultKanaUS: defaultKanaUS
+            .defaultRomanToKana: .defaultRomanToKana,
+            .defaultAZIK: .defaultAZIK,
+            .defaultKanaJIS: .defaultKanaJIS,
+            .defaultKanaUS: .defaultKanaUS
         ]
     }
 
@@ -124,7 +119,7 @@ public final class InputStyleManager {
             let value = parseValue(cols[1])
             map[key] = value
         }
-        return InputTable(pieceHiraganaChanges: map)
+        return InputTable(baseMapping: map)
     }
 }
 
