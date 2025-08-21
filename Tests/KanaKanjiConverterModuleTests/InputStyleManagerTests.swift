@@ -42,4 +42,13 @@ final class InputStyleManagerTests: XCTestCase {
         // "{" then "}" -> "{}"
         XCTAssertEqual(table.applied(currentText: ["{"], added: .character("}")), Array("{}"))
     }
+    func testTableRegisteration() throws {
+        InputStyleManager.registerInputStyle(table: InputTable(baseMapping: [
+            [.piece(.character("k")), .piece(.character("a"))]: [.character("か")]
+        ]), for: "か")
+        var c = ComposingText()
+        c.insertAtCursorPosition([.init(character: "k", inputStyle: .mapped(id: .tableName("か")))])
+        c.insertAtCursorPosition([.init(character: "a", inputStyle: .mapped(id: .tableName("か")))])
+        XCTAssertEqual(c.convertTarget, "か")
+    }
 }

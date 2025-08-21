@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 import SwiftUtils
 
 public final class InputStyleManager {
@@ -20,6 +20,12 @@ public final class InputStyleManager {
         switch id {
         case .defaultRomanToKana, .defaultAZIK, .defaultKanaUS, .defaultKanaJIS, .empty:
             return self.tables[id]!
+        case .tableName(let name):
+            guard let table = self.tables[id] else {
+                print("Warning: Input table \(name) not found. Register the table with `InputStyleManager.registerTable` first.")
+                return .empty
+            }
+            return table
         case .custom(let url):
             if let table = self.tables[id] {
                 return table
@@ -27,6 +33,7 @@ public final class InputStyleManager {
                 self.tables[id] = table
                 return table
             } else {
+                print("Warning: Input table at the path \(url) was not found.")
                 return .empty
             }
         }
@@ -104,7 +111,7 @@ public final class InputStyleManager {
         return result
     }
 
-    private static func loadTable(from url: URL) throws -> InputTable {
+    public static func loadTable(from url: URL) throws -> InputTable {
         let content = try String(contentsOf: url, encoding: .utf8)
         var map: [[InputTable.KeyElement]: [InputTable.ValueElement]] = [:]
         for line in content.components(separatedBy: .newlines) {
@@ -256,5 +263,11 @@ public extension InputStyleManager {
         }
 
         return errors.isEmpty ? .fullyValid : .invalidLines(errors)
+    }
+}
+
+public extension InputStyleManager {
+    static func registerInputStyle(table: InputTable, for name: String) {
+        Self.shared.tables[.tableName(name)] = table
     }
 }
