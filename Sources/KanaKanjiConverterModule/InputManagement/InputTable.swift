@@ -251,29 +251,10 @@ struct InputTable: Sendable {
     /// The algorithm walks the suffix‑trie from the newly added piece
     /// backwards, examining at most `maxKeyCount` pieces, and keeps the
     /// longest match.
-    func toHiragana(currentText: [Character], added: InputPiece) -> [Character] {
-        // Greedy match without temporary array allocation.
-        let bestMatch = Self.matchGreedy(root: self.trieRoot, buffer: currentText, added: added, maxKeyCount: self.maxKeyCount)
-
-        // Apply the result or fall back to passthrough behaviour.
-        if let (bestNode, bestState, matchedDepth) = bestMatch, let kana = bestNode.outputValue(state: bestState) {
-            // `matchedDepth` includes `added`, so drop `matchedDepth - 1` chars.
-            return Array(currentText.dropLast(matchedDepth - 1)) + kana
-        }
-
-        // In case where no match found
-        switch added {
-        case .character(let ch):
-            return currentText + [ch]
-        case .compositionSeparator:
-            return currentText
-        case .key(let intention, _):
-            if let ch = intention {
-                return currentText + [ch]
-            } else {
-                return currentText
-            }
-        }
+    func applied(currentText: [Character], added: InputPiece) -> [Character] {
+        var currentText = currentText
+        self.apply(to: &currentText, added: added)
+        return currentText
     }
 
     /// In‑place variant: mutates `buffer` and returns deleted count.
