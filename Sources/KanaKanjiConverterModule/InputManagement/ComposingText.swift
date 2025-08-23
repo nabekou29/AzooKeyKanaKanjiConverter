@@ -412,8 +412,9 @@ extension ComposingText {
     @discardableResult
     static func updateConvertTargetElements(currentElements: inout [ConvertTargetElement], newElement: InputElement) -> Int {
         if currentElements.isEmpty {
-            if newElement.piece == .compositionSeparator {
-                return 0
+            switch newElement.piece {
+            case .compositionSeparator: return 0
+            case .character, .key: break
             }
             let table: InputTable? = {
                 switch newElement.inputStyle {
