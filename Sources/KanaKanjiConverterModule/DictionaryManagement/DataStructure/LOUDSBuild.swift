@@ -311,4 +311,23 @@ enum Loudstxt3Builder {
         for p in payloads { result.append(p) }
         try result.write(to: url, options: .atomic)
     }
+
+    /// High-level: write sequential shards of loudstxt3 by fixed group size.
+    /// Splits the given entries into contiguous chunks and writes each chunk as one loudstxt3 file.
+    /// - Returns: number of files written
+    static func writeSequentialShards(entries: [(ruby: String, rows: [Row])], split: Int, urlProvider: (Int) -> URL) throws -> Int {
+        guard split > 0 else { return 0 }
+        let total = entries.count
+        if total == 0 { return 0 }
+        var fileIndex = 0
+        var start = 0
+        while start < total {
+            let end = min(start + split, total)
+            let data = makeBinary(entries: Array(entries[start..<end]))
+            try data.write(to: urlProvider(fileIndex), options: .atomic)
+            fileIndex += 1
+            start = end
+        }
+        return fileIndex
+    }
 }

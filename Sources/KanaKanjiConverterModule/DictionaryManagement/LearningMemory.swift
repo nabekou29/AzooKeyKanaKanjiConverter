@@ -350,15 +350,14 @@ struct LongTermLearningMemory {
         }
 
         let loudsFileTemp = loudsFileURL(asTemporaryFile: true, directoryURL: directoryURL)
-        do {
-            let binary = DictionaryBuilder.makeLOUDSData(bits: bits)
-            try binary.write(to: loudsFileTemp)
-        }
-
         let loudsCharsFileTemp = loudsCharsFileURL(asTemporaryFile: true, directoryURL: directoryURL)
         do {
-            let binary = DictionaryBuilder.makeLoudsChars2Data(nodes2Characters: nodes2Characters)
-            try binary.write(to: loudsCharsFileTemp)
+            try DictionaryBuilder.writeLOUDS(
+                bits: bits,
+                nodes2Characters: nodes2Characters,
+                loudsURL: loudsFileTemp,
+                loudsChars2URL: loudsCharsFileTemp
+            )
         }
         let metadataFileTemp = metadataFileURL(asTemporaryFile: true, directoryURL: directoryURL)
         do {
@@ -371,21 +370,18 @@ struct LongTermLearningMemory {
 
         let loudsTxt3FileCount: Int
         do {
-            loudsTxt3FileCount = ((dicdata.count) / txtFileSplit) + 1
-            let indiceses: [Range<Int>] = (0..<loudsTxt3FileCount).map {
-                let start = $0 * txtFileSplit
-                let _end = ($0 + 1) * txtFileSplit
-                let end = dicdata.count < _end ? dicdata.count : _end
-                return start..<end
+            // Build sequential entries for loudstxt3
+            let entries: [(ruby: String, rows: [Loudstxt3Builder.Row])] = dicdata.map { line in
+                (
+                    ruby: line.ruby,
+                    rows: line.data.map { .init(word: $0.word, lcid: $0.lcid, rcid: $0.rcid, mid: $0.mid, score: $0.score) }
+                )
             }
-
-            for indices in indiceses {
-                do {
-                    let start = indices.startIndex / txtFileSplit
-                    let binary = make_loudstxt3(lines: Array(dicdata[indices]))
-                    try binary.write(to: loudsTxt3FileURL("\(start)", asTemporaryFile: true, directoryURL: directoryURL), options: .atomic)
-                }
-            }
+            loudsTxt3FileCount = try Loudstxt3Builder.writeSequentialShards(
+                entries: entries,
+                split: txtFileSplit,
+                urlProvider: { loudsTxt3FileURL("\($0)", asTemporaryFile: true, directoryURL: directoryURL) }
+            )
         }
 
         // MARK: `.pause`ファイルを書き出す
