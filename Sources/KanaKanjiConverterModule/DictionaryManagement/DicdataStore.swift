@@ -151,6 +151,18 @@ public final class DicdataStore {
                 debug("Error: ユーザ辞書のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
             }
         }
+        if query == "user_shortcuts" {
+            if state.userShortcutsHasLoaded {
+                return state.userShortcutsLOUDS
+            } else if let userDictionaryURL = state.userDictionaryURL,
+                      let louds = LOUDS.loadUserShortcuts(userDictionaryURL: userDictionaryURL) {
+                state.updateUserShortcutsLOUDS(louds)
+                return louds
+            } else {
+                state.updateUserShortcutsLOUDS(nil)
+                debug("Error: ユーザショートカット辞書のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
+            }
+        }
         if query == "memory" {
             if state.memoryHasLoaded {
                 return state.memoryLOUDS
@@ -205,6 +217,18 @@ public final class DicdataStore {
             return []
         }
         return [louds.searchNodeIndex(chars: charIDs)].compactMap {$0}
+    }
+
+    /// ユーザショートカット辞書から、rubyと完全一致するエントリを抽出して`DicdataElement`列を返す
+    /// - Parameters:
+    ///   - ruby: カタカナの読み（入力全文）
+    ///   - state: ストア状態
+    /// - Returns: 完全一致の`DicdataElement`配列
+    func getPerfectMatchedUserShortcutsDicdata(ruby: some StringProtocol, state: DicdataStoreState) -> [DicdataElement] {
+        let charIDs = ruby.map(self.character2charId(_:))
+        let indices = self.perfectMatchingSearch(query: "user_shortcuts", charIDs: charIDs, state: state)
+        guard !indices.isEmpty else { return [] }
+        return self.getDicdataFromLoudstxt3(identifier: "user_shortcuts", indices: indices, state: state)
     }
 
     private struct UnifiedGenerator {
@@ -430,6 +454,19 @@ public final class DicdataStore {
         if identifier == "user", let userDictionaryURL = state.userDictionaryURL {
             for (key, value) in dict {
                 data.append(contentsOf: LOUDS.getUserDictionaryDataForLoudstxt3(
+                    identifier + "\(key)",
+                    indices: value.map {$0 & 2047},
+                    cache: self.loudstxts[identifier + "\(key)"],
+                    userDictionaryURL: userDictionaryURL
+                ))
+            }
+            data.mutatingForEach {
+                $0.metadata = .isFromUserDictionary
+            }
+        }
+        if identifier == "user_shortcuts", let userDictionaryURL = state.userDictionaryURL {
+            for (key, value) in dict {
+                data.append(contentsOf: LOUDS.getUserShortcutsDataForLoudstxt3(
                     identifier + "\(key)",
                     indices: value.map {$0 & 2047},
                     cache: self.loudstxts[identifier + "\(key)"],

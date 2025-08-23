@@ -73,6 +73,14 @@ extension LOUDS {
         return load(charsURL: charsURL, loudsURL: loudsURL)
     }
 
+    package static func loadUserShortcuts(userDictionaryURL: URL) -> LOUDS? {
+        let (charsURL, loudsURL) = (
+            userDictionaryURL.appending(path: "user_shortcuts.loudschars2", directoryHint: .notDirectory),
+            userDictionaryURL.appending(path: "user_shortcuts.louds", directoryHint: .notDirectory)
+        )
+        return load(charsURL: charsURL, loudsURL: loudsURL)
+    }
+
     private static func load(charsURL: URL, loudsURL: URL) -> LOUDS? {
         let nodeIndex2ID: [UInt8]
         do {
@@ -153,6 +161,19 @@ extension LOUDS {
     }
 
     static func getUserDictionaryDataForLoudstxt3(_ identifier: String, indices: [Int], cache: Data? = nil, userDictionaryURL: URL) -> [DicdataElement] {
+        if let cache {
+            return Self.parseLoudstxt3Binary(binary: cache, indices: indices)
+        }
+        do {
+            let url = userDictionaryURL.appendingPathComponent("\(identifier).loudstxt3", isDirectory: false)
+            return Self.parseLoudstxt3Binary(binary: try Data(contentsOf: url), indices: indices)
+        } catch {
+            debug(#function, error)
+            return []
+        }
+    }
+
+    static func getUserShortcutsDataForLoudstxt3(_ identifier: String, indices: [Int], cache: Data? = nil, userDictionaryURL: URL) -> [DicdataElement] {
         if let cache {
             return Self.parseLoudstxt3Binary(binary: cache, indices: indices)
         }
