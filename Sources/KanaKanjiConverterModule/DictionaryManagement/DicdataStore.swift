@@ -726,14 +726,15 @@ public final class DicdataStore {
                 result.append(DicdataElement(word: String(fs), ruby: convertTarget, cid: CIDData.記号.cid, mid: MIDData.一般.mid, value: value))
                 value -= 5.0
             }
-            if let group = Self.weakRelatingSymbolLookup[hs] {
-                for symbol in group where symbol != hs {
-                    result.append(DicdataElement(word: String(symbol), ruby: convertTarget, cid: CIDData.記号.cid, mid: MIDData.一般.mid, value: value))
+        }
+        if let group = Self.weakRelatingSymbolLookup[convertTarget] {
+            var value: PValue = -34
+            for symbol in group where symbol != convertTarget {
+                result.append(DicdataElement(word: String(symbol), ruby: convertTarget, cid: CIDData.記号.cid, mid: MIDData.一般.mid, value: value))
+                value -= 5.0
+                if symbol.count == 1, let fs = Self.halfwidthToFullwidth[symbol.first!], fs != symbol.first {
+                    result.append(DicdataElement(word: String(fs), ruby: convertTarget, cid: CIDData.記号.cid, mid: MIDData.一般.mid, value: value))
                     value -= 5.0
-                    if let fs = Self.halfwidthToFullwidth[symbol] {
-                        result.append(DicdataElement(word: String(fs), ruby: convertTarget, cid: CIDData.記号.cid, mid: MIDData.一般.mid, value: value))
-                        value -= 5.0
-                    }
                 }
             }
         }
@@ -755,7 +756,7 @@ public final class DicdataStore {
     // 宣言順不同
     // 1つを入れると他が出る、というイメージ
     // 半角と全角がある場合は半角のみ
-    private static let weakRelatingSymbolGroups: [[Character]] = [
+    private static let weakRelatingSymbolGroups: [[String]] = [
         // 異体字セレクト用 (試験実装)
         ["高", "髙"], // ハシゴダカ
         ["斎", "斉", "齋", "齊"],
@@ -786,12 +787,20 @@ public final class DicdataStore {
         ["°", "℃", "℉"],
         ["◯"], // 図形
         ["*", "※", "✳︎", "✴︎"],   // こめ
-        ["・", "…", "‥", "•"],
+        ["、", "。", "，", "．", "・", "…", "‥", "•"],
         ["+", "±", "⊕"],
         ["×", "❌", "✖️"],
         ["÷", "➗" ],
         ["<", "≦", "≪", "〈", "《", "‹", "«"],
         [">", "≧", "≫", "〉", "》", "›", "»"],
+        ["「", "『", "（", "［", "《", "【"],
+        ["」", "』", "）", "］", "》", "】"],
+        ["「」", "『』", "（）", "［］", "《》", "【】"],
+        ["(", "{", "<", "["],
+        [")", "}", ">", "]"],
+        ["()", "{}", "<>", "[]"],
+        ["’", "“", "”", "„", "\"", "`", "'"],
+        ["\"\"\"", "'''", "```"],
         ["=", "≒", "≠", "≡"],
         [":", ";"],
         ["!", "❗️", "❣️", "‼︎", "⁉︎", "❕", "‼️", "⁉️", "¡"],
@@ -806,12 +815,16 @@ public final class DicdataStore {
     ]
 
     // 高速ルックアップ用（記号→同一グループ）
-    private static let weakRelatingSymbolLookup: [Character: [Character]] = {
-        var map: [Character: [Character]] = [:]
+    private static let weakRelatingSymbolLookup: [String: [String]] = {
+        var map: [String: [String]] = [:]
         for group in weakRelatingSymbolGroups {
-            for c in group { map[c] = group }
+            for c in group {
+                map[c, default: []].append(contentsOf: group)
+            }
         }
-        return map
+        return map.mapValues {
+            Array($0.uniqued())
+        }
     }()
 
     private func loadCCBinary(url: URL) -> [(Int32, Float)] {
