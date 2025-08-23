@@ -82,21 +82,6 @@ struct LongTermLearningMemory {
 
     static var txtFileSplit: Int { 2048 }
 
-    private static func BoolToUInt64(_ bools: [Bool]) -> [UInt64] {
-        let unit = 64
-        let value = bools.count.quotientAndRemainder(dividingBy: unit)
-        let _bools = bools + [Bool].init(repeating: true, count: (unit - value.remainder) % unit)
-        var result = [UInt64]()
-        for i in 0...value.quotient {
-            var value: UInt64 = 0
-            for j in 0..<unit {
-                value += (_bools[i * unit + j] ? 1 : 0) << (unit - j - 1)
-            }
-            result.append(value)
-        }
-        return result
-    }
-
     /// - note:
     ///   この関数は出現数(`metadata.count`)と単語の長さ(`dicdata.ruby.count`)に基づいてvalueを決める。
     ///   出現数が大きいほどvalueは大きくなり、単語が長いほどvalueは大きくなる。
@@ -310,19 +295,12 @@ struct LongTermLearningMemory {
     }
 
     fileprivate static func make_loudstxt3(lines: [DataBlock]) -> Data {
-        let lc = lines.count    // データ数
-        let count = Data(bytes: [UInt16(lc)], count: 2) // データ数をUInt16でマップ
-
-        let data = lines.map { $0.makeLoudstxt3Entry() }
-        let body = data.reduce(Data(), +)   // データ
-
-        let header_endIndex: UInt32 = 2 + UInt32(lc) * UInt32(MemoryLayout<UInt32>.size)
-        let headerArray = data.dropLast().reduce(into: [header_endIndex]) {array, value in // ヘッダの作成
-            array.append(array.last! + UInt32(value.count))
-        }
-
-        let header = Data(bytes: headerArray, count: MemoryLayout<UInt32>.size * headerArray.count)
-        return count + header + body
+        Loudstxt3Builder.makeBinary(entries: lines.map { line in
+            (
+                ruby: line.ruby,
+                rows: line.data.map { .init(word: $0.word, lcid: $0.lcid, rcid: $0.rcid, mid: $0.mid, score: $0.score) }
+            )
+        })
     }
 
     enum UpdateError: Error {
@@ -371,16 +349,15 @@ struct LongTermLearningMemory {
             currentNodes = currentNodes.flatMap {(_, nodeIndex) in trie.nodes[nodeIndex].children.sorted(by: {$0.key < $1.key})}
         }
 
-        let bytes = Self.BoolToUInt64(bits)
         let loudsFileTemp = loudsFileURL(asTemporaryFile: true, directoryURL: directoryURL)
         do {
-            let binary = Data(bytes: bytes, count: bytes.count * 8)
+            let binary = DictionaryBuilder.makeLOUDSData(bits: bits)
             try binary.write(to: loudsFileTemp)
         }
 
         let loudsCharsFileTemp = loudsCharsFileURL(asTemporaryFile: true, directoryURL: directoryURL)
         do {
-            let binary = Data(bytes: nodes2Characters, count: nodes2Characters.count)
+            let binary = DictionaryBuilder.makeLoudsChars2Data(nodes2Characters: nodes2Characters)
             try binary.write(to: loudsCharsFileTemp)
         }
         let metadataFileTemp = metadataFileURL(asTemporaryFile: true, directoryURL: directoryURL)

@@ -120,7 +120,7 @@ extension LOUDS {
         var ruby: String = ""
         var i = dicdata.startIndex
 
-        binary.withUnsafeBytes { (rawBuffer: UnsafeRawBufferPointer) -> Void in
+        binary.withUnsafeBytes { (rawBuffer: UnsafeRawBufferPointer) in
             let ptr = rawBuffer.bindMemory(to: UInt8.self).baseAddress!
             let count = binary.count
             var offset = strStart + 1 - binary.startIndex
