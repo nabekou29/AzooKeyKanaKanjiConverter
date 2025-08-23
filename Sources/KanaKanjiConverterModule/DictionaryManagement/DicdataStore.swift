@@ -136,9 +136,6 @@ public final class DicdataStore {
     }
 
     func loadLOUDS(query: String, state: DicdataStoreState) -> LOUDS? {
-        if self.importedLoudses.contains(query) {
-            return self.loudses[query]
-        }
         if query == "user" {
             if state.userDictionaryHasLoaded {
                 return state.userDictionaryLOUDS
@@ -175,6 +172,11 @@ public final class DicdataStore {
                 debug("Error: ユーザ辞書のloudsファイルの読み込みに失敗しましたが、このエラーは深刻ではありません。")
             }
         }
+
+        if self.importedLoudses.contains(query) {
+            return self.loudses[query]
+        }
+
         // 一部のASCII文字はエスケープする
         let identifier = [
             "\\n": "[0A]",
