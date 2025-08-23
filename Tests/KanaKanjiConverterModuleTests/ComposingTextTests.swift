@@ -67,6 +67,27 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(c.convertTarget, "あかふぁ")
             XCTAssertEqual(c.convertTargetCursorPosition, 4)
         }
+        // ローマ字(カーソルを移動して入力)
+        do {
+            var c = ComposingText()
+            sequentialInput(&c, sequence: "sai", inputStyle: .roman2kana)
+            _ = c.moveCursorFromCursorPosition(count: -2)
+            c.insertAtCursorPosition("xs", inputStyle: .roman2kana)
+            _ = c.moveCursorFromCursorPosition(count: 2)
+            c.insertAtCursorPosition("zu", inputStyle: .roman2kana)
+            XCTAssertEqual(c.input, [
+                ComposingText.InputElement(character: "x", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "s", inputStyle: .roman2kana),
+                ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
+                ComposingText.InputElement(character: "s", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "a", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "i", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "z", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "u", inputStyle: .roman2kana)
+            ])
+            XCTAssertEqual(c.convertTarget, "xsさいず")
+            XCTAssertEqual(c.convertTargetCursorPosition, 5)
+        }
         // ローマ字の特殊ケース(促音)
         do {
             var c = ComposingText()
@@ -120,6 +141,7 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(c.input, [
                 ComposingText.InputElement(character: "あ", inputStyle: .direct),
                 ComposingText.InputElement(character: "い", inputStyle: .direct),
+                ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
                 ComposingText.InputElement(character: "え", inputStyle: .direct),
                 ComposingText.InputElement(character: "お", inputStyle: .direct)
             ])
@@ -143,6 +165,25 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(c.convertTarget, "あかふ")
             XCTAssertEqual(c.convertTargetCursorPosition, 3)
         }
+        // ローマ字 (途中を削除するケース)
+        do {
+            var c = ComposingText()
+            sequentialInput(&c, sequence: "txsu", inputStyle: .roman2kana) // txす|
+            _ = c.moveCursorFromCursorPosition(count: -2) // t| xす
+            // 「x」を消す
+            c.deleteForwardFromCursorPosition(count: 1) // t| す
+            _ = c.moveCursorFromCursorPosition(count: 1) // tす|
+            c.insertAtCursorPosition("a", inputStyle: .roman2kana) // tすあ|
+            XCTAssertEqual(c.input, [
+                ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
+                ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
+                ComposingText.InputElement(character: "s", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "u", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "a", inputStyle: .roman2kana)
+            ])
+            XCTAssertEqual(c.convertTarget, "tすあ")
+            XCTAssertEqual(c.convertTargetCursorPosition, 3)
+        }
         // カスタム (危険なケース)
         do {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("custom_delete1.tsv")
@@ -154,6 +195,7 @@ final class ComposingTextTests: XCTestCase {
             c.deleteForwardFromCursorPosition(count: 1)   // お|よう
             XCTAssertEqual(c.input, [
                 ComposingText.InputElement(character: "お", inputStyle: .frozen),
+                ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
                 ComposingText.InputElement(character: "よ", inputStyle: .frozen),
                 ComposingText.InputElement(character: "う", inputStyle: .frozen)
             ])
