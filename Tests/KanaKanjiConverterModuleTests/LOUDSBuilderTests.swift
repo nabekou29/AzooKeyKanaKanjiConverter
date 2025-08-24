@@ -289,4 +289,45 @@ final class LOUDSBuilderTests: XCTestCase {
             XCTFail("slash ruby not found in LOUDS")
         }
     }
+
+    func testAligned2048EmptySlotsAreParsable() throws {
+        // Build a shard with sparse items and ensure empty slots are valid (2-byte zero header)
+        let dir = try tmpDir("aligned-2048")
+        defer {
+            try? FileManager.default.removeItem(at: dir)
+        }
+        let url = dir.appendingPathComponent("shard.loudstxt3")
+
+        let items: [(local: Int, ruby: String, rows: [Loudstxt3Builder.Row])] = [
+            (local: 5, ruby: "あ", rows: [ .init(word: "亜", lcid: 1, rcid: 1, mid: 1, score: -1) ]),
+            (local: 300, ruby: "か", rows: [ .init(word: "蚊", lcid: 2, rcid: 2, mid: 2, score: -2), .init(word: "課", lcid: 3, rcid: 3, mid: 3, score: -3) ])
+        ]
+        try Loudstxt3Builder.writeAligned2048(items: items, to: url)
+
+        let data = try Data(contentsOf: url)
+        XCTAssertEqual(headerCount(data), 2048)
+
+        // Empty slot should produce a slice with at least 2 bytes and parse to empty
+        for emptyIdx in [0, 1, 2, 10] where !items.contains(where: { $0.local == emptyIdx }) {
+            let slice = entrySlice(data, emptyIdx)
+            XCTAssertGreaterThanOrEqual(slice.count, 2)
+            let parsed = LOUDS.parseBinary(binary: slice)
+            XCTAssertEqual(parsed.count, 0)
+        }
+
+        // Non-empty slots should round-trip
+        do {
+            let slice = entrySlice(data, 5)
+            let parsed = LOUDS.parseBinary(binary: slice)
+            XCTAssertEqual(parsed.count, 1)
+            XCTAssertEqual(parsed.first?.ruby, "あ")
+            XCTAssertEqual(parsed.first?.word, "亜")
+        }
+        do {
+            let slice = entrySlice(data, 300)
+            let parsed = LOUDS.parseBinary(binary: slice)
+            XCTAssertEqual(Set(parsed.map { $0.word }), ["蚊", "課"])
+            XCTAssertTrue(parsed.allSatisfy { $0.ruby == "か" })
+        }
+    }
 }

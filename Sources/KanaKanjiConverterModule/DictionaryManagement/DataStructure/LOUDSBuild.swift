@@ -277,7 +277,11 @@ enum Loudstxt3Builder {
     /// High-level: write a loudstxt3 file with 2048 header slots aligned to LOUDS local indices.
     /// - Parameter items: list of (local index, ruby, rows) for this shard.
     static func writeAligned2048(items: [(local: Int, ruby: String, rows: [Row])], to url: URL) throws {
-        var payloads: [Data] = Array(repeating: Data(), count: 2048)
+        // Initialize each slot with a zero-count (2 bytes) payload so empty slots are valid to parse.
+        var payloads: [Data] = Array(repeating: {
+            var z: UInt16 = 0
+            return Data(bytes: &z, count: MemoryLayout<UInt16>.size)
+        }(), count: 2048)
         for item in items {
             guard (0..<2048).contains(item.local) else { continue }
             var d = Data()
