@@ -52,8 +52,7 @@ final class DicdataStoreTests: XCTestCase {
             to: userDir,
             baseName: "user",
             shardByFirstCharacter: false,
-            char2UInt8: cmap,
-            split: 2048
+            char2UInt8: cmap
         )
 
         // 2) Wire DicdataStore with DictionaryMock as system dictionary, but point user URL to our export

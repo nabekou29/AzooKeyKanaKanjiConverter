@@ -75,8 +75,7 @@ final class ConverterTests: XCTestCase {
             to: userDir,
             baseName: "user_shortcuts",
             shardByFirstCharacter: false,
-            char2UInt8: charMap,
-            split: 2048
+            char2UInt8: charMap
         )
 
         // 2) Wire converter with DictionaryMock and point sharedContainerURL to userDir

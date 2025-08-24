@@ -177,22 +177,8 @@ public final class DicdataStore {
             return self.loudses[query]
         }
 
-        // 一部のASCII文字はエスケープする
-        let identifier = [
-            "\\n": "[0A]",
-            " ": "[20]",
-            "\"": "[22]",
-            "\'": "[27]",
-            "*": "[2A]",
-            "+": "[2B]",
-            ".": "[2E]",
-            "/": "[2F]",
-            ":": "[3A]",
-            "<": "[3C]",
-            ">": "[3E]",
-            "\\": "[5C]",
-            "|": "[7C]"
-        ][query, default: query]
+        // 一部のASCII文字は共通のエスケープ関数で処理する
+        let identifier = DictionaryBuilder.escapedIdentifier(query)
 
         if let louds = LOUDS.load(identifier, dictionaryURL: self.dictionaryURL) {
             self.loudses[query] = louds
@@ -450,14 +436,14 @@ public final class DicdataStore {
     }
 
     package func getDicdataFromLoudstxt3(identifier: String, indices: some Sequence<Int>, state: DicdataStoreState) -> [DicdataElement] {
-        // split = 2048
-        let dict = [Int: [Int]].init(grouping: indices, by: {$0 >> 11})
+        // Group indices by shard
+        let dict = [Int: [Int]].init(grouping: indices, by: { $0 >> DictionaryBuilder.shardShift })
         var data: [DicdataElement] = []
         if identifier == "user", let userDictionaryURL = state.userDictionaryURL {
             for (key, value) in dict {
                 data.append(contentsOf: LOUDS.getUserDictionaryDataForLoudstxt3(
                     identifier + "\(key)",
-                    indices: value.map {$0 & 2047},
+                    indices: value.map { $0 & DictionaryBuilder.localMask },
                     cache: self.loudstxts[identifier + "\(key)"],
                     userDictionaryURL: userDictionaryURL
                 ))
@@ -470,7 +456,7 @@ public final class DicdataStore {
             for (key, value) in dict {
                 data.append(contentsOf: LOUDS.getUserShortcutsDataForLoudstxt3(
                     identifier + "\(key)",
-                    indices: value.map {$0 & 2047},
+                    indices: value.map { $0 & DictionaryBuilder.localMask },
                     cache: self.loudstxts[identifier + "\(key)"],
                     userDictionaryURL: userDictionaryURL
                 ))
@@ -483,7 +469,7 @@ public final class DicdataStore {
             for (key, value) in dict {
                 data.append(contentsOf: LOUDS.getMemoryDataForLoudstxt3(
                     identifier + "\(key)",
-                    indices: value.map {$0 & 2047},
+                    indices: value.map { $0 & DictionaryBuilder.localMask },
                     cache: self.loudstxts[identifier + "\(key)"],
                     memoryURL: memoryURL
                 ))
@@ -495,7 +481,7 @@ public final class DicdataStore {
         for (key, value) in dict {
             data.append(contentsOf: LOUDS.getDataForLoudstxt3(
                 identifier + "\(key)",
-                indices: value.map {$0 & 2047},
+                indices: value.map { $0 & DictionaryBuilder.localMask },
                 cache: self.loudstxts[identifier + "\(key)"],
                 dictionaryURL: self.dictionaryURL
             ))

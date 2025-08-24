@@ -2,6 +2,13 @@ import Collections
 public import Foundation
 
 public enum DictionaryBuilder {
+    /// Bit width for local index in node index representation.
+    /// Change this to re-shard (requires rebuilding all dictionaries).
+    public static let shardShift: Int = 11
+    /// Number of entries per loudstxt3 shard file (must be power of two).
+    public static let entriesPerShard: Int = 1 << shardShift
+    /// Bit mask for local index (only valid if entriesPerShard is power of two).
+    public static let localMask: Int = entriesPerShard - 1
     /// Export a dictionary from DicdataElement entries into LOUDS and loudstxt3 files.
     /// - Parameters:
     ///   - entries: DicdataElement list (ruby must be consistent form, typically Katakana).
@@ -9,15 +16,17 @@ public enum DictionaryBuilder {
     ///   - baseName: Base file name when not sharding (e.g., "user").
     ///   - shardByFirstCharacter: When true, writes per-first-character files like the default dictionary layout.
     ///   - char2UInt8: Character-ID mapping matching `charID.chid`.
-    ///   - split: Max entries per loudstxt3 shard file.
     public static func exportDictionary(
         entries: [DicdataElement],
         to directoryURL: URL,
         baseName: String,
         shardByFirstCharacter: Bool,
         char2UInt8: [Character: UInt8],
-        split _: Int = 2048
+        shardShift customShardShift: Int? = nil
     ) throws {
+        let effectiveShardShift = customShardShift ?? Self.shardShift
+        let effectiveEntriesPerShard = 1 << effectiveShardShift
+        let effectiveLocalMask = effectiveEntriesPerShard - 1
         if shardByFirstCharacter {
             let groupedByFirst: [Character: [DicdataElement]] = Dictionary(grouping: entries) { e in e.ruby.first ?? "\0" }
             for (fc, group) in groupedByFirst.sorted(by: { $0.key < $1.key }) {
@@ -26,10 +35,19 @@ public enum DictionaryBuilder {
                 let charsURL = directoryURL.appendingPathComponent("\(id).loudschars2")
                 let (bits, chars) = buildLOUDS(entries: group, char2UInt8: char2UInt8)
                 try writeLOUDS(bits: bits, nodes2Characters: chars, loudsURL: loudsURL, loudsChars2URL: charsURL)
-                // loudstxt3 shards aligned to LOUDS node indices (2048 slots per shard)
+                // loudstxt3 shards aligned to LOUDS node indices (entriesPerShard slots per shard)
                 let words = makeLOUDSWords(bits: bits)
                 let louds = LOUDS(bytes: words, nodeIndex2ID: chars)
-                try writeLoudstxt3ShardsAligned(entries: group, id: id, louds: louds, char2UInt8: char2UInt8, directoryURL: directoryURL)
+                try writeLoudstxt3ShardsAligned(
+                    entries: group,
+                    id: id,
+                    louds: louds,
+                    char2UInt8: char2UInt8,
+                    directoryURL: directoryURL,
+                    shardShift: effectiveShardShift,
+                    entriesPerShard: effectiveEntriesPerShard,
+                    localMask: effectiveLocalMask
+                )
             }
         } else {
             let id = baseName
@@ -40,7 +58,16 @@ public enum DictionaryBuilder {
             // loudstxt3 shards aligned to LOUDS node indices
             let words = makeLOUDSWords(bits: bits)
             let louds = LOUDS(bytes: words, nodeIndex2ID: chars)
-            try writeLoudstxt3ShardsAligned(entries: entries, id: id, louds: louds, char2UInt8: char2UInt8, directoryURL: directoryURL)
+            try writeLoudstxt3ShardsAligned(
+                entries: entries,
+                id: id,
+                louds: louds,
+                char2UInt8: char2UInt8,
+                directoryURL: directoryURL,
+                shardShift: effectiveShardShift,
+                entriesPerShard: effectiveEntriesPerShard,
+                localMask: effectiveLocalMask
+            )
         }
     }
 
@@ -51,11 +78,11 @@ public enum DictionaryBuilder {
         baseName: String,
         shardByFirstCharacter: Bool,
         charIDFileURL: URL,
-        split: Int = 2048
+        shardShift: Int? = nil
     ) throws {
         let string = try String(contentsOf: charIDFileURL, encoding: .utf8)
         let map = Dictionary(uniqueKeysWithValues: string.enumerated().map { ($0.element, UInt8($0.offset)) })
-        try exportDictionary(entries: entries, to: directoryURL, baseName: baseName, shardByFirstCharacter: shardByFirstCharacter, char2UInt8: map, split: split)
+        try exportDictionary(entries: entries, to: directoryURL, baseName: baseName, shardByFirstCharacter: shardByFirstCharacter, char2UInt8: map, shardShift: shardShift)
     }
 
     /// Pack LOUDS bit sequence (as Bool) into Data of UInt64 (big-endian bit order per existing format).
@@ -67,7 +94,9 @@ public enum DictionaryBuilder {
         var value: UInt64 = 0
         var idxInUnit = 0
         for b in bits {
-            if b { value |= (1 << (unit - idxInUnit - 1)) }
+            if b {
+                value |= (1 << (unit - idxInUnit - 1))
+            }
             idxInUnit += 1
             if idxInUnit == unit {
                 var v = value
@@ -99,7 +128,9 @@ public enum DictionaryBuilder {
         var value: UInt64 = 0
         var idxInUnit = 0
         for b in bits {
-            if b { value |= (1 << (unit - idxInUnit - 1)) }
+            if b {
+                value |= (1 << (unit - idxInUnit - 1))
+            }
             idxInUnit += 1
             if idxInUnit == unit {
                 words.append(value)
@@ -130,8 +161,8 @@ public enum DictionaryBuilder {
         try charsData.write(to: loudsChars2URL)
     }
 
-    private static func writeLoudstxt3ShardsAligned(entries: [DicdataElement], id: String, louds: LOUDS, char2UInt8: [Character: UInt8], directoryURL: URL) throws {
-        // Group entries by ruby, compute their LOUDS node index, and shard by (index >> 11)
+    private static func writeLoudstxt3ShardsAligned(entries: [DicdataElement], id: String, louds: LOUDS, char2UInt8: [Character: UInt8], directoryURL: URL, shardShift: Int, entriesPerShard: Int, localMask: Int) throws {
+        // Group entries by ruby, compute their LOUDS node index, and shard by (index >> shardShift)
         let grouped = Dictionary(grouping: entries, by: { $0.ruby })
         var shards: [Int: [(local: Int, ruby: String, rows: [Loudstxt3Builder.Row])]] = [:]
         for (ruby, elems) in grouped {
@@ -139,16 +170,26 @@ public enum DictionaryBuilder {
             var ids: [UInt8] = []
             ids.reserveCapacity(ruby.count)
             var ok = true
-            for ch in ruby { guard let v = char2UInt8[ch] else { ok = false; break }; ids.append(v) }
-            guard ok, let nodeIndex = louds.searchNodeIndex(chars: ids) else { continue }
-            let shard = nodeIndex >> 11
-            let local = nodeIndex & 2047
-            let rows = elems.map { e in Loudstxt3Builder.Row(word: e.word, lcid: e.lcid, rcid: e.rcid, mid: e.mid, score: Float32(e.value())) }
+            for ch in ruby {
+                guard let v = char2UInt8[ch] else {
+                    ok = false
+                    break
+                }
+                ids.append(v)
+            }
+            guard ok, let nodeIndex = louds.searchNodeIndex(chars: ids) else {
+                continue
+            }
+            let shard = nodeIndex >> shardShift
+            let local = nodeIndex & localMask
+            let rows = elems.map { e in
+                Loudstxt3Builder.Row(word: e.word, lcid: e.lcid, rcid: e.rcid, mid: e.mid, score: Float32(e.value()))
+            }
             shards[shard, default: []].append((local: local, ruby: ruby, rows: rows))
         }
         for (shard, items) in shards.sorted(by: { $0.key < $1.key }) {
             let url = directoryURL.appendingPathComponent("\(id)\(shard).loudstxt3")
-            try Loudstxt3Builder.writeAligned2048(items: items, to: url)
+            try Loudstxt3Builder.writeAligned(items: items, to: url, entriesPerShard: entriesPerShard)
         }
     }
 
@@ -161,7 +202,12 @@ public enum DictionaryBuilder {
         func keyToChars(_ key: some StringProtocol) -> [UInt8]? {
             var chars: [UInt8] = []
             chars.reserveCapacity(key.count)
-            for ch in key { guard let id = char2UInt8[ch] else { return nil }; chars.append(id) }
+            for ch in key {
+                guard let id = char2UInt8[ch] else {
+                    return nil
+                }
+                chars.append(id)
+            }
             return chars
         }
         for e in entries {
@@ -274,16 +320,18 @@ enum Loudstxt3Builder {
         return result
     }
 
-    /// High-level: write a loudstxt3 file with 2048 header slots aligned to LOUDS local indices.
+    /// High-level: write a loudstxt3 file with entriesPerShard header slots aligned to LOUDS local indices.
     /// - Parameter items: list of (local index, ruby, rows) for this shard.
-    static func writeAligned2048(items: [(local: Int, ruby: String, rows: [Row])], to url: URL) throws {
+    static func writeAligned(items: [(local: Int, ruby: String, rows: [Row])], to url: URL, entriesPerShard: Int) throws {
         // Initialize each slot with a zero-count (2 bytes) payload so empty slots are valid to parse.
         var payloads: [Data] = Array(repeating: {
             var z: UInt16 = 0
             return Data(bytes: &z, count: MemoryLayout<UInt16>.size)
-        }(), count: 2048)
+        }(), count: entriesPerShard)
         for item in items {
-            guard (0..<2048).contains(item.local) else { continue }
+            guard (0 ..< entriesPerShard).contains(item.local) else {
+                continue
+            }
             var d = Data()
             var count = UInt16(item.rows.count)
             d.append(Data(bytes: &count, count: MemoryLayout<UInt16>.size))
@@ -303,11 +351,11 @@ enum Loudstxt3Builder {
         }
         // Build header
         var result = Data()
-        var count16 = UInt16(2048)
+        var count16 = UInt16(entriesPerShard)
         result.append(Data(bytes: &count16, count: MemoryLayout<UInt16>.size))
-        // write 2048 offsets
-        var offset: UInt32 = 2 + UInt32(2048) * UInt32(MemoryLayout<UInt32>.size)
-        for i in 0 ..< 2048 {
+        // write offsets for all slots
+        var offset: UInt32 = 2 + UInt32(entriesPerShard) * UInt32(MemoryLayout<UInt32>.size)
+        for i in 0 ..< entriesPerShard {
             result.append(Data(bytes: &offset, count: MemoryLayout<UInt32>.size))
             offset &+= UInt32(payloads[i].count)
         }
@@ -316,13 +364,22 @@ enum Loudstxt3Builder {
         try result.write(to: url, options: .atomic)
     }
 
+    /// Backward-compatible wrapper for default entriesPerShard.
+    static func writeAligned2048(items: [(local: Int, ruby: String, rows: [Row])], to url: URL) throws {
+        try writeAligned(items: items, to: url, entriesPerShard: DictionaryBuilder.entriesPerShard)
+    }
+
     /// High-level: write sequential shards of loudstxt3 by fixed group size.
     /// Splits the given entries into contiguous chunks and writes each chunk as one loudstxt3 file.
     /// - Returns: number of files written
     static func writeSequentialShards(entries: [(ruby: String, rows: [Row])], split: Int, urlProvider: (Int) -> URL) throws -> Int {
-        guard split > 0 else { return 0 }
+        guard split > 0 else {
+            return 0
+        }
         let total = entries.count
-        if total == 0 { return 0 }
+        if total == 0 {
+            return 0
+        }
         var fileIndex = 0
         var start = 0
         while start < total {

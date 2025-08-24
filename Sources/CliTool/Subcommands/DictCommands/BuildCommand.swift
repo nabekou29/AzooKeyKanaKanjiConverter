@@ -19,9 +19,6 @@ extension Subcommands.Dict {
         @Flag(name: [.customShort("c"), .customLong("clean")], help: "Cleans target directory.")
         var cleanTargetDirectory = false
 
-        @Option(name: [.customShort("s"), .customLong("split")], help: "A loudstxt3 file will contain this number of entries.")
-        var loudsTxtFileSplitCount: Int = 2048
-
         @Flag(name: [.customShort("v"), .customLong("verbose")], help: "Verbose logs.")
         var verbose = false
     }
@@ -70,8 +67,7 @@ extension Subcommands.Dict.Build {
             to: targetDirectoryURL,
             baseName: "",
             shardByFirstCharacter: true,
-            char2UInt8: Self.char2UInt8,
-            split: loudsTxtFileSplitCount
+            char2UInt8: Self.char2UInt8
         )
         print("Add charID.chid file...")
         try Self.writeCharID(targetDirectory: targetDirectoryURL)

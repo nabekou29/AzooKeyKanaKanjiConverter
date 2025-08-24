@@ -5,11 +5,9 @@ import XCTest
 final class DictionaryBuilderTests: XCTestCase {
     // Simple, obvious helpers/consts for clarity
     private let rowBytes = 10
-    private let slotShift = 11
-    private let slotMask = 2047
-
     private func shardComponents(_ nodeIndex: Int) -> (shard: Int, local: Int) {
-        (nodeIndex >> slotShift, nodeIndex & slotMask)
+        let per = DictionaryBuilder.entriesPerShard
+        return (nodeIndex / per, nodeIndex % per)
     }
 
     private func tmpDir(_ name: String) throws -> URL {
@@ -97,8 +95,7 @@ final class DictionaryBuilderTests: XCTestCase {
             to: dir,
             baseName: "user",
             shardByFirstCharacter: false,
-            char2UInt8: cmap,
-            split: 2048
+            char2UInt8: cmap
         )
 
         // LOUDS
@@ -139,8 +136,7 @@ final class DictionaryBuilderTests: XCTestCase {
             to: loudsDir,
             baseName: "ignored",
             shardByFirstCharacter: true,
-            char2UInt8: cmap,
-            split: 2048
+            char2UInt8: cmap
         )
 
         // Only test first-character shard "あ" which should exist
@@ -250,8 +246,7 @@ final class DictionaryBuilderTests: XCTestCase {
             to: loudsDir,
             baseName: "ignored",
             shardByFirstCharacter: true,
-            char2UInt8: cmap,
-            split: 2048
+            char2UInt8: cmap
         )
 
         // Files exist with escaped identifiers
@@ -305,7 +300,7 @@ final class DictionaryBuilderTests: XCTestCase {
         try Loudstxt3Builder.writeAligned2048(items: items, to: url)
 
         let data = try Data(contentsOf: url)
-        XCTAssertEqual(headerCount(data), 2048)
+        XCTAssertEqual(headerCount(data), DictionaryBuilder.entriesPerShard)
 
         // Empty slot should produce a slice with at least 2 bytes and parse to empty
         for emptyIdx in [0, 1, 2, 10] where !items.contains(where: { $0.local == emptyIdx }) {
@@ -329,5 +324,48 @@ final class DictionaryBuilderTests: XCTestCase {
             XCTAssertEqual(Set(parsed.map { $0.word }), ["蚊", "課"])
             XCTAssertTrue(parsed.allSatisfy { $0.ruby == "か" })
         }
+    }
+
+    func testExportWithCustomShardShiftWritesAlignedFiles() throws {
+        // Use shardShift=10 (entriesPerShard=1024) just for writing, and verify file shape and content.
+        let dir = try tmpDir("custom-shardshift")
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let entries: [DicdataElement] = [
+            DicdataElement(word: "亜", ruby: "あ", lcid: 10, rcid: 10, mid: 1, value: -10),
+            DicdataElement(word: "蚊", ruby: "か", lcid: 13, rcid: 13, mid: 6, value: -12)
+        ]
+        let chars: [Character] = Array(entries.flatMapSet { Array($0.ruby) }).sorted()
+        let cmap = charMap(chars)
+
+        try DictionaryBuilder.exportDictionary(
+            entries: entries,
+            to: dir,
+            baseName: "user",
+            shardByFirstCharacter: false,
+            char2UInt8: cmap,
+            shardShift: 10
+        )
+
+        // Load LOUDS to compute node indices (independent of shardShift).
+        guard let louds = LOUDS.loadUserDictionary(userDictionaryURL: dir) else {
+            return XCTFail("Failed to load exported user LOUDS")
+        }
+        func check(_ ruby: String, expected: String) throws {
+            let ids = toIDs(ruby, cmap)
+            guard let idx = louds.searchNodeIndex(chars: ids) else { return XCTFail("index missing for \(ruby)") }
+            let shard = idx / 1024
+            let local = idx % 1024
+            // Verify header count of the written file is 1024
+            let url = dir.appendingPathComponent("user\(shard).loudstxt3")
+            let data = try Data(contentsOf: url)
+            XCTAssertEqual(headerCount(data), 1024)
+            // Parse by helper (matches writer’s alignment)
+            let slice = entrySlice(data, local)
+            let parsed = LOUDS.parseBinary(binary: slice)
+            XCTAssertTrue(parsed.contains { $0.ruby == ruby && $0.word == expected })
+        }
+        try check("あ", expected: "亜")
+        try check("か", expected: "蚊")
     }
 }

@@ -80,7 +80,7 @@ struct LongTermLearningMemory {
         fileExist(pauseFileURL(directoryURL: directoryURL))
     }
 
-    static var txtFileSplit: Int { 2048 }
+    static var txtFileSplit: Int { DictionaryBuilder.entriesPerShard }
 
     /// - note:
     ///   この関数は出現数(`metadata.count`)と単語の長さ(`dicdata.ruby.count`)に基づいてvalueを決める。
