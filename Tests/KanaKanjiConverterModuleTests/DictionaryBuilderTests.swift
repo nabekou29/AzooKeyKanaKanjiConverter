@@ -140,7 +140,10 @@ final class DictionaryBuilderTests: XCTestCase {
         )
 
         // Only test first-character shard "あ" which should exist
-        guard let loudsA = LOUDS.load("あ", dictionaryURL: parent) else {
+        // Filenames are escaped; load via escaped identifier (UTF-16 hex chunks)
+        let escapedA = DictionaryBuilder.escapedIdentifier("あ")
+        XCTAssertEqual(escapedA, "[3042]")
+        guard let loudsA = LOUDS.load(escapedA, dictionaryURL: parent) else {
             XCTFail("Failed to load sharded LOUDS for あ")
             return
         }
@@ -151,7 +154,7 @@ final class DictionaryBuilderTests: XCTestCase {
             return
         }
         let (shard, local) = shardComponents(nodeIndex)
-        let dic = LOUDS.getDataForLoudstxt3("あ\(shard)", indices: [local], dictionaryURL: parent)
+        let dic = LOUDS.getDataForLoudstxt3("\(escapedA)\(shard)", indices: [local], dictionaryURL: parent)
         let words = dic.filter { $0.ruby == "あい" }.map { $0.word }
         XCTAssertTrue(Set(words).isSuperset(of: ["愛", "藍"]))
     }
@@ -250,8 +253,8 @@ final class DictionaryBuilderTests: XCTestCase {
         )
 
         // Files exist with escaped identifiers
-        let escapedSpace = DictionaryBuilder.escapedIdentifier(" ")
-        let escapedSlash = DictionaryBuilder.escapedIdentifier("/")
+        let escapedSpace = DictionaryBuilder.escapedIdentifier(" ") // [0020]
+        let escapedSlash = DictionaryBuilder.escapedIdentifier("/") // [002F]
         assertExists(loudsDir.appendingPathComponent("\(escapedSpace).louds"))
         assertExists(loudsDir.appendingPathComponent("\(escapedSlash).louds"))
         // At least shard 0 should exist for both
@@ -367,5 +370,41 @@ final class DictionaryBuilderTests: XCTestCase {
         }
         try check("あ", expected: "亜")
         try check("か", expected: "蚊")
+    }
+
+    // MARK: - escapedIdentifier tests (migrated from EscapedIdentifierTests)
+    func testEscapedIdentifierAsciiLetters() {
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("a"), "[0061]")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("A"), "[0041]")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("z"), "[007A]")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("Z"), "[005A]")
+    }
+
+    func testEscapedIdentifierAsciiSymbolsAndSpace() {
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier(" "), "[0020]")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("/"), "[002F]")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("\\"), "[005C]")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("\n"), "[000A]")
+    }
+
+    func testEscapedIdentifierHiraganaKatakanaKanji() {
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("あ"), "[3042]")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("ア"), "[30A2]")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("漢"), "[6F22]")
+    }
+
+    func testEscapedIdentifierMultiScalarEmojiFlag() {
+        // 🇯🇵 = U+1F1EF U+1F1F5 -> UTF-16: D83C DDEF D83C DDF5
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("🇯🇵"), "[D83C_DDEF_D83C_DDF5]")
+    }
+
+    func testEscapedIdentifierReservedIdentifiersRemainUnchanged() {
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("user"), "user")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("memory"), "memory")
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier("user_shortcuts"), "user_shortcuts")
+    }
+
+    func testEscapedIdentifierEmptyString() {
+        XCTAssertEqual(DictionaryBuilder.escapedIdentifier(""), "[]")
     }
 }

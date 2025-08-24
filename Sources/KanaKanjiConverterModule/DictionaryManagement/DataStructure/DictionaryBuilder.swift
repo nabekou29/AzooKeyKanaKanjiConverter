@@ -153,6 +153,34 @@ public enum DictionaryBuilder {
         Data(nodes2Characters)
     }
 
+    /// Escape a shard identifier string into filesystem-safe fixed-width hex chunks.
+    /// - Encoding: UTF-16 code units represented as 4-hex uppercase, joined by underscores, wrapped in brackets.
+    ///   Example: "あ" -> "[3042]", "AB" -> "[0041_0042]", "🇯🇵" -> "[D83C_DDEF_D83C_DDF5]"
+    ///   - BMP scalars: single 4-hex chunk
+    ///   - Non-BMP scalars: surrogate pair (two chunks)
+    /// - Special cases: "user", "memory", and "user_shortcuts" are returned as-is
+    static func escapedIdentifier(_ inputIdentifier: String) -> String {
+        switch inputIdentifier {
+        case "user", "memory", "user_shortcuts":
+            return inputIdentifier
+        default:
+            break
+        }
+        var chunks: [String] = []
+        chunks.reserveCapacity(inputIdentifier.utf16.count)
+        for scalar in inputIdentifier.unicodeScalars {
+            if scalar.value <= 0xFFFF {
+                chunks.append(String(format: "%04X", scalar.value))
+            } else {
+                let s = String(scalar)
+                for cu in s.utf16 {
+                    chunks.append(String(format: "%04X", cu))
+                }
+            }
+        }
+        return "[" + chunks.joined(separator: "_") + "]"
+    }
+
     /// High-level: write LOUDS and loudschars2 files atomically to given URLs.
     static func writeLOUDS(bits: [Bool], nodes2Characters: [UInt8], loudsURL: URL, loudsChars2URL: URL) throws {
         let loudsData = makeLOUDSData(bits: bits)
@@ -239,24 +267,6 @@ public enum DictionaryBuilder {
             current = next
         }
         return (bits, nodes2Characters)
-    }
-
-    static func escapedIdentifier(_ inputIdentifier: String) -> String {
-        [
-            "\n": "[0A]",
-            " ": "[20]",
-            "\"": "[22]",
-            "'": "[27]",
-            "*": "[2A]",
-            "+": "[2B]",
-            ".": "[2E]",
-            "/": "[2F]",
-            ":": "[3A]",
-            "<": "[3C]",
-            ">": "[3E]",
-            "\\": "[5C]",
-            "|": "[7C]"
-        ][inputIdentifier, default: inputIdentifier]
     }
 }
 
