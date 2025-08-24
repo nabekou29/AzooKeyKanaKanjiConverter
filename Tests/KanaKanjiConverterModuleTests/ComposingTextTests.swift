@@ -233,25 +233,6 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(c.convertTarget, "あかふ")
             XCTAssertEqual(c.convertTargetCursorPosition, 3)
         }
-        // ローマ字 (途中を削除するケース)
-        do {
-            var c = ComposingText()
-            sequentialInput(&c, sequence: "txsu", inputStyle: .roman2kana) // txす|
-            _ = c.moveCursorFromCursorPosition(count: -2) // t| xす
-            // 「x」を消す
-            c.deleteForwardFromCursorPosition(count: 1) // t| す
-            _ = c.moveCursorFromCursorPosition(count: 1) // tす|
-            c.insertAtCursorPosition("a", inputStyle: .roman2kana) // tすあ|
-            XCTAssertEqual(c.input, [
-                ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
-                ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
-                ComposingText.InputElement(character: "s", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "u", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "a", inputStyle: .roman2kana)
-            ])
-            XCTAssertEqual(c.convertTarget, "tすあ")
-            XCTAssertEqual(c.convertTargetCursorPosition, 3)
-        }
         // カスタム (危険なケース)
         do {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("custom_delete1.tsv")
@@ -284,6 +265,71 @@ final class ComposingTextTests: XCTestCase {
             ])
             XCTAssertEqual(c.convertTarget, "え")
             XCTAssertEqual(c.convertTargetCursorPosition, 1)
+        }
+    }
+
+    func testMovingCursorAndDeleteForward() throws {
+        // Note: 先端・末尾を含まない範囲を削除すると、削除位置に{cs}が入力される
+        // {cs}{cs}は{cs}に置換されるので、2つ以上が並ぶことはない
+        // これにより、「t|atu, t|あつ」「t|tu, t|つ」「ttu|, っつ|」となるようなエラーを防ぐことができる
+        do {
+            var c = ComposingText()
+            sequentialInput(&c, sequence: "txsu", inputStyle: .roman2kana)
+            _ = c.moveCursorFromCursorPosition(count: -2)
+            c.deleteForwardFromCursorPosition(count: 1)
+            _ = c.moveCursorFromCursorPosition(count: 1)
+            c.insertAtCursorPosition("a", inputStyle: .roman2kana)
+            XCTAssertEqual(c.input, [
+                ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
+                ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
+                ComposingText.InputElement(character: "s", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "u", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "a", inputStyle: .roman2kana)
+            ])
+            XCTAssertEqual(c.convertTarget, "tすあ")
+            XCTAssertEqual(c.convertTargetCursorPosition, 3)
+        }
+        do {
+            // {cs}が2つ並ぶことはない
+            var c = ComposingText()
+            sequentialInput(&c, sequence: "huransu", inputStyle: .roman2kana)
+            XCTAssertEqual(c.convertTarget, "ふらんす")
+            _ = c.moveCursorFromCursorPosition(count: -3)
+            c.deleteForwardFromCursorPosition(count: 1)
+            XCTAssertEqual(c.convertTarget, "ふんす")
+            XCTAssertEqual(c.input, [
+                ComposingText.InputElement(character: "h", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "u", inputStyle: .roman2kana),
+                ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
+                ComposingText.InputElement(character: "n", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "s", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "u", inputStyle: .roman2kana)
+            ])
+            XCTAssertEqual(c.convertTargetCursorPosition, 1)
+            c.deleteForwardFromCursorPosition(count: 1)
+            XCTAssertEqual(c.convertTarget, "ふす")
+            XCTAssertEqual(c.input, [
+                ComposingText.InputElement(character: "h", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "u", inputStyle: .roman2kana),
+                ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
+                ComposingText.InputElement(character: "す", inputStyle: .frozen)
+            ])
+            XCTAssertEqual(c.convertTargetCursorPosition, 1)
+        }
+        do {
+            var c = ComposingText()
+            sequentialInput(&c, sequence: "atst", inputStyle: .roman2kana)
+            _ = c.moveCursorFromCursorPosition(count: -2)
+            c.deleteForwardFromCursorPosition(count: 1)
+            _ = c.moveCursorFromCursorPosition(count: 1)
+            XCTAssertEqual(c.input, [
+                ComposingText.InputElement(character: "a", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "t", inputStyle: .roman2kana),
+                ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
+                ComposingText.InputElement(character: "t", inputStyle: .roman2kana)
+            ])
+            XCTAssertEqual(c.convertTarget, "あtt")   // 「あっt」にはならない
+            XCTAssertEqual(c.convertTargetCursorPosition, 3)
         }
     }
 
