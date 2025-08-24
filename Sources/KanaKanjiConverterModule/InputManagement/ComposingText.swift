@@ -288,10 +288,20 @@ public struct ComposingText: Sendable {
 
         // この2つの値はこの順で計算する。
         // これから行く位置
-        let targetCursorPosition = self.forceGetInputCursorPosition(targetSurfaceIndex: self.convertTargetCursorPosition - count)
+        var targetCursorPosition = self.forceGetInputCursorPosition(targetSurfaceIndex: self.convertTargetCursorPosition - count)
         // 現在の位置
-        let inputCursorPosition = self.forceGetInputCursorPosition(targetSurfaceIndex: self.convertTargetCursorPosition)
+        var inputCursorPosition = self.forceGetInputCursorPosition(targetSurfaceIndex: self.convertTargetCursorPosition)
 
+        // compositionSeparatorが左にあるときは削除してtargetCursorPositionとinputCursorPositionを更新
+        let targetCursorPositionLeft = targetCursorPosition - 1
+        if targetCursorPositionLeft >= 0 && targetCursorPositionLeft < input.count {
+            let leftElement = input[targetCursorPositionLeft]
+            if leftElement.piece == .compositionSeparator && leftElement.inputStyle == .frozen {
+                input.remove(at: targetCursorPositionLeft)
+                targetCursorPosition = targetCursorPositionLeft
+                inputCursorPosition -= 1
+            }
+        }
         // inputを更新する
         if targetCursorPosition == 0 || inputCursorPosition == input.count {
             self.input.removeSubrange(targetCursorPosition ..< inputCursorPosition)
