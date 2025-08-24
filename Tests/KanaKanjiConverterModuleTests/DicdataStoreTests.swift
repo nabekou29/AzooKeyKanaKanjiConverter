@@ -1,6 +1,6 @@
 @testable import KanaKanjiConverterModule
-import XCTest
 import SwiftUtils
+import XCTest
 
 final class DicdataStoreTests: XCTestCase {
     private func tmpDir(_ name: String) throws -> URL {
@@ -87,4 +87,3 @@ final class DicdataStoreTests: XCTestCase {
         }
     }
 }
-

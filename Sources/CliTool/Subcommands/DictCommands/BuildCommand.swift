@@ -43,14 +43,20 @@ extension Subcommands.Dict.Build {
         var allEntries: [DicdataElement] = []
         for target in Self.targetChars {
             let sourceURL = sourceDirectoryURL.appendingPathComponent("\(target).tsv", isDirectory: false)
-            guard FileManager.default.fileExists(atPath: sourceURL.path) else { continue }
+            guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+                continue
+            }
             let tsvString = try String(contentsOf: sourceURL, encoding: .utf8)
             let lines = tsvString.components(separatedBy: .newlines)
             for line in lines where !line.isEmpty {
                 let items = line.utf8.split(separator: UInt8(ascii: "\t"), omittingEmptySubsequences: false).map {String($0)!}
-                if items.count != 6 { continue }
+                if items.count != 6 {
+                    continue
+                }
                 let ruby = String(items[0])
-                guard Self.skipCharacters.intersection(ruby).isEmpty else { continue }
+                guard Self.skipCharacters.intersection(ruby).isEmpty else {
+                    continue
+                }
                 let word = items[1].isEmpty ? ruby : String(items[1])
                 let lcid = Int(items[2]) ?? .zero
                 let rcid = Int(items[3]) ?? lcid

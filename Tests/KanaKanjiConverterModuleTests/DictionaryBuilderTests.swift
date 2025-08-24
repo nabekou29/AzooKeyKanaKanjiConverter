@@ -2,7 +2,7 @@
 import SwiftUtils
 import XCTest
 
-final class LOUDSBuilderTests: XCTestCase {
+final class DictionaryBuilderTests: XCTestCase {
     // Simple, obvious helpers/consts for clarity
     private let rowBytes = 10
     private let slotShift = 11
