@@ -127,7 +127,7 @@ final class ComposingTextTests: XCTestCase {
                 ComposingText.InputElement(character: "n", inputStyle: .roman2kana),
                 ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
                 ComposingText.InputElement(character: "n", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "a", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "a", inputStyle: .roman2kana)
             ])
             XCTAssertEqual(c.convertTargetCursorPosition, 3)
         }
@@ -144,7 +144,7 @@ final class ComposingTextTests: XCTestCase {
                 ComposingText.InputElement(character: "k", inputStyle: .roman2kana),
                 ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
                 ComposingText.InputElement(character: "n", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "a", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "a", inputStyle: .roman2kana)
             ])
             XCTAssertEqual(c.convertTargetCursorPosition, 2)
             c.insertAtCursorPosition("a", inputStyle: .roman2kana)
@@ -156,7 +156,7 @@ final class ComposingTextTests: XCTestCase {
                 ComposingText.InputElement(character: "a", inputStyle: .roman2kana),
                 ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
                 ComposingText.InputElement(character: "n", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "a", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "a", inputStyle: .roman2kana)
             ])
             XCTAssertEqual(c.convertTargetCursorPosition, 2)
         }
@@ -191,7 +191,7 @@ final class ComposingTextTests: XCTestCase {
                 ComposingText.InputElement(character: "k", inputStyle: .roman2kana),
                 ComposingText.InputElement(piece: .compositionSeparator, inputStyle: .frozen),
                 ComposingText.InputElement(character: "y", inputStyle: .roman2kana),
-                ComposingText.InputElement(character: "a", inputStyle: .roman2kana),
+                ComposingText.InputElement(character: "a", inputStyle: .roman2kana)
             ])
             XCTAssertEqual(c.convertTarget, "kや")   // 「きゃ」にはならない
             XCTAssertEqual(c.convertTargetCursorPosition, 2)
@@ -409,6 +409,21 @@ final class ComposingTextTests: XCTestCase {
             XCTAssertEqual(map[5], nil)   // i
             XCTAssertEqual(map[6], 2)     // u
             XCTAssertEqual(map[7], 3)     // e
+        }
+        do {
+            // ローマ字
+            InputStyleManager.registerInputStyle(table: InputTable(baseMapping: [
+                [.piece(.character("k")), .piece(.character("i"))]: [],
+                [.piece(.character("a"))]: [.character("あ")]
+            ]), for: "test-empty-ki")
+            var c = ComposingText()
+            sequentialInput(&c, sequence: "ki", inputStyle: .mapped(id: .tableName("test-empty-ki")))
+            XCTAssertEqual(c.convertTarget, "")
+            XCTAssertEqual(c.input.count, 2)
+            let map = c.inputIndexToSurfaceIndexMap()
+            XCTAssertEqual(map[0], 0)     // ""
+            XCTAssertEqual(map[1], nil)   // k
+            XCTAssertEqual(map[2], 0)     // i
         }
         // 逆引き
         do {
