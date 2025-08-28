@@ -87,5 +87,11 @@ final class InputTableExportTests: XCTestCase {
         """
         XCTAssertEqual(tsv, expected)
     }
+
+    func testDefaultTableExport() throws {
+        let table = InputTable.defaultRomanToKana
+        let tsv = try InputStyleManager.exportTable(table)
+        XCTAssertTrue(tsv.hasPrefix("a\tあ"))
+    }
 }
 
