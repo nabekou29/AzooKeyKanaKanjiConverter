@@ -1,4 +1,5 @@
 import SwiftUtils
+import OrderedCollections
 private indirect enum TrieNode {
     struct State: Sendable, Equatable, Hashable {
         var resolvedAny1: InputPiece?
@@ -99,7 +100,12 @@ public struct InputTable: Sendable {
         case any1
     }
 
+    @_disfavoredOverload
     public init(baseMapping: [[KeyElement]: [ValueElement]]) {
+        self.init(baseMapping: .init(uniqueKeysWithValues: baseMapping))
+    }
+
+    init(baseMapping: OrderedDictionary<[KeyElement], [ValueElement]>) {
         self.baseMapping = baseMapping
         self.unstableSuffixes = baseMapping.keys.flatMapSet { pieces in
             pieces.indices.map { i in
@@ -137,7 +143,7 @@ public struct InputTable: Sendable {
         self.maxUnstableSuffixLength = self.unstableSuffixes.map { $0.count }.max() ?? 0
     }
 
-    let baseMapping: [[KeyElement]: [ValueElement]]
+    let baseMapping: OrderedDictionary<[KeyElement], [ValueElement]>
     let unstableSuffixes: Set<[Character]>
     // Fast bound to avoid scanning entire set when checking suffixes
     let maxUnstableSuffixLength: Int
