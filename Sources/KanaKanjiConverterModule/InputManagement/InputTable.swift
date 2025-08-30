@@ -333,7 +333,7 @@ public extension InputTable {
         case lastInputWins
     }
     init(tables: [InputTable], order: Ordering) {
-        var map: [[KeyElement]: [ValueElement]] = [:]
+        var map: OrderedDictionary<[KeyElement], [ValueElement]> = [:]
         switch order {
         case .lastInputWins:
             for table in tables {
