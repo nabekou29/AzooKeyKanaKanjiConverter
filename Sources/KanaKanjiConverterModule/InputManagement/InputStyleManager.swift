@@ -11,16 +11,15 @@ public final class InputStyleManager {
         self.tables = [
             .empty: .empty,
             .defaultRomanToKana: .defaultRomanToKana,
-            .defaultDesktopRomanToKana: .defaultDesktopRomanToKana,
-            .defaultDesktopAZIK: .defaultDesktopAZIK,
-            .defaultDesktopKanaJIS: .defaultDesktopKanaJIS,
-            .defaultDesktopKanaUS: .defaultDesktopKanaUS
+            .defaultAZIK: .defaultAZIK,
+            .defaultKanaJIS: .defaultKanaJIS,
+            .defaultKanaUS: .defaultKanaUS
         ]
     }
 
     func table(for id: InputTableID) -> InputTable {
         switch id {
-        case .defaultRomanToKana, .defaultDesktopRomanToKana, .defaultDesktopAZIK, .defaultDesktopKanaUS, .defaultDesktopKanaJIS, .empty:
+        case .defaultRomanToKana, .defaultAZIK, .defaultKanaUS, .defaultKanaJIS, .empty:
             return self.tables[id]!
         case .tableName(let name):
             guard let table = self.tables[id] else {
@@ -66,11 +65,13 @@ public final class InputStyleManager {
                     i = str.index(after: end)
                     continue
                 case "shift 0":
-                    result.append(.piece(.key(intention: "0", modifiers: [.shift])))
+                    // Treat token as key with input '0' and intention '0'
+                    result.append(.piece(.key(intention: "0", input: "0", modifiers: [.shift])))
                     i = str.index(after: end)
                     continue
                 case "shift _":
-                    result.append(.piece(.key(intention: "_", modifiers: [.shift])))
+                    // Treat token as key with input '_' and intention '_'
+                    result.append(.piece(.key(intention: "_", input: "_", modifiers: [.shift])))
                     i = str.index(after: end)
                     continue
                 default:
@@ -150,10 +151,10 @@ public final class InputStyleManager {
                 switch inputPiece {
                 case .character(let character): encodeCharacter(character)
                 case .compositionSeparator: "{composition-separator}"
-                case .key(let intention, let modifiers):
-                    switch (intention, modifiers) {
-                    case ("0", [.shift]): "{shift 0}"
-                    case ("_", [.shift]): "{shift _}"
+                case .key(let intention, let input, let modifiers):
+                    switch (intention, input, modifiers) {
+                    case ("0", "0", [.shift]): "{shift 0}"
+                    case ("_", "_", [.shift]): "{shift _}"
                     default: throw .unsupportedKeyElement(element)
                     }
                 }

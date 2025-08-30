@@ -41,10 +41,10 @@ final class InputTableExportTests: XCTestCase {
         // key: "k" then Shift+0 → value: "X"
         // key: Shift+_ → value: "Y"
         let table = InputTable(baseMapping: [
-            [.piece(.character("k")), .piece(.key(intention: "0", modifiers: Set([.shift])))] : [
+            [.piece(.character("k")), .piece(.key(intention: "0", input: "0", modifiers: Set([.shift])))] : [
                 .character("X")
             ],
-            [.piece(.key(intention: "_", modifiers: Set([.shift])))] : [
+            [.piece(.key(intention: "_", input: "_", modifiers: Set([.shift])))] : [
                 .character("Y")
             ],
         ])
@@ -62,7 +62,7 @@ final class InputTableExportTests: XCTestCase {
     func testExportTable_ThrowsOnUnsupportedKey() {
         // Unsupported key: Shift+A (only Shift+0 and Shift+_ are supported)
         let table = InputTable(baseMapping: [
-            [.piece(.key(intention: "A", modifiers: Set([.shift])))] : [
+            [.piece(.key(intention: "A", input: "A", modifiers: Set([.shift])))] : [
                 .character("Z")
             ]
         ])
@@ -94,4 +94,3 @@ final class InputTableExportTests: XCTestCase {
         XCTAssertTrue(tsv.hasPrefix("a\tあ"))
     }
 }
-
