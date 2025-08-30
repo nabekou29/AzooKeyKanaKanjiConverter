@@ -85,9 +85,35 @@ private indirect enum TrieNode {
 public struct InputTable: Sendable {
     public static let empty = InputTable(baseMapping: [:])
     public static let defaultRomanToKana = InputTable(baseMapping: InputTables.defaultRomanToKanaPieceMap)
-    public static let defaultAZIK = InputTable(baseMapping: InputTables.defaultAzikPieceMap)
-    public static let defaultKanaJIS = InputTable(baseMapping: InputTables.defaultKanaJISPieceMap)
-    public static let defaultKanaUS = InputTable(baseMapping: InputTables.defaultKanaUSPieceMap)
+
+    public static let defaultDesktopRomanToKana = InputTable(
+        tables: [
+            InputTable(baseMapping: InputTables.defaultHankakuToZenkaku),
+            defaultRomanToKana
+        ],
+        order: .lastInputWins
+    )
+    public static let defaultDesktopAZIK = InputTable(
+        tables: [
+            InputTable(baseMapping: InputTables.defaultHankakuToZenkaku),
+            InputTable(baseMapping: InputTables.defaultAzikPieceMap)
+        ],
+        order: .lastInputWins
+    )
+    public static let defaultDesktopKanaJIS = InputTable(
+        tables: [
+            InputTable(baseMapping: InputTables.defaultHankakuToZenkaku),
+            InputTable(baseMapping: InputTables.defaultKanaJISPieceMap)
+        ],
+        order: .lastInputWins
+    )
+    public static let defaultDesktopKanaUS = InputTable(
+        tables: [
+            InputTable(baseMapping: InputTables.defaultHankakuToZenkaku),
+            InputTable(baseMapping: InputTables.defaultKanaUSPieceMap)
+        ],
+        order: .lastInputWins
+    )
 
     /// Suffix‑oriented trie used for O(m) longest‑match lookup.
     public enum KeyElement: Sendable, Equatable, Hashable {

@@ -503,10 +503,10 @@ final class ComposingTextTests: XCTestCase {
 
     func testPrefixCompleteWithAZIK() throws {
         var c = ComposingText()
-        c.insertAtCursorPosition("s", inputStyle: .mapped(id: .defaultAZIK))
-        c.insertAtCursorPosition("z", inputStyle: .mapped(id: .defaultAZIK))
-        c.insertAtCursorPosition("z", inputStyle: .mapped(id: .defaultAZIK))
-        c.insertAtCursorPosition("z", inputStyle: .mapped(id: .defaultAZIK))
+        c.insertAtCursorPosition("s", inputStyle: .mapped(id: .defaultDesktopAZIK))
+        c.insertAtCursorPosition("z", inputStyle: .mapped(id: .defaultDesktopAZIK))
+        c.insertAtCursorPosition("z", inputStyle: .mapped(id: .defaultDesktopAZIK))
+        c.insertAtCursorPosition("z", inputStyle: .mapped(id: .defaultDesktopAZIK))
         XCTAssertEqual(c.convertTarget, "さんざん")
         c.prefixComplete(composingCount: .surfaceCount(3))
         XCTAssertEqual(c.convertTarget, "ん")
