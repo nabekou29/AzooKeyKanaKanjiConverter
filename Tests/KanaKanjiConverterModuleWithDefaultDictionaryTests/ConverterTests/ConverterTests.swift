@@ -80,7 +80,7 @@ final class ConverterTests: XCTestCase {
                 let converter = KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 // ： -> ー, sk -> しん, dq → だい, kf -> き, ds: です
-                c.insertAtCursorPosition("azu:ki:haskzidqnokf:bo:doapurids", inputStyle: .mapped(id: .defaultDesktopAZIK))
+                c.insertAtCursorPosition("azu：ki：haskzidqnokf：bo：doapurids", inputStyle: .mapped(id: .defaultAZIK))
                 XCTAssertEqual(c.convertTarget, "あずーきーはしんじだいのきーぼーどあぷりです")
                 let results = converter.requestCandidates(c, options: requestOptions(needTypoCorrection: needTypoCorrection))
                 XCTAssertEqual(results.mainResults.first?.text, "azooKeyは新時代のキーボードアプリです")
@@ -89,7 +89,7 @@ final class ConverterTests: XCTestCase {
                 let converter = KanaKanjiConverter.withDefaultDictionary()
                 var c = ComposingText()
                 // yp -> よう, xp -> しょう, kf -> き, kr -> から, kyh -> きゅう, rk -> りん, kd -> けん, pp -> ぽう, ： -> ー, kw -> けい, gr -> がら, ； -> っ, kp -> こう, dq -> だい, sz -> さん, kk -> きん, tq -> たい, zq -> ざい, tw -> てい
-                c.insertAtCursorPosition("ypxpkfkrtenisusuieiyakyhxprkzikdppnadosamazamanasupo:tuwokwkdsinagrsodatixpga;kpzidqharoszzerusukkkpnitqzqsiteorigoruhuyatenisuwonara;twta", inputStyle: .mapped(id: .defaultDesktopAZIK))
+                c.insertAtCursorPosition("ypxpkfkrtenisusuieiyakyhxprkzikdppnadosamazamanasupo：tuwokwkdsinagrsodatixpga；kpzidqharoszzerusukkkpnitqzqsiteorigoruhuyatenisuwonara；twta", inputStyle: .mapped(id: .defaultAZIK))
                 XCTAssertEqual(c.convertTarget, "ようしょうきからてにすすいえいやきゅうしょうりんじけんぽうなどさまざまなすぽーつをけいけんしながらそだちしょうがっこうじだいはろさんぜるすきんこうにたいざいしておりごるふやてにすをならっていた")
                 let results = converter.requestCandidates(c, options: requestOptions(needTypoCorrection: needTypoCorrection))
                 XCTAssertEqual(results.mainResults.first?.text, "幼少期からテニス水泳野球少林寺拳法など様々なスポーツを経験しながら育ち小学校時代はロサンゼルス近郊に滞在しておりゴルフやテニスを習っていた")

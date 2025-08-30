@@ -56,16 +56,10 @@ final class Roman2KanaTests: XCTestCase {
     }
 
     func testKanaJIS() throws {
-        let table = InputStyleManager.shared.table(for: .defaultDesktopKanaJIS)
+        let table = InputStyleManager.shared.table(for: .defaultKanaJIS)
         XCTAssertEqual(table.applied(currentText: Array(""), added: .character("q")), Array("た"))
-        XCTAssertEqual(table.applied(currentText: Array("た"), added: .character("@")), Array("だ"))
+        XCTAssertEqual(table.applied(currentText: Array("た"), added: .character("＠")), Array("だ"))
         XCTAssertEqual(table.applied(currentText: Array(""), added: .key(intention: "0", modifiers: [.shift])), Array("を"))
-    }
-
-    func testDesktopRomanToKana() throws {
-        let table = InputStyleManager.shared.table(for: .defaultDesktopRomanToKana)
-        XCTAssertEqual(table.applied(currentText: Array("k"), added: .character("a")), Array("か"))
-        XCTAssertEqual(table.applied(currentText: Array(""), added: .character("[")), Array("「"))
     }
 
     func testTableMerge() throws {

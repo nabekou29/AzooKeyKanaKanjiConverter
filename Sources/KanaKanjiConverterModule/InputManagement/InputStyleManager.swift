@@ -11,16 +11,15 @@ public final class InputStyleManager {
         self.tables = [
             .empty: .empty,
             .defaultRomanToKana: .defaultRomanToKana,
-            .defaultDesktopRomanToKana: .defaultDesktopRomanToKana,
-            .defaultDesktopAZIK: .defaultDesktopAZIK,
-            .defaultDesktopKanaJIS: .defaultDesktopKanaJIS,
-            .defaultDesktopKanaUS: .defaultDesktopKanaUS
+            .defaultAZIK: .defaultAZIK,
+            .defaultKanaJIS: .defaultKanaJIS,
+            .defaultKanaUS: .defaultKanaUS
         ]
     }
 
     func table(for id: InputTableID) -> InputTable {
         switch id {
-        case .defaultRomanToKana, .defaultDesktopRomanToKana, .defaultDesktopAZIK, .defaultDesktopKanaUS, .defaultDesktopKanaJIS, .empty:
+        case .defaultRomanToKana, .defaultAZIK, .defaultKanaUS, .defaultKanaJIS, .empty:
             return self.tables[id]!
         case .tableName(let name):
             guard let table = self.tables[id] else {
