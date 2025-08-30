@@ -59,7 +59,17 @@ final class Roman2KanaTests: XCTestCase {
         let table = InputStyleManager.shared.table(for: .defaultKanaJIS)
         XCTAssertEqual(table.applied(currentText: Array(""), added: .character("q")), Array("た"))
         XCTAssertEqual(table.applied(currentText: Array("た"), added: .character("＠")), Array("だ"))
-        XCTAssertEqual(table.applied(currentText: Array(""), added: .key(intention: "0", modifiers: [.shift])), Array("を"))
+        XCTAssertEqual(table.applied(currentText: Array(""), added: .key(intention: "0", input: "0", modifiers: [.shift])), Array("を"))
+        XCTAssertEqual(table.applied(currentText: Array("た"), added: .key(intention: "＠", input: "@", modifiers: [])), Array("だ"))
+        XCTAssertEqual(table.applied(currentText: Array(""), added: .key(intention: "0", input: "0", modifiers: [.shift])), Array("を"))
+    }
+
+    func testDesktopRomanToKana() throws {
+        let table = InputStyleManager.shared.table(for: .defaultRomanToKana)
+        XCTAssertEqual(table.applied(currentText: Array("k"), added: .character("a")), Array("か"))
+        XCTAssertEqual(table.applied(currentText: Array(""), added: .key(intention: "「", input: "[", modifiers: [])), Array("「"))
+        XCTAssertEqual(table.applied(currentText: Array("ん"), added: .key(intention: "「", input: "[", modifiers: [])), Array("ん「"))
+        XCTAssertEqual(table.applied(currentText: Array("ん"), added: .key(intention: "『", input: "{", modifiers: [])), Array("ん『"))
     }
 
     func testTableMerge() throws {
